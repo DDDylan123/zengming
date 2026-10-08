@@ -1,0 +1,11 @@
+A 1930s American newsreel announcer: a man in his forties, deep booming brassy voice, crisp Mid-Atlantic accent, brisk and punchy, full of old newsreel enthusiasm. The same man reads all of it in one go, pausing about one second after each line:
+"Ladies and gentlemen! You've surely heard this one: will AI take the job you're studying for?
+Look here! For a hundred and forty years, the American economy has grown, steady as you please, about two percent a year!
+Along came the electric light! The motorcar! Computers, and the internet! And every time, somebody hollered: this time it's different!
+But measure it yourself — the slope of this road hardly budges!
+A few years back, some folks swore up and down: by twenty twenty-six, AI would be this smart!
+Well, wouldn't you know — they called it!
+They also said: by then, jobs would be falling like dominoes!
+But the latest news: U.S. unemployment, four point one percent — near the lowest on record!
+Anthropic's chief economist puts it this way: a job isn't one task — it's a whole chain of them!
+AI can speed up the thinking and the writing a hundredfold! But some things must wait for the real world to answer."
