@@ -828,7 +828,7 @@ const VO = [
   [129.4, '各位观众，下回再见！'],
 ].map(([t, s]) => ({ t, s, d: Math.max(1.8, s.replace(/\s/g, '').length / 6.2 + .4) }));
 /* 真实旁白：vo/NN.mp3（Seed Audio，老电视处理后），VO_META 由 tools/process_vo.py 生成 */
-const VO_META = {"01": {"dur": 6.818}, "02": {"dur": 5.616}, "03": {"dur": 8.072}, "04": {"dur": 4.336}, "05": {"dur": 6.113}, "06": {"dur": 2.09}, "07": {"dur": 3.553}, "08": {"dur": 5.486}, "09": {"dur": 6.269}, "10": {"dur": 6.792}, "11": {"dur": 9.848}, "12": {"dur": 4.754}, "13": {"dur": 4.415}, "14": {"dur": 4.885}, "15": {"dur": 5.564}, "16": {"dur": 2.821}, "17": {"dur": 2.612}, "18": {"dur": 4.415}, "19": {"dur": 2.821}, "20": {"dur": 2.247}}; /*VO_META*/
+const VO_META = {"01": {"dur": 6.374}, "02": {"dur": 5.93}, "03": {"dur": 7.158}, "04": {"dur": 3.448}, "05": {"dur": 6.322}, "06": {"dur": 2.247}, "07": {"dur": 3.866}, "08": {"dur": 5.851}, "09": {"dur": 6.4}, "10": {"dur": 6.713}, "11": {"dur": 8.072}, "12": {"dur": 4.963}, "13": {"dur": 4.31}, "14": {"dur": 4.31}, "15": {"dur": 5.042}, "16": {"dur": 2.821}, "17": {"dur": 2.377}, "18": {"dur": 5.825}, "19": {"dur": 2.873}, "20": {"dur": 2.116}}; /*VO_META*/
 const STORY_DUR = 137;
 // 按真实时长把每句的开始时间往后推（不重叠、留 0.35 s 气口），整片时间轴随之伸缩
 const WARP = (() => {
@@ -1122,8 +1122,9 @@ const SHOT = {
     g.fillStyle = P.white; g.beginPath(); g.roundRect(330, 170, 1260, 720, 40); g.fill(); g.strokeStyle = P.ink; g.lineWidth = 6; g.stroke();
     fatTitle(g, '完', 960, 270, 130, { bounce: () => -Math.max(0, Math.sin((t / BEAT) * Math.PI)) * 12 });
     g.font = `700 40px ${LAT}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('TWO PERCENT', 960, 420);
-    if (LOGO) { g.save(); g.filter = 'grayscale(1) contrast(1.15)'; g.drawImage(LOGO, 960 - 300, 470, 170, 170); g.restore(); }   // 片尾 logo 也黑白，不出戏
-    g.font = `700 76px ${LAT}`; g.textAlign = 'left'; g.fillStyle = P.ink; g.fillText('Dylan He', 960 - 100, 580);
+    // 署名：只写由 Dylan He 制作（不放标志）
+    g.font = `600 30px ${ZH_SUB}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('制作', 960, 520);
+    g.font = `700 76px ${LAT}`; g.fillStyle = P.ink; g.fillText('Dylan He', 960, 600);
     g.textAlign = 'center'; g.fillStyle = P.ink;
     g.font = `600 23px ${ZH_SUB}`; g.fillText('灵感来源：2026 年 9 月 23 日 · 哈佛大学政治研究所 JFK Jr. 论坛', 960, 700);
     g.font = `500 23px ${LAT}`; g.fillText('"AI and the Future of the Economy" — Peter McCrory (Anthropic) × Jason Furman (Harvard)', 960, 738);
@@ -1138,24 +1139,6 @@ const SHOT = {
     g.restore();
   },
 };
-
-/* ------------------------------ Dylan He 标志（代码重画） ------------------------------ */
-let LOGO = null;
-function paintLogo() {
-  const Sz = 600, c = document.createElement('canvas'); c.width = c.height = Sz;
-  const x = c.getContext('2d'), R0 = Sz * .46, ox = Sz / 2, oy = Sz / 2;
-  const BLUE = '#4a62c4', ORANGE = '#ea7a3d', BROWN = '#4a2f36', CREAM = '#e9e2d1';
-  const blob = (cx, cy, r, sd) => { x.beginPath(); for (let i = 0; i <= 120; i++) { const a = i / 120 * TAU, rr2 = r * (1 + .016 * Math.sin(3 * a + sd) + .01 * Math.sin(5 * a + sd * 2.3)); i ? x.lineTo(cx + Math.cos(a) * rr2, cy + Math.sin(a) * rr2) : x.moveTo(cx + Math.cos(a) * rr2, cy + Math.sin(a) * rr2); } x.closePath(); };
-  const Pt = (fx, fy) => [ox + fx * R0, oy + fy * R0];
-  const solid = (fx, fy, fr, col, sd) => { const [a, b] = Pt(fx, fy); blob(a, b, fr * R0, sd); x.fillStyle = col; x.fill(); };
-  const dots = (fx, fy, fr, bg, col, step, dr, sd) => { const [a, b] = Pt(fx, fy); blob(a, b, fr * R0, sd); x.fillStyle = bg; x.fill(); x.save(); x.clip(); x.fillStyle = col; for (let yy = b - fr * R0; yy < b + fr * R0; yy += step) for (let xx = a - fr * R0; xx < a + fr * R0; xx += step) { x.beginPath(); x.arc(xx, yy, dr, 0, TAU); x.fill(); } x.restore(); };
-  solid(0, 0, 1, BLUE, 1); dots(.02, -.01, .8, CREAM, BLUE, 9.5, 3.1, 2); dots(.1, -.04, .62, CREAM, ORANGE, 8.5, 2.9, 3);
-  solid(.13, -.08, .42, ORANGE, 4); solid(.13, -.09, .3, BROWN, 5); dots(.17, -.1, .19, BROWN, BLUE, 7, 2.9, 6); solid(.18, -.14, .095, CREAM, 7);
-  const [fx, fy] = Pt(-.565, .5), u = R0 * .01;
-  x.fillStyle = BROWN; x.fillRect(fx - 4 * u, fy - 3 * u, 11 * u, 13 * u); x.fillRect(fx - 4 * u, fy + 9 * u, 4 * u, 13 * u); x.fillRect(fx + 3 * u, fy + 9 * u, 4 * u, 13 * u);
-  x.fillStyle = ORANGE; x.beginPath(); x.arc(fx + 1.5 * u, fy - 8 * u, 4.2 * u, 0, TAU); x.fill();
-  return c;
-}
 
 /* ------------------------------ 胶片合成 ------------------------------ */
 const GATE = { x: 240, y: 0, w: 1440, h: 1080, r: 28 };
@@ -1451,7 +1434,7 @@ if (params.has('speed') && SPEEDS.includes(+params.get('speed'))) setSpeed(+para
 window.__film = { render, DUR, VO, SHOTS };
 (async () => {
   try { await document.fonts.ready; for (const f of [`700 40px ${LAT}`, `500 40px ${LAT}`, `40px ${ZH_TITLE}`, `600 40px ${ZH_SUB}`]) await document.fonts.load(f, '百分之二'); } catch (e) { }
-  SKY = paintSky(); LOGO = paintLogo();
+  SKY = paintSky();
   window.READY = true;
   requestAnimationFrame(loop);
 })();
