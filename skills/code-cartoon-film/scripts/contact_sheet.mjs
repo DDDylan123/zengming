@@ -12,7 +12,7 @@ const b = await chromium.launch(); const p = await b.newPage({ viewport: { width
 const errs = []; p.on('pageerror', e => errs.push(e.message));
 await p.goto(process.env.FILM); await p.waitForFunction(() => window.READY, null, { timeout: 30000 });
 for (const t of ts.map(Number)) {
-  await p.evaluate(t => { window.__frozen = true; document.getElementById('start')?.classList.add('hidden'); const bar = document.getElementById('bar'); if (bar) bar.style.display = 'none'; __film.render(t); }, t);
+  await p.evaluate(t => { window.__frozen = true; for (const id of ['start', 'bar', 'hint', 'prog', 'src']) { const el = document.getElementById(id); if (el) el.style.display = 'none'; } __film.render(t); }, t);
   await p.locator('canvas').screenshot({ path: `${out}/t${t.toFixed(1).padStart(6, '0')}.png` });
 }
 await b.close();

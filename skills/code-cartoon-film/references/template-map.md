@@ -21,11 +21,14 @@
 | 时间轴 | `WARP`、`toFilm(story)`、`toStory(film)`、`DUR` | 不动。画面按"故事时间"写，旁白真实时长变了会自动伸缩 |
 | 分镜 | `SHOTS = [[开始秒,'名字'],…]`、`SHOT = { title(t){…}, open(t){…}, … }`、`heroX(t)`、`world(cam,t)` | **主体工作**：每场一个函数，接收故事时间 t，用 `setCam(x,y,z)` 移镜头 |
 | 胶片后期 | `GATE`（4:3 片门 240..1680）、`post(t, jump)`、`GRAIN` | 一般不动；切镜时 `jump` 让画面跳一下 |
-| 渲染入口 | `render(T)`：T 是影片时间 → `toStory` → `SHOT[...]` → 字幕 → `post` | |
+| 渲染入口 | `render(T)`：T 是影片时间 → `toStory` → `SHOT[...]` → 字幕（横屏画在画面上）→ `post` 画到离屏 `filmCv` → `compose` | |
+| 横竖屏 | `MODE`、`compose(T,t,v)`（竖屏：片门缩到 1080×810 放在 `PY`，上片名、下字幕）、`setMode`、`fit`、`autoMode` | 改竖屏顶部片名文字 |
+| 海报 | `POSTER`（`?poster=1`）、`SHOT_POSTER()` | **重做**构图 |
 | 声音事件 | `EV`（`score()` 里按故事时间排好的 `{t,k,…}`）、`PLAY[k]` 合成器 | 拟音保留，按新片改时间点 |
 | 配乐 | `USE_MUSIC`、`BAND`（有 music.mp3 时静音的乐器种类）、`startMusic(T, rate)`、`stopMusic` | 放 `music.mp3` 即可 |
 | 旁白播放 | `VOBUF` 从 `vo/NN.mp3` 加载，旁白时 `AU.bus` 压到 0.4 | |
-| 播放器 | `SPEEDS=[1,1.5,2,3]`、`setSpeed`、`seekTo`、`#src` 原访谈按钮（`T >= toFilm(片尾秒)` 时显示）、`?t=` 跳转 | 改 `#src` 的链接与出现时间 |
+| 播放器 | `soundOn`/`setSound`（默认静音，`#hint` 开启声音）、`SPEEDS=[1,1.5,2,3]`、`setSpeed`、`seekSet`、`#prog` 常驻进度条、`#src` 原访谈按钮（`T >= toFilm(片尾秒)` 时显示）、`?t=` 跳转 | 改 `#src` 链接与出现时间、页面 meta、首页链接 |
+| 字体 | 页头 `@font-face` 指向 `fonts/*.woff2` | 用 `scripts/subset_fonts.sh` 重新截字 |
 | 测试钩子 | `window.__film = { render, DUR, VO, SHOTS }`、`window.READY` | contact_sheet.mjs 依赖它们，保留 |
 
 ## 写一场戏的套路
