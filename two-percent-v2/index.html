@@ -820,8 +820,8 @@ const VO = [
   [99.0, '他答：你变强了，他的位子没了！两件事，同时发生！'],
   [104.4, '工作并没有消失——它只是换了人做！'],
   [108.2, '那么请问：您在抬哪一头？'],
-  [114.0, '这条线，接下来会不会拐弯？经济学家也没给答案！'],
-  [121.3, '就连画这条线的笔——也不知道！'],
+  [114.0, '这条百分之二的路，往后会不会突然变陡？经济学家也没给答案！'],
+  [121.3, '就连画这条路的笔——也不知道！'],
   [129.4, '各位观众，下回再见！'],
 ].map(([t, s]) => ({ t, s, d: Math.max(1.8, s.replace(/\s/g, '').length / 6.2 + .4) }));
 /* 真实旁白：vo/NN.mp3（Seed Audio，老电视处理后），VO_META 由 tools/process_vo.py 生成 */
@@ -1091,6 +1091,7 @@ const SHOT = {
     const pull = eio(seg(t, 116.6, 121.0));
     const cam = { x: lerp(hx + 80, ROAD_END - 120, pull), y: lerp(roadY(hx + 80) - 230, roadY(ROAD_END) - 420, pull), z: lerp(1.05, .55, pull) };
     world(cam, t, ROAD_END);
+    milestone(6520, '2%', 1, breath(t) * (t < 121 ? 1 : 0));
     const wk = t < 115;
     const peer = seg(t, 115.2, 116);
     walker({ x: hx, y: roadY(hx), t, walk: wk ? q(t) / BEAT : null, breathe: breath(t) * (t < 121 ? 1 : 0), look: .6,
