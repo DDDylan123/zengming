@@ -18,7 +18,9 @@
     --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
     --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
   }
-  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  /* 片子只有一种暗色画面，不随系统切换亮暗 */
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ivory); overflow: hidden; }
   body { display: flex; align-items: center; justify-content: center; font-family: var(--sans); }
   #stage.h { width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; }
   #stage.v { height: 100vh; width: 56.25vh; max-width: 100vw; max-height: 177.78vw; }
@@ -27,6 +29,9 @@
   .serif { font-family: var(--serif); }
   #controls { position: fixed; left: 16px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--ivory-3); font-size: 13px; opacity: 0; transition: opacity .3s; }
   body:hover #controls { opacity: 1; }
+  /* 触屏没有悬停，控制条常显 */
+  @media (hover: none) { #controls { opacity: 1; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); } }
+  #controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #controls button { background: #1a1917; color: var(--ivory-2); border: 1px solid var(--hair); border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
   #speeds, #scenes { display: flex; gap: 4px; }
   #controls button.on { color: var(--accent); border-color: var(--accent); }
