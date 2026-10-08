@@ -919,12 +919,13 @@ document.getElementById("restart").onclick = () => { offset = 0; startAt = perfo
 document.getElementById("ratio").onclick = () => { const t = now(); build(R === "v" ? "h" : "v"); buildSound(); offset = t; startAt = performance.now(); lastFt = null; };
 document.getElementById("fs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
 document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("play").click(); } });
-// 手写英文字体要等真正下载完再排版，否则量到的是后备字体的宽度
-Promise.all(["500 40px Caveat", "700 40px Caveat"].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(() => {
+// 立刻开播，不等字体；手写英文字体到了再重新排版（否则量到的是后备字体的宽度）
+buildSound();
+requestAnimationFrame(frame);
+Promise.all(["500 40px Caveat", "700 40px Caveat"].map(f => document.fonts.load(f))).then(() => document.fonts.ready).then(() => {
   for (const k in LAYOUT_CACHE) delete LAYOUT_CACHE[k];
   buildSound();
-  requestAnimationFrame(frame);
-});
+}).catch(() => {});
 </script>
 </body>
 </html>
