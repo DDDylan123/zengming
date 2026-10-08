@@ -2,45 +2,59 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>百分之二 · 初稿</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>百分之二 — Dylan He</title>
+<meta name="description" content="一部纯代码画的黑白卡通：AI 越来越聪明，为什么经济增长还是那条百分之二的路？受 2026 年 9 月 23 日 Anthropic 首席经济学家与哈佛教授 Jason Furman 的一场对话启发。">
+<meta property="og:type" content="video.other"><meta property="og:site_name" content="Dylan He"><meta property="og:title" content="百分之二 — Dylan He">
+<meta property="og:description" content="AI 越来越聪明，经济为什么还走在百分之二的路上？纯代码黑白卡通。"><meta property="og:image" content="https://dylanhe.cn/assets/two-percent.jpg"><meta property="og:url" content="https://dylanhe.cn/explainers/two-percent/">
+<meta name="twitter:card" content="summary_large_image"><link rel="canonical" href="https://dylanhe.cn/explainers/two-percent/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=ZCOOL+KuaiLe&family=Noto+Serif+SC:wght@600;900&display=swap" rel="stylesheet">
 <style>
-  :root { --ui:#F1EEE6; --ui-dim:rgba(241,238,230,.5); }
+  :root { color-scheme: dark; --ui:#F1EEE6; --ui-dim:rgba(241,238,230,.45); }
   html,body { margin:0; height:100%; background:#000; overflow:hidden; }
-  body { display:flex; align-items:center; justify-content:center; font-family:"Fredoka",sans-serif; }
-  #stage { position:relative; }
+  body { display:flex; align-items:center; justify-content:center; font-family:"Fredoka","PingFang SC",sans-serif; -webkit-tap-highlight-color:transparent; }
+  #stage { position:relative; touch-action:manipulation; }
   canvas { display:block; width:100%; height:100%; }
-  #bar { position:absolute; left:0; right:0; bottom:0; padding:12px 16px; display:flex; gap:12px; align-items:center;
-         background:linear-gradient(transparent, rgba(0,0,0,.7)); color:var(--ui); font:13px/1 monospace; opacity:0; transition:opacity .3s; }
-  #stage.ui #bar, #stage.paused #bar { opacity:1; }
-  #bar button { background:none; border:1px solid var(--ui-dim); color:var(--ui); font:inherit; padding:5px 10px; cursor:pointer; border-radius:3px; }
-  #seek { flex:1; position:relative; height:22px; cursor:pointer; }
-  #seek .track { position:absolute; left:0; right:0; top:10px; height:2px; background:var(--ui-dim); }
-  #seek .fill { position:absolute; left:0; top:10px; height:2px; background:var(--ui); }
-  #time { min-width:92px; text-align:right; }
-  #start { position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; cursor:pointer; padding-bottom:9%; }
-  #start span { color:#F1EEE6; border:2px solid #F1EEE6; padding:10px 24px; font-size:15px; letter-spacing:.25em; background:rgba(12,11,10,.85); }
-  #start.hidden { display:none; }
-  #src { position:absolute; left:50%; bottom:13%; transform:translateX(-50%); color:#F1EEE6; background:rgba(12,11,10,.85); border:1.5px solid #F1EEE6; padding:8px 18px; font:14px/1 monospace; letter-spacing:.1em; text-decoration:none; display:none; }
+  /* 常驻细进度条；控制条出现时让位 */
+  #prog { position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(241,238,230,.18); pointer-events:none; transition:opacity .3s; }
+  #prog i { display:block; height:100%; width:0; background:var(--ui); }
+  #bar { position:absolute; left:0; right:0; bottom:0; padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px)); display:flex; flex-direction:column; gap:8px;
+         background:linear-gradient(transparent, rgba(0,0,0,.75) 35%); color:var(--ui); font:13px/1 ui-monospace,Menlo,monospace; opacity:0; pointer-events:none; transition:opacity .3s; }
+  #stage.ui #bar, #stage.paused #bar, #stage.v #bar { opacity:1; pointer-events:auto; }
+  #stage.ui #prog, #stage.paused #prog, #stage.v #prog { opacity:0; }
+  #stage.v #bar { position:fixed; background:#000; padding-bottom:calc(14px + env(safe-area-inset-bottom,0px)); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #bar button, #bar a { background:none; border:1px solid var(--ui-dim); color:var(--ui); font:inherit; padding:6px 10px; cursor:pointer; border-radius:3px; text-decoration:none; }
+  #bar button.on { background:var(--ui); color:#000; }
+  #bar button:focus-visible, #bar a:focus-visible, #hint:focus-visible { outline:2px solid var(--ui); outline-offset:2px; }
+  #seek { flex:1; position:relative; height:24px; cursor:pointer; touch-action:none; }
+  #seek .track { position:absolute; left:0; right:0; top:10px; height:4px; background:var(--ui-dim); border-radius:2px; }
+  #seek .fill { position:absolute; left:0; top:10px; height:4px; background:var(--ui); border-radius:2px; }
+  #time { min-width:84px; text-align:right; }
+  .grow { flex:1; }
+  /* 默认静音；点它才出声 */
+  #hint { position:fixed; top:calc(14px + env(safe-area-inset-top,0px)); right:14px; z-index:3; display:flex; align-items:center; gap:6px; background:rgba(241,238,230,.92); color:#0E0D0C;
+          border:0; padding:9px 15px; border-radius:999px; font:600 14px/1 "PingFang SC","Noto Serif SC",sans-serif; letter-spacing:1px; cursor:pointer; transition:opacity .3s; }
+  #hint svg { width:16px; height:16px; }
+  #hint.off { opacity:0; pointer-events:none; }
+  #src { position:absolute; left:50%; bottom:13%; transform:translateX(-50%); color:#F1EEE6; background:rgba(12,11,10,.85); border:1.5px solid #F1EEE6; padding:8px 18px; font:14px/1 monospace; letter-spacing:.1em; text-decoration:none; display:none; white-space:nowrap; }
+  #stage.v #src { bottom:auto; top:73%; }
   #src.on { display:block; }
+  body.poster #bar, body.poster #prog, body.poster #hint { display:none; }
 </style>
 </head>
 <body>
 <div id="stage" class="paused">
-  <canvas id="c" width="1920" height="1080"></canvas>
-  <div id="start"><span>▶ 播放（含声音）</span></div>
+  <canvas id="c" width="1920" height="1080" aria-label="动画短片《百分之二》：AI 越来越聪明，经济为什么还走在百分之二的路上"></canvas>
   <a id="src" href="https://www.youtube.com/watch?v=BjT27aaM_FY" target="_blank" rel="noopener">▶ 看原访谈（YouTube）</a>
+  <div id="prog"><i></i></div>
   <div id="bar">
-    <button id="play">播放</button>
-    <div id="seek"><div class="track"></div><div class="fill"></div></div>
-    <span id="time">0:00 / 0:00</span>
-    <button id="speed">1×</button>
-    <button id="subs">字幕 开</button>
-    <button id="fs">全屏</button>
+    <div class="row"><button id="play">暂停</button><div id="seek"><div class="track"></div><div class="fill"></div></div><span id="time">0:00 / 0:00</span></div>
+    <div class="row"><button id="snd">开启声音</button><button id="speed">1×</button><button id="subs">字幕 开</button><button id="ratio">横/竖屏</button><button id="fs">全屏</button><span class="grow"></span><a href="https://dylanhe.cn/zh/#explainers">Dylan He 首页</a></div>
   </div>
 </div>
+<button id="hint" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg>开启声音</button>
 <script>
 'use strict';
 /* =====================================================================================
@@ -735,13 +749,13 @@ function wrapZH(gg, text, maxW) {
   // 行首不留破折号
   return lines.map(l => l.replace(/^[—]+/, '')).filter(Boolean);
 }
-function subPlate(gg, text, cx, cy, size = 40) {
+function subPlate(gg, text, cx, cy, size = 40, maxW = 1240, lo = 20, hi = 1060) {
   gg.save(); gg.setTransform(1, 0, 0, 1, 0, 0);
   gg.font = ZH_CARD.replace("900 ", `900 ${size}px `); gg.textAlign = 'center'; gg.textBaseline = 'middle';
-  const lines = wrapZH(gg, text, 1240), lh = size * 1.28;
+  const lines = wrapZH(gg, text, maxW), lh = size * 1.28;
   const tw = Math.max(...lines.map(l => gg.measureText(l).width)), w = tw + size * 1.6, h = size * .75 + lh * lines.length;
-  if (cy + h / 2 > 1060) cy = 1060 - h / 2;
-  if (cy - h / 2 < 20) cy = 20 + h / 2;
+  if (cy + h / 2 > hi) cy = hi - h / 2;
+  if (cy - h / 2 < lo) cy = lo + h / 2;
   gg.translate(cx, cy); gg.rotate(-.008);
   const edge = (x0, s) => { const pts = []; for (let i = 0; i <= 10; i++) pts.push([x0 + s * (hash(i * 7.3 + x0) * 7), -h / 2 + i * h / 10]); return pts; };
   const L = edge(-w / 2, -1), Rr = edge(w / 2, 1).reverse();
@@ -1198,12 +1212,35 @@ function render(T) {
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.fillStyle = P.paper; g.fillRect(0, 0, W, H);
   frameStart(t);
   const sh = shotAt(t);
-  if (new URLSearchParams(location.search).has('sample')) { SHOT_SAMPLE(t); post(t, 0); return; }
+  if (new URLSearchParams(location.search).has('sample')) { SHOT_SAMPLE(t); post(t, 0); compose(T, t); return; }
+  if (POSTER) { SHOT_POSTER(); return; }
   SHOT[sh[1]](t);
-  // 字卡
-  if (showSubs) { const v = VO.find(v => T >= v.ft && T < v.ft + v.d); if (v) subPlate(g, v.s, 960, sh[1] === 'rocket' && t > 46 ? 150 : 990, 60); }
+  // 字卡：横屏压在画面上；竖屏放到画面下方的黑边里（compose 里画）
+  const v = showSubs ? VO.find(v => T >= v.ft && T < v.ft + v.d) : null;
+  if (v && MODE === 'h') subPlate(g, v.s, 960, sh[1] === 'rocket' && t > 46 ? 150 : 990, 60);
   const f = Math.round(t * 24), jump = SHOTS.some(s => s[0] > 0 && Math.round(s[0] * 24) === f) ? 3 : 0;
   post(t, jump);
+  compose(T, t, v);
+}
+
+/* ------------------------------ 横竖屏 ------------------------------ */
+// 横屏 1920×1080：整张胶片直接上屏。竖屏 1080×1920：4:3 片门放在中间，上面片名，下面大字幕
+let MODE = 'h';
+const VW = 1080, VH = 1920, PY = 470, PH = 810;
+function compose(T, t, v) {
+  const o = cv.getContext('2d');
+  o.setTransform(1, 0, 0, 1, 0, 0); o.globalAlpha = 1;
+  if (MODE === 'h') { o.drawImage(filmCv, 0, 0); return; }
+  o.fillStyle = '#000'; o.fillRect(0, 0, VW, VH);
+  o.drawImage(filmCv, GATE.x, 0, GATE.w, GATE.h, 0, PY, VW, PH);
+  const a = seg(t, 4.8, 5.8) * (1 - seg(t, 127.5, 128.5));
+  if (a > 0) {
+    o.globalAlpha = a; o.textAlign = 'center'; o.textBaseline = 'middle';
+    o.font = ZH_CARD.replace('900 ', '900 76px '); o.fillStyle = P.paper; o.fillText('百分之二', VW / 2, 300);
+    o.font = `500 26px ${LAT}`; o.fillStyle = P.mid; o.fillText('TWO PERCENT  ·  a cartoon by Dylan He', VW / 2, 378);
+    o.globalAlpha = 1;
+  }
+  if (v) subPlate(o, v.s, VW / 2, PY + PH + 150, 62, 900, PY + PH + 40, VH - 30);
 }
 
 /* ------------------------------ 声音：合成的 1930 年代小乐队 + 拟音 ------------------------------ */
@@ -1304,7 +1341,7 @@ const USE_MUSIC = true;
 const BAND = new Set(['tuba', 'banjo', 'brush', 'trumpet', 'clarinet', 'trombone', 'piano', 'tick', 'stinger']);
 async function loadMusic() {
   if (!USE_MUSIC) return;
-  try { const r = await fetch('music.mp3'); if (r.ok) { AU.musicBuf = await AU.ctx.decodeAudioData(await r.arrayBuffer()); if (playing) startMusic(T, speed); } } catch (e) { }
+  try { const r = await fetch('music.mp3'); if (r.ok) { AU.musicBuf = await AU.ctx.decodeAudioData(await r.arrayBuffer()); if (playing && soundOn) startMusic(T, speed); } } catch (e) { }
 }
 function stopMusic() { if (AU.musicSrc) { try { AU.musicSrc.stop(); } catch (e) { } AU.musicSrc = null; } }
 function startMusic(T, rate) {
@@ -1386,63 +1423,123 @@ function schedule(now, playing, speed) {
     try { PLAY[e.k](w, e, speed); } catch (err) { }
   }
 }
-function resetSchedule(t) { AU.idx = 0; while (AU.idx < EV.length && EV[AU.idx].t < t) AU.idx++; if (AU.ctx) { stopMusic(); newBus(); if (playing) startMusic(t, speed); } }
+function resetSchedule(t) { AU.idx = 0; while (AU.idx < EV.length && EV[AU.idx].t < t) AU.idx++; if (AU.ctx) { stopMusic(); newBus(); if (playing && soundOn) startMusic(t, speed); } }
+
+/* ------------------------------ 海报 ------------------------------ */
+// ?poster=1：整幅 16:9 纸面，片名 + 走在 2% 路上的小人，不加片门
+const POSTER = new URLSearchParams(location.search).has('poster');
+function SHOT_POSTER() {
+  const t = 18.25;   // 迈步的一格
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = P.paper; g.fillRect(0, 0, W, H);
+  frameStart(0);
+  setCam(1500, roadY(1500) - 330, .62);
+  road(-400, 3600);
+  milestone(1820, '2%', 1, 0);
+  walker({ x: 1180, y: roadY(1180), t, walk: q(t) / BEAT, mouth: { type: 'smile' } });
+  g.setTransform(1, 0, 0, 1, 0, 0); g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `600 30px ${ZH_SUB}`; g.fillStyle = P.dmid;
+  g.fillText('Anthropic 首席经济学家 × 哈佛 Jason Furman  ·  2026.9.23', 960, 190);
+  g.font = ZH_CARD.replace('900 ', '900 200px '); g.fillStyle = P.ink; g.fillText('百分之二', 960, 330);
+  g.font = `500 26px ${LAT}`; g.fillStyle = P.dmid; g.textAlign = 'right'; g.fillText('Dylan He', 1880, 50);
+  const o = cv.getContext('2d'); o.setTransform(1, 0, 0, 1, 0, 0);
+  o.drawImage(sceneCv, 0, 0);
+  o.globalAlpha = .05; o.drawImage(GRAIN, 0, 0, 2400, 1400); o.globalAlpha = 1;
+}
 
 /* ------------------------------ 播放器 ------------------------------ */
+// 打开就静音播放；点「开启声音」才出声。手机竖屏 / 电脑横屏，转过来自动切换；?ar=h|v 强制
 const stage = document.getElementById('stage');
 const cv = document.getElementById('c');
-mainG = cv.getContext('2d');
+const filmCv = document.createElement('canvas'); filmCv.width = W; filmCv.height = H;
+mainG = filmCv.getContext('2d');
 sceneCv = document.createElement('canvas'); sceneCv.width = W; sceneCv.height = H;
-const bar = { play: document.getElementById('play'), seek: document.getElementById('seek'), time: document.getElementById('time'), subs: document.getElementById('subs'), fs: document.getElementById('fs'), speed: document.getElementById('speed') };
-const fillEl = bar.seek.querySelector('.fill');
-const srcEl = document.getElementById('src');
+const $ = id => document.getElementById(id);
+const bar = { play: $('play'), seek: $('seek'), time: $('time'), subs: $('subs'), fs: $('fs'), speed: $('speed'), snd: $('snd'), ratio: $('ratio') };
+const fillEl = bar.seek.querySelector('.fill'), progEl = $('prog').firstElementChild;
+const srcEl = $('src'), hint = $('hint');
 const params = new URLSearchParams(location.search);
-let T = +(params.get('t') || 0), playing = false, lastNow = 0, speed = 1;
+let T = +(params.get('t') || 0), playing = false, lastNow = 0, speed = 1, soundOn = false;
+let forced = POSTER ? 'h' : (['h', 'v'].includes(params.get('ar')) ? params.get('ar') : null);
 const SPEEDS = [1, 1.5, 2, 3];
 const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
-function fit() { const k = Math.min(innerWidth / W, innerHeight / H); stage.style.width = W * k + 'px'; stage.style.height = H * k + 'px'; }
-addEventListener('resize', fit); fit();
-function setPlaying(p) {
-  playing = p; initAudio(); if (AU.ctx.state === 'suspended') AU.ctx.resume();
-  if (p && T >= DUR - .05) T = 0;
-  resetSchedule(T);
-  AU.bed.forEach((gn, i) => gn.gain.setTargetAtTime(p ? [.012, .05][i] : 0, AU.ctx.currentTime, .1));
-  bar.play.textContent = p ? '暂停' : '播放'; stage.classList.toggle('paused', !p);
-  document.getElementById('start').classList.add('hidden'); lastNow = performance.now();
+function setMode(m) {
+  MODE = m; const [w, h] = m === 'h' ? [W, H] : [VW, VH];
+  if (cv.width !== w) { cv.width = w; cv.height = h; }
+  stage.className = stage.className.replace(/\b[hv]\b/g, '').trim() + ' ' + m;
+  fit(); if (window.READY && !playing) render(T);
 }
-function setSpeed(v) { speed = v; bar.speed.textContent = v + '×'; resetSchedule(T); }
+function fit() {
+  // 竖屏时控制条固定在屏幕底部，画面让出它的高度
+  const [w, h] = MODE === 'h' ? [W, H] : [VW, VH], bh = MODE === 'v' ? $('bar').offsetHeight : 0;
+  const k = Math.min(innerWidth / w, (innerHeight - bh) / h);
+  stage.style.width = w * k + 'px'; stage.style.height = h * k + 'px'; stage.style.marginBottom = bh + 'px';
+}
+const autoMode = () => forced || (innerWidth > innerHeight ? 'h' : 'v');
+addEventListener('resize', () => { if (autoMode() !== MODE) setMode(autoMode()); else fit(); });
+setMode(autoMode());
+function setPlaying(p) {
+  playing = p;
+  if (p && T >= DUR - .05) T = 0;
+  if (soundOn) { resetSchedule(T); AU.bed.forEach((gn, i) => gn.gain.setTargetAtTime(p ? [.012, .05][i] : 0, AU.ctx.currentTime, .1)); }
+  bar.play.textContent = p ? '暂停' : '播放'; stage.classList.toggle('paused', !p); lastNow = performance.now();
+}
+function setSound(on) {
+  soundOn = on;
+  if (on) { initAudio(); AU.ctx.resume(); resetSchedule(T); AU.bed.forEach((gn, i) => gn.gain.setTargetAtTime(playing ? [.012, .05][i] : 0, AU.ctx.currentTime, .1)); }
+  else if (AU.ctx) { stopMusic(); AU.ctx.suspend(); }
+  bar.snd.textContent = on ? '静音' : '开启声音'; bar.snd.classList.toggle('on', on); hint.classList.toggle('off', on);
+}
+function setSpeed(v) { speed = v; bar.speed.textContent = v + '×'; if (soundOn) resetSchedule(T); }
+function seekSet(t) { T = clamp(t, 0, DUR); if (soundOn) resetSchedule(T); if (!playing) render(T); }
 function loop(now) {
   if (playing) { T += (now - lastNow) / 1000 * speed; if (T >= DUR) { T = DUR; setPlaying(false); } }
   lastNow = now;
-  if (!window.__frozen) { render(T); schedule(T, playing, speed); }
+  if (!window.__frozen) { render(T); if (soundOn) schedule(T, playing, speed); }
   srcEl.classList.toggle('on', T >= toFilm(128.6));
-  fillEl.style.width = (T / DUR * 100) + '%'; bar.time.textContent = fmt(T) + ' / ' + fmt(DUR);
+  const pc = (T / DUR * 100) + '%'; fillEl.style.width = pc; progEl.style.width = pc;
+  bar.time.textContent = fmt(T) + ' / ' + fmt(DUR);
   requestAnimationFrame(loop);
 }
-document.getElementById('start').onclick = () => setPlaying(true);
 bar.play.onclick = () => setPlaying(!playing);
+bar.snd.onclick = hint.onclick = () => setSound(!soundOn);
 bar.speed.onclick = () => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]);
 bar.subs.onclick = () => { showSubs = !showSubs; bar.subs.textContent = '字幕 ' + (showSubs ? '开' : '关'); };
-bar.fs.onclick = () => document.fullscreenElement ? document.exitFullscreen() : stage.requestFullscreen();
-function seekTo(e) { const r = bar.seek.getBoundingClientRect(); T = clamp((e.clientX - r.left) / r.width) * DUR; resetSchedule(T); }
-bar.seek.addEventListener('pointerdown', e => { seekTo(e); const mv = ev => seekTo(ev); addEventListener('pointermove', mv); addEventListener('pointerup', () => removeEventListener('pointermove', mv), { once: true }); });
-let uiTimer; stage.addEventListener('pointermove', () => { stage.classList.add('ui'); clearTimeout(uiTimer); uiTimer = setTimeout(() => stage.classList.remove('ui'), 1800); });
-cv.addEventListener('click', () => setPlaying(!playing));
+bar.ratio.onclick = () => { forced = MODE === 'h' ? 'v' : 'h'; setMode(forced); };
+bar.fs.onclick = () => {
+  if (document.fullscreenElement) return document.exitFullscreen();
+  const el = document.documentElement;
+  (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)?.catch?.(() => { });
+};
+function seekTo(e) { const r = bar.seek.getBoundingClientRect(); seekSet(clamp((e.clientX - r.left) / r.width) * DUR); }
+bar.seek.addEventListener('pointerdown', e => { e.preventDefault(); seekTo(e); const mv = ev => seekTo(ev); addEventListener('pointermove', mv); addEventListener('pointerup', () => removeEventListener('pointermove', mv), { once: true }); });
+// 鼠标：移动时出控制条，点画面暂停/播放；触屏：轻点画面出控制条，几秒后收起
+let uiTimer;
+const showUI = ms => { stage.classList.add('ui'); clearTimeout(uiTimer); uiTimer = setTimeout(() => stage.classList.remove('ui'), ms); };
+stage.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') showUI(1800); });
+$('bar').addEventListener('pointerdown', () => showUI(4000));
+cv.addEventListener('pointerup', e => {
+  if (e.pointerType === 'mouse') return setPlaying(!playing);
+  if (stage.classList.contains('ui') || MODE === 'v') setPlaying(!playing);
+  showUI(4000);
+});
 addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); }
-  if (e.code === 'ArrowRight') { T = Math.min(DUR, T + 5); resetSchedule(T); }
-  if (e.code === 'ArrowLeft') { T = Math.max(0, T - 5); resetSchedule(T); }
+  if (e.code === 'ArrowRight') seekSet(T + 5);
+  if (e.code === 'ArrowLeft') seekSet(T - 5);
   if (e.code === 'KeyF') bar.fs.onclick();
   if (e.code === 'KeyC') bar.subs.onclick();
   if (e.code === 'KeyS') bar.speed.onclick();
+  if (e.code === 'KeyM') setSound(!soundOn);
   if (/^Digit[1-4]$/.test(e.code)) setSpeed(SPEEDS[+e.code.slice(5) - 1]);
 });
 if (params.has('speed') && SPEEDS.includes(+params.get('speed'))) setSpeed(+params.get('speed'));
-window.__film = { render, DUR, VO, SHOTS };
+window.__film = { render, DUR, VO, SHOTS, setMode };
 (async () => {
   try { await document.fonts.ready; for (const f of [`700 40px ${LAT}`, `500 40px ${LAT}`, `40px ${ZH_TITLE}`, `600 40px ${ZH_SUB}`, `900 40px "Noto Serif SC"`]) await document.fonts.load(f, '百分之二各位观众'); } catch (e) { }
   SKY = paintSky();
   window.READY = true;
+  if (POSTER) { document.body.classList.add('poster'); render(0); return; }
+  setPlaying(!params.has('t'));   // 默认静音自动播放；带 ?t= 时停在那一帧
   requestAnimationFrame(loop);
 })();
 </script>
