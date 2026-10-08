@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>为什么 OpenAI 很可能赢不到最后</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* 稿纸讲义：绿格稿纸，黑钢笔 = 原话，蓝笔 = 转述，铅笔 = 补充，红笔 = 反方 */
+  :root {
+    color-scheme: light;
+    --paper: #f4eee1;
+    --desk: #3b3431;
+    --ink: #1f1d1f;
+    --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  html, body { margin: 0; height: 100%; background: var(--desk); color: var(--ink); overflow: hidden; font-family: var(--sans); }
+  body { display: flex; align-items: center; justify-content: center; }
+  #stage.h { width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; }
+  #stage.v { height: 100vh; width: 56.25vh; max-width: 100vw; max-height: 177.78vw; }
+  canvas { width: 100%; height: 100%; display: block; }
+  #controls { position: fixed; left: 16px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--paper); opacity: 0; transition: opacity .3s; }
+  body:hover #controls { opacity: 1; }
+  @media (hover: none) { #controls { opacity: 1; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); } }
+  #controls button { background: var(--paper); color: var(--ink); border: 1px solid rgba(31, 29, 31, .3); border-radius: 6px; padding: 4px 9px; font: inherit; cursor: pointer; }
+  #controls button.on { background: var(--ink); color: var(--paper); }
+  #controls button:focus-visible { outline: 2px solid #c8352e; outline-offset: 2px; }
+  #speeds, #acts { display: flex; flex-wrap: wrap; gap: 4px; }
+  #clock { color: var(--paper); text-shadow: 0 0 3px #000; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv" aria-label="动画：在中文稿纸上边写边讲曾鸣访谈"></canvas></div>
+<div id="controls">
+  <button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button>
+  <span id="speeds"><button data-s="1">1×</button><button data-s="1.5">1.5×</button><button data-s="2">2×</button><button data-s="3">3×</button></span>
+  <span id="acts"></span><span id="clock">0.0s</span>
+</div>
+<script>
+/*__CONTENT__*/
+/*__HANZI__*/
+</script>
+<script>
+/* ================= 工具 ================= */
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const prog = (t, t0, d) => d <= 0 ? (t >= t0 ? 1 : 0) : clamp((t - t0) / d);
+const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const lerp = (a, b, k) => a + (b - a) * k;
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const R0 = rng(11);
+
+const COL = { quote: "#1f1d1f", para: "#24489e", add: "#55545a", counter: "#c8352e", grid: "rgba(74,140,96,0.42)", gridLight: "rgba(74,140,96,0.16)" };
+const SANS = '"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif', HAND = '"Caveat","Noto Sans SC",cursive';
+
+/* ================= 稿纸 ================= */
+// 世界坐标：纸宽 1000。为了手机上看得清，每行 14 格（真实稿纸是 20 格），格子 62，行距 78，每页 14 行
+const PAPER = { w: 1000, x0: 66, cols: 14, cell: 62, pitch: 78, rows: 14, top: 100, pageH: 14 * 78 + 200 };
+const FS = 1.35;   // 自由书写的字号倍数
+const rowY = r => Math.floor(r / PAPER.rows) * PAPER.pageH + PAPER.top + (r % PAPER.rows) * PAPER.pitch;
+const colX = c => PAPER.x0 + c * PAPER.cell;
+
+/* ================= 汉字 ================= */
+// HANZI[ch] = { s: [svg 轮廓], m: [[[x,y],…] 中线] }，坐标为 1024 方框、y 向上
+const GLYPH = {};
+function glyph(ch) {
+  if (GLYPH[ch]) return GLYPH[ch];
+  let g = null;
+  if (COMPOSE[ch]) g = { parts: COMPOSE[ch] };
+  else if (HANZI[ch]) {
+    const d = HANZI[ch];
+    g = { strokes: d.s.map(p => new Path2D(p)), medians: d.m, lens: d.m.map(polyLen) };
+  } else if (PUNCT[ch]) g = { punct: PUNCT[ch], lens: PUNCT[ch].map(polyLen) };
+  GLYPH[ch] = g;
+  return g;
+}
+function polyLen(m) { let l = 0; for (let i = 1; i < m.length; i++) l += Math.hypot(m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]); return Math.max(l, 1); }
+// 数据集里没有的字：用两个部件拼出来
+const COMPOSE = { "珺": [{ ch: "王", sx: 0.42, dx: 40 }, { ch: "君", sx: 0.6, dx: 400 }] };
+// 标点：手工定义的笔画中线（1024 方框，y 向上，基线约 0）
+const PUNCT = {
+  "，": [[[250, 150], [262, 95], [235, 30], [190, -30]]],
+  "、": [[[200, 170], [260, 120], [310, 60]]],
+  "。": [[[230, 140], [285, 120], [300, 70], [262, 25], [205, 30], [180, 80], [205, 128], [235, 140]]],
+  "：": [[[500, 560], [512, 540]], [[500, 200], [512, 180]]],
+  "；": [[[500, 560], [512, 540]], [[505, 210], [515, 160], [490, 90], [450, 40]]],
+  "？": [[[330, 690], [380, 770], [500, 800], [610, 760], [640, 660], [560, 560], [500, 470], [500, 360]], [[495, 200], [505, 180]]],
+  "！": [[[500, 790], [500, 330]], [[495, 190], [505, 170]]],
+  "（": [[[640, 820], [500, 650], [450, 380], [500, 120], [640, -60]]],
+  "）": [[[380, 820], [520, 650], [570, 380], [520, 120], [380, -60]]],
+  "·": [[[500, 400], [512, 385]]],
+  "—": [[[60, 380], [964, 380]]],
+};
+const isLatin = ch => /[A-Za-z0-9.%+\-−×]/.test(ch);
+
+// 一个字的绘制。p：0→1 书写进度；style：ink（钢笔轮廓）、felt（红笔）、pencil（铅笔中线）
+function drawGlyph(ch, x, y, size, p, style, color, alpha = 1, jit = null) {
+  const g = glyph(ch);
+  if (!g || p <= 0) return;
+  ctx.save();
+  ctx.translate(x, y);
+  if (jit) { ctx.translate(size / 2, size / 2); ctx.rotate(jit.r); ctx.translate(-size / 2 + jit.dx, -size / 2 + jit.dy); }
+  if (g.parts) {
+    const n = g.parts.length;
+    g.parts.forEach((pt, i) => {
+      ctx.save(); ctx.translate(pt.dx / 1024 * size, 0); ctx.scale(pt.sx, 1);
+      drawGlyph(pt.ch, 0, 0, size, clamp(p * n - i), style, color, alpha);
+      ctx.restore();
+    });
+    ctx.restore(); return;
+  }
+  const k = size / 1024;
+  ctx.scale(k, -k); ctx.translate(0, -900);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const meds = g.medians || g.punct, lens = g.lens, total = lens.reduce((a, b) => a + b, 0);
+  let acc = 0;
+  for (let i = 0; i < meds.length; i++) {
+    const s0 = acc / total, s1 = (acc + lens[i]) / total; acc += lens[i];
+    const sp = clamp((p - s0) / (s1 - s0));
+    if (sp <= 0) break;
+    if (style === "ink" && g.strokes) {
+      if (sp >= 1) ctx.fill(g.strokes[i]);
+      else { ctx.save(); ctx.clip(g.strokes[i]); ctx.lineWidth = 150; partial(meds[i], sp * lens[i]); ctx.stroke(); ctx.restore(); }
+    } else {
+      ctx.lineWidth = style === "pencil" ? 46 : style === "felt" ? 78 : 92;
+      partial(meds[i], sp * lens[i]); ctx.stroke();
+      if (style === "pencil") { ctx.globalAlpha = alpha * 0.35; ctx.lineWidth = 70; ctx.stroke(); ctx.globalAlpha = alpha; }
+    }
+  }
+  ctx.restore();
+}
+function partial(m, len) {
+  ctx.beginPath(); ctx.moveTo(m[0][0], m[0][1]);
+  let acc = 0;
+  for (let i = 1; i < m.length; i++) {
+    const d = Math.hypot(m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]);
+    if (acc + d >= len) { const k = (len - acc) / d; ctx.lineTo(lerp(m[i - 1][0], m[i][0], k), lerp(m[i - 1][1], m[i][1], k)); return; }
+    acc += d; ctx.lineTo(m[i][0], m[i][1]);
+  }
+  if (m.length === 1 || len < 2) ctx.lineTo(m[0][0] + 1, m[0][1]);
+}
+// 拉丁字母和数字：手写字体，从左往右擦出来
+function drawLatin(s, x, y, size, p, color, alpha = 1, bold = false) {
+  if (p <= 0) return;
+  ctx.save();
+  ctx.font = `${bold ? 700 : 500} ${size * 1.05}px ${HAND}`;
+  const w = ctx.measureText(s).width;
+  ctx.beginPath(); ctx.rect(x - 4, y - size, (w + 8) * p, size * 2); ctx.clip();
+  ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.textBaseline = "alphabetic";
+  ctx.fillText(s, x, y + size * 0.78);
+  ctx.restore();
+  return w;
+}
+function latinW(s, size, bold = false) { ctx.save(); ctx.font = `${bold ? 700 : 500} ${size * 1.05}px ${HAND}`; const w = ctx.measureText(s).width; ctx.restore(); return w; }
+// 把文本切成「汉字/标点」和「拉丁词」两种单元
+function tokens(s) { const out = []; let buf = ""; for (const ch of s) { if (isLatin(ch) || (ch === " " && buf)) buf += ch; else { if (buf) { out.push(buf.trim()); buf = ""; } if (ch !== " ") out.push(ch); } } if (buf) out.push(buf.trim()); return out; }
+const strokeCount = ch => { const g = glyph(ch); return g ? (g.medians || g.punct || [1, 1, 1, 1]).length : 4; };
+
+/* ================= 时间与版面编排 ================= */
+const ITEMS = [], CAMKEYS = [], ACTS = [];
+let T = 0, ROW = 0;
+const SPEED = 0.11;   // 每个字的基本书写时间（秒）
+function charDur(tok) { return isLatin(tok[0]) ? 0.05 * tok.length + 0.08 : clamp(0.05 + strokeCount(tok) * 0.011, 0.07, 0.17) * (SPEED / 0.11); }
+
+// 左边距的类别标签
+function tag(kind, row, t0, extra) {
+  ITEMS.push({ y0: rowY(row) - 10, y1: rowY(row) + 70, draw(t) {
+    const a = prog(t, t0, 0.4); if (a <= 0) return;
+    const label = CONTENT.tags[kind], c = COL[kind], x = 10, y = rowY(row) + 4;
+    ctx.save(); ctx.globalAlpha = a; ctx.font = `700 17px ${SANS}`; ctx.lineWidth = 1.6;
+    ctx.strokeStyle = c; ctx.fillStyle = c;
+    if (kind === "add") ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.roundRect(x, y, 50, 26, 6); if (kind === "quote") ctx.fill(); else ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = kind === "quote" ? "#f4eee1" : c; ctx.textAlign = "center"; ctx.fillText(label, x + 25, y + 19);
+    if (extra) { ctx.font = `500 15px ${SANS}`; ctx.fillStyle = c; ctx.fillText(extra, x + 25, y + 48); }
+    ctx.restore();
+  } });
+}
+// 原话：一字一格写进稿纸
+function gridQuote(text, opt = {}) {
+  ROW++;
+  const toks = tokens(text), cells = [];
+  let c = 0, r = ROW;
+  const closing = "，。、；：？！）";
+  for (const tok of toks) {
+    const w = isLatin(tok[0]) ? Math.max(1, Math.ceil((latinW(tok, PAPER.cell * 0.78, true) + 10) / PAPER.cell)) : 1;
+    if (c + w > PAPER.cols) {
+      if (closing.includes(tok)) { cells.push({ tok, r, c: PAPER.cols - 1, w: 1, squeeze: true }); continue; }   // 标点不放行首，挤进上一行最后一格
+      r++; c = 0;
+    }
+    cells.push({ tok, r, c, w }); c += w;
+  }
+  tag("quote", ROW, T, opt.excerpt ? CONTENT.tags.excerpt : null);
+  focus(ROW, r + 1);
+  const t0 = T;
+  let t = T;
+  cells.forEach(cl => { cl.t0 = t; cl.d = charDur(cl.tok); t += cl.d; });
+  ITEMS.push({ y0: rowY(ROW) - 10, y1: rowY(r) + 60, draw(tt) {
+    for (const cl of cells) {
+      const p = prog(tt, cl.t0, cl.d); if (p <= 0) break;
+      const x = colX(cl.c), y = rowY(cl.r), s = PAPER.cell;
+      const wet = 1 - prog(tt, cl.t0 + cl.d, 1.2);
+      const col = wet > 0 ? mixInk(COL.quote, wet) : COL.quote;
+      if (isLatin(cl.tok[0])) { const lw = latinW(cl.tok, s * 0.78, true); drawLatin(cl.tok, x + (cl.w * s - lw) / 2, y + s * 0.12, s * 0.78, p, col, 1, true); }
+      else if (cl.squeeze) drawGlyph(cl.tok, x + s * 0.45, y, s * 0.9, p, "ink", col);
+      else drawGlyph(cl.tok, x + s * 0.06, y + s * 0.06, s * 0.88, p, "ink", col);
+    }
+  } });
+  T = t + (opt.hold ?? clamp(cells.length * 0.045, 1.4, 3.2));
+  ROW = r + 1;
+  return { t0, t1: t };
+}
+// 墨水刚写下时略亮，干了变深
+function mixInk(hex, wet) { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; const k = wet * 0.35; return `rgb(${Math.round(lerp(r, 90, k))},${Math.round(lerp(g, 80, k))},${Math.round(lerp(b, 130, k))})`; }
+
+// 自由书写（蓝笔、红笔、铅笔）：x,y 为起点，size 字号，wrap 换行宽度
+function freeText(kind, text, x, y, size, opt = {}) {
+  size *= FS;
+  const style = kind === "para" ? "ink" : kind === "counter" ? "felt" : "pencil";
+  const color = opt.color || COL[kind], r = rng(text.length * 31 + Math.round(x + y));
+  const wrap = opt.wrap || 868, toks = tokens(text), cells = [];
+  let cx = x, cy = y;
+  for (const tok of toks) {
+    const lat = isLatin(tok[0]), w = lat ? latinW(tok, size) + size * 0.25 : size * (("，。、；：".includes(tok)) ? 0.62 : 0.98);
+    if (cx + w > x + wrap && !"，。、；：？！".includes(tok)) { cx = x; cy += size * 1.32; }
+    cells.push({ tok, x: cx, y: cy, lat, jit: { r: (r() - 0.5) * 0.07 + (kind === "counter" ? -0.04 : 0), dx: (r() - 0.5) * size * 0.05, dy: (r() - 0.5) * size * 0.08 } });
+    cx += w;
+  }
+  const t0 = opt.at ?? T;
+  let t = t0;
+  const sp = opt.speed || 1;
+  cells.forEach(c => { c.t0 = t; c.d = charDur(c.tok) * (kind === "add" ? 0.85 : 1) * sp; t += c.d; });
+  ITEMS.push({ y0: y - size, y1: cy + size * 1.5, draw(tt) {
+    const a = opt.alpha ? opt.alpha(tt) : 1;
+    if (a <= 0.01) return;
+    for (const c of cells) {
+      const p = prog(tt, c.t0, c.d); if (p <= 0) break;
+      if (c.lat) drawLatin(c.tok, c.x, c.y + size * 0.1, size * 0.9, p, color, a * (kind === "add" ? 0.85 : 1), kind === "counter");
+      else drawGlyph(c.tok, c.x, c.y, size, p, style, color, a * (kind === "add" ? 0.82 : 1), c.jit);
+    }
+  } });
+  if (!opt.at) T = t + (opt.hold ?? 0.6);
+  return { t0, t1: t, bottom: cy + size * 1.3, right: cx };
+}
+// 铅笔线条：抖动的折线，按长度逐步画出
+function pencilPath(pts, t0, dur, opt = {}) {
+  const r = rng(Math.round(pts[0][0] * 7 + pts[0][1] * 13));
+  const P = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], d = Math.hypot(bx - ax, by - ay), n = Math.max(2, Math.ceil(d / 14));
+    for (let j = 0; j < n; j++) { const k = j / n; P.push([lerp(ax, bx, k) + (r() - 0.5) * 1.6, lerp(ay, by, k) + (r() - 0.5) * 1.6]); }
+  }
+  P.push(pts[pts.length - 1]);
+  const L = [0]; for (let i = 1; i < P.length; i++) L.push(L[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  const tot = L[L.length - 1];
+  const ys = pts.map(p => p[1]);
+  ITEMS.push({ y0: Math.min(...ys) - 20, y1: Math.max(...ys) + 20, draw(t) {
+    const p = easeInOut(prog(t, t0, dur)); if (p <= 0) return;
+    let a = opt.alpha ? opt.alpha(t) : 1; if (a <= 0.01) return;
+    const lim = tot * p;
+    ctx.save(); ctx.strokeStyle = opt.color || COL.add; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (const [w, al, off] of [[opt.w || 2.6, 0.75, 0], [(opt.w || 2.6) * 0.6, 0.35, 0.9]]) {
+      ctx.globalAlpha = a * al; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(P[0][0] + off, P[0][1]);
+      for (let i = 1; i < P.length && L[i] <= lim; i++) ctx.lineTo(P[i][0] + off, P[i][1] - off * 0.5);
+      ctx.stroke();
+    }
+    ctx.restore();
+  } });
+}
+// 镜头：在某一段内容出现前，滚到让它落在画面中部
+let VIEW = 1920;
+function focus(r0, r1) { CAMKEYS.push({ t: T, y0: rowY(r0), y1: rowY(r1) }); }
+function focusY(y0, y1, t = T) { CAMKEYS.push({ t, y0, y1 }); }
+function act(name) { ACTS.push([name, T]); }
+function pause(s) { T += s; }
+
+/* ================= 沙堡草图 ================= */
+function castlePts(cx, base, w, h) {
+  // 城墙、两侧塔楼、中间高塔和旗子的外轮廓
+  const bw = w * 0.4, sw = w * 0.2, mw = w * 0.16, bh = h * 0.48, sh = h * 0.66, mh = h * 0.86;
+  const cren = (x0, x1, y, n) => { const pts = [], st = (x1 - x0) / n; for (let i = 0; i < n; i++) { const a = x0 + i * st; pts.push([a, y - (i % 2 ? 0 : st * 0.7)], [a + st, y - (i % 2 ? 0 : st * 0.7)], [a + st, y - (i % 2 ? st * 0.7 : 0)]); } return pts; };
+  return [[cx - w / 2, base], [cx - w / 2, base - sh], ...cren(cx - w / 2, cx - w / 2 + sw, base - sh, 3), [cx - w / 2 + sw, base - bh],
+    ...cren(cx - w / 2 + sw, cx - mw, base - bh, 3), [cx - mw, base - mh], ...cren(cx - mw, cx + mw, base - mh, 3), [cx, base - mh], [cx, base - h], [cx + w * 0.2, base - h + h * 0.05], [cx, base - h + h * 0.1],
+    [cx + mw, base - mh], [cx + mw, base - bh], ...cren(cx + mw, cx + w / 2 - sw, base - bh, 3), [cx + w / 2 - sw, base - sh], ...cren(cx + w / 2 - sw, cx + w / 2, base - sh, 3), [cx + w / 2, base]];
+}
+function castle(cx, base, w, h, t0, dur, opt = {}) {
+  pencilPath(castlePts(cx, base, w, h), t0, dur, opt);
+  // 门洞
+  const gp = []; for (let i = 0; i <= 8; i++) { const a = Math.PI - i / 8 * Math.PI; gp.push([cx + Math.cos(a) * w * 0.09, base - h * 0.08 - Math.sin(a) * w * 0.09]); }
+  pencilPath([[cx - w * 0.09, base], ...gp, [cx + w * 0.09, base]], t0 + dur * 0.8, dur * 0.3, opt);
+  // 排线阴影
+  for (let i = 0; i < Math.max(2, Math.floor(h / 26)); i++) { const yy = base - 10 - i * 22; if (yy < base - h * 0.45) break; pencilPath([[cx - w / 2 + 6, yy], [cx - w / 2 + 28, yy - 18]], t0 + dur + i * 0.03, 0.15, { ...opt, w: 1.6 }); }
+}
+
+/* ================= 剧本 ================= */
+function script() {
+  const C = CONTENT;
+  act("开场");
+  // 标题页
+  ROW = 1;
+  freeText("add", C.show, colX(0), rowY(0) + 10, 24, { hold: 0.2 });
+  focusY(rowY(0), rowY(14), 0);
+  freeText("add", C.title, 260, rowY(2) - 10, 170, { hold: 0.4, speed: 2.6 });
+  ROW = 6;
+  // 图例：每一类用它自己的笔写
+  C.legend.forEach(([k, name, desc], i) => {
+    const y = rowY(ROW);
+    if (k === "quote") { const t0 = T; [...name].forEach((ch, j) => ITEMS.push({ y0: y, y1: y + 70, draw(t) { drawGlyph(ch, colX(j) + 4, y + 4, PAPER.cell - 8, prog(t, t0 + j * 0.15, 0.15), "ink", COL.quote); } })); T += 0.35; }
+    else freeText(k, name, colX(0), y + 4, 38, { hold: 0.05 });
+    freeText("add", desc, colX(2) + 20, y + 10, 26, { hold: 0.25, wrap: 700 });
+    ROW += 2;
+  });
+  pause(1.2);
+
+  // 1 巨浪
+  act("巨浪");
+  gridQuote(C.q12);
+  const wy = rowY(ROW) + 120;
+  pencilPath([[90, wy + 80], [260, wy + 60], [420, wy], [560, wy - 70], [660, wy - 90], [720, wy - 60], [700, wy - 20], [650, wy - 30]], T, 1.6, { w: 3.2 });
+  pencilPath([[90, wy + 100], [400, wy + 85], [700, wy + 40], [930, wy - 10]], T + 0.8, 1.2, { w: 2.2 });
+  T += 2.4; ROW += 5;
+
+  // 2 筑沙堡
+  act("筑沙堡");
+  freeText("add", C.heading2, colX(0), rowY(ROW), 34);
+  ROW += 1;
+  const stageRows = ROW; ROW += 4;
+  const base = rowY(ROW + 8), K = 470 / 1870, cxs = [180, 395, 610, 825];
+  focus(stageRows, ROW + 11);
+  const VALS = [["AOL", 1630, "2000"], ["YAHOO", 1200, "2000"], ["GOOGLE", 1870, "2007"], ["FACEBOOK", 1040, "2012 上市"]];
+  pencilPath([[70, base], [930, base]], T, 0.8, { w: 2 });
+  const stageText = [C.s1, C.s2, C.s3], stageCos = [[0], [1], [2, 3]];
+  const castleT = [];
+  stageText.forEach((s, i) => {
+    freeText("para", s, colX(0), rowY(stageRows + i * 1.4), 36, { hold: 0.2 });
+    stageCos[i].forEach(ci => {
+      const [n, v, yr] = VALS[ci], h = v * K;
+      castleT[ci] = T;
+      castle(cxs[ci], base, 150, h, T, 1.3, { alpha: ci < 2 ? (t => 1 - 0.85 * prog(t, ERASE_T + ci * 0.8, 0.9)) : null });
+      freeText("add", n, cxs[ci] - latinW(n, 26 * FS) / 2, base - h - 98, 26, { at: T + 0.9, alpha: ci < 2 ? (t => 1 - prog(t, ERASE_T + ci * 0.8, 0.6)) : null });
+      freeText("add", `${v}亿`, cxs[ci] - 52, base - h - 60, 26, { at: T + 1.1, alpha: ci < 2 ? (t => 1 - prog(t, ERASE_T + ci * 0.8, 0.6)) : null });
+      freeText("add", yr, cxs[ci] - latinW(yr, 22 * FS) / 2, base + 14, 22, { at: T + 1.2 });
+      T += 1.6;
+    });
+    pause(0.6);
+  });
+  freeText("add", C.foot2, colX(0), base + 70, 20, { hold: 1.2, speed: 0.6 });
+  ROW += 12;
+
+  // 3 浪来了
+  act("浪来了");
+  freeText("add", C.wave, colX(0), rowY(stageRows) - 0, 34, { at: T, hold: 0 });
+  focus(stageRows, stageRows + 14);
+  const wv = T + 0.9;
+  pencilPath([[980, base - 30], [800, base - 200], [620, base - 330], [430, base - 380], [300, base - 350], [250, base - 290], [290, base - 250], [330, base - 280]], wv, 1.8, { w: 3.4 });
+  pencilPath([[980, base - 10], [700, base - 120], [400, base - 170], [120, base - 140], [60, base - 60]], wv + 0.6, 1.6, { w: 2.4 });
+  var ERASE_T = wv + 2.2;
+  window.ERASE_T = ERASE_T;
+  // 冲走后的小沙丘和跌幅
+  [[0, 44, "2015年卖掉", "−97%"], [1, 48, "2016年卖掉", "−96%"]].forEach(([ci, v, yr, pct], i) => {
+    const te = ERASE_T + i * 0.8 + 0.9, x = cxs[ci];
+    pencilPath([[x - 70, base], [x - 40, base - v * K * 1.6], [x, base - v * K * 2], [x + 40, base - v * K * 1.6], [x + 70, base]], te, 0.5, { w: 2.4 });
+    freeText("add", `${v}亿`, x - 38, base - 104, 22, { at: te + 0.3 });
+    freeText("add", yr, x - 70, base - 68, 20, { at: te + 0.4 });
+    freeText("add", pct, x - latinW(pct, 54 * FS) / 2, base - VALS[ci][1] * K * 0.62, 54, { at: te + 0.6, color: COL.para });
+  });
+  T = ERASE_T + 3.2;
+  gridQuote(C.q2, { excerpt: true });
+
+  // 4 AI
+  act("AI");
+  gridQuote(C.q3, { excerpt: true });
+  const ab = rowY(ROW + 6), aiH = 1630 * K * 0.55;
+  focus(ROW - 3, ROW + 9);
+  pencilPath([[70, ab], [930, ab]], T, 0.6, { w: 2 });
+  [[480, "OpenAI"], [720, "Anthropic"]].forEach(([x, n], i) => { castle(x, ab, 130, aiH, T + 0.4 + i * 1.1, 1.1); freeText("add", n, x - latinW(n, 26 * FS) / 2, ab - aiH - 66, 26, { at: T + 1.2 + i * 1.1 }); });
+  // 小人和「我们在这里」
+  const fx = 200;
+  pencilPath([[fx, ab], [fx, ab - 50]], T + 2.6, 0.3); pencilPath([[fx - 14, ab - 34], [fx + 14, ab - 34]], T + 2.8, 0.2);
+  pencilPath([[fx - 10, ab - 66], [fx, ab - 72], [fx + 10, ab - 66], [fx + 10, ab - 55], [fx, ab - 50], [fx - 10, ab - 55], [fx - 10, ab - 66]], T + 2.9, 0.3);
+  freeText("add", C.here, fx - 110, ab - 160, 30, { at: T + 3.1, color: COL.para });
+  pencilPath([[fx, ab - 102], [fx, ab - 82]], T + 3.8, 0.2);
+  freeText("add", C.foot4, colX(0), ab + 20, 22, { at: T + 3.9, speed: 0.6 });
+  T += 5.6; ROW += 8;
+  gridQuote(C.q7);
+
+  // 5 同质化
+  act("同质化");
+  gridQuote(C.q8);
+  const sb = rowY(ROW + 5);
+  focus(ROW - 4, ROW + 7);
+  pencilPath([[70, sb], [930, sb]], T, 0.5, { w: 2 });
+  for (let i = 0; i < 7; i++) castle(110 + i * 62, sb, 50, 110, T + 0.3 + i * 0.25, 0.5);
+  T += 2.6;
+  pencilPath([[560, sb - 50], [620, sb - 50]], T, 0.3, { w: 2.6 }); pencilPath([[605, sb - 60], [622, sb - 50], [605, sb - 40]], T + 0.25, 0.2, { w: 2.6 });
+  pencilPath([[640, sb], [640, sb - 48], [920, sb - 48], [920, sb], [640, sb]], T + 0.5, 1.0, { w: 2.6 });
+  for (let i = 0; i < 12; i++) pencilPath([[650 + i * 22, sb - 4], [670 + i * 22, sb - 44]], T + 1.4 + i * 0.04, 0.12, { w: 1.5 });
+  T += 2.2;
+  const wallLabelY = sb - 110;
+  freeText("add", C.same, colX(0), sb + 20, 28, { hold: 0.8 });
+  ROW += 7;
+  gridQuote(C.q6, { excerpt: true });
+  freeText("add", C.wall1, 640, wallLabelY, 26, { at: T - 1.2 });
+  gridQuote(C.q5);
+  const WALL2_T = T - 1.6;
+  freeText("add", "= " + C.wall2, 700, wallLabelY - 56, 30, { at: WALL2_T, color: COL.add });
+  const WALL_Y = wallLabelY;
+
+  // 6 新入口
+  act("新入口");
+  gridQuote(C.q9);
+  const ny = rowY(ROW + 3) + 20, nx = 500;
+  focus(ROW - 5, ROW + 8);
+  const nodes = [...Array(12)].map((_, i) => { const a = i / 12 * Math.PI * 2 + 0.2; return [nx + Math.cos(a) * (290 + (i % 2) * 90), ny + Math.sin(a) * (150 + (i % 3) * 30)]; });
+  nodes.forEach(([x, y], i) => {
+    pencilPath([[nx, ny], [x, y]], T + i * 0.12, 0.35, { w: 1.8 });
+    const cp = []; for (let k = 0; k <= 10; k++) { const a = k / 10 * Math.PI * 2.1; cp.push([x + Math.cos(a) * 9, y + Math.sin(a) * 9]); }
+    pencilPath(cp, T + 0.3 + i * 0.12, 0.2, { w: 1.8 });
+    if (i % 3 === 0) freeText("add", C.cap, x - 32, y - 52, 24, { at: T + 0.5 + i * 0.12 });
+  });
+  const hc = []; for (let k = 0; k <= 16; k++) { const a = k / 16 * Math.PI * 2.1; hc.push([nx + Math.cos(a) * 58, ny + Math.sin(a) * 44]); }
+  pencilPath(hc, T + 1.6, 0.4, { w: 2.6 });
+  freeText("add", C.need, nx - 40, ny - 20, 30, { at: T + 1.9 });
+  T += 3; ROW += 8;
+  freeText("add", C.foot6, colX(0), rowY(ROW - 1), 22, { speed: 0.6, hold: 0.4 });
+  gridQuote(C.q10);
+  pause(0.6);
+
+  // 7 反方：先回到「AI 云」那一处，用红笔圈出来
+  act("反方");
+  const backT = T;
+  focusY(WALL_Y - 400, WALL_Y + 500, T);
+  T += 1.4;
+  const ex = 790, ey = WALL_Y - 40, ring = [];
+  for (let k = 0; k <= 22; k++) { const a = k / 20 * Math.PI * 2 - 0.4; ring.push([ex + Math.cos(a) * 170, ey + Math.sin(a) * 70]); }
+  pencilPath(ring, T, 0.8, { color: COL.counter, w: 4 });
+  freeText("counter", "？", ex + 110, ey - 160, 60, { at: T + 0.8 });
+  T += 2.2;
+  // 再回到最下面写反方
+  ROW += 1;
+  const cy0 = rowY(ROW);
+  focus(ROW, ROW + 14);
+  T += 1.0;
+  tag("counter", ROW, T);
+  // 页边一道红色竖线，标出整段反方
+  const cTop = cy0 - 10;
+  let cyy = cy0;
+  C.counter.forEach((line, i) => { const r = freeText("counter", line, colX(0) + 20, cyy, i === 0 ? 30 : 36, { hold: i === 0 ? 0.6 : 0.5 }); cyy = r.bottom + 6; });
+  pencilPath([[colX(0) - 4, cTop], [colX(0) - 4, cyy - 20]], T - 1, 1, { color: COL.counter, w: 4 });
+  const fyy = cyy + 30;
+  const forkT = T;
+  // 分岔
+  const rootX = 130, bx = [330, 560, 800];
+  const rows2 = [fyy, fyy + 190];
+  pencilPath([[rootX, fyy + 95], [rootX + 40, fyy + 95]], T, 0.3, { color: COL.counter, w: 3 });
+  freeText("counter", "今天", rootX - 80, fyy + 70, 26, { at: T });
+  [C.forkA, C.forkB].forEach((arr, k) => {
+    const y = rows2[k], t0 = T + 0.6 + k * 2.6;
+    pencilPath([[rootX + 40, fyy + 95], [bx[0] - 110, y + 24]], t0, 0.4, { color: COL.counter, w: 3 });
+    arr.forEach((s, j) => {
+      const x = bx[j] - 100;
+      // 第三格的结论换到下一行写，避免挤出纸面
+      const yy = j === 2 ? y + 62 : y;
+      if (j === 1) pencilPath([[bx[0] + 10, y + 24], [x - 8, y + 24]], t0 + 0.3 + j * 0.7, 0.3, { color: COL.counter, w: 3 });
+      if (j === 2) pencilPath([[bx[1] - 40, y + 50], [bx[1] - 40, yy + 24], [bx[1] - 10, yy + 24]], t0 + 0.3 + j * 0.7, 0.3, { color: COL.counter, w: 3 });
+      freeText("counter", s, j === 2 ? bx[1] : x, yy, j === 2 ? 30 : 26, { at: t0 + 0.4 + j * 0.7 });
+    });
+  });
+  T += 6.4;
+  while (rowY(ROW) < fyy + 420) ROW++;
+
+  // 8 收尾
+  act("收尾");
+  gridQuote(C.q15, { hold: 3.4 });
+  const ly = rowY(ROW + 3);
+  focus(ROW - 6, ROW + 8);
+  pencilPath([[70, ly], [930, ly]], T, 1.0, { w: 2 });
+  const dot = []; for (let k = 0; k <= 12; k++) { const a = k / 12 * Math.PI * 2.1; dot.push([620 + Math.cos(a) * 9, ly - 10 + Math.sin(a) * 9]); }
+  pencilPath(dot, T + 1.0, 0.3, { w: 3 });
+  const ring2 = []; for (let k = 0; k <= 16; k++) { const a = k / 16 * Math.PI * 2.15; ring2.push([620 + Math.cos(a) * 30, ly - 8 + Math.sin(a) * 26]); }
+  pencilPath(ring2, T + 1.4, 0.5, { w: 2 });
+  T += 2.2;
+  freeText("add", C.last, colX(0), ly + 40, 34, { hold: 1.4 });
+  ROW += 6;
+  const cr = rowY(ROW);
+  focus(ROW - 8, ROW + 6);
+  C.credit.forEach((s, i) => freeText("add", s, colX(0), cr + i * 44, 20, { speed: 0.5, hold: 0.1 }));
+  SIGN = { y: cr + 200, t: T + 0.4 };
+  T += 4.2;
+}
+let SIGN = null;
+var ERASE_T = 1e9;
+
+/* ================= 渲染 ================= */
+let W, H, ZOOM, PAPERX, CAMPATH = [];
+let LOGO = null;
+const GRAIN = document.createElement("canvas");
+function makeGrain() {
+  GRAIN.width = 512; GRAIN.height = 512; const g = GRAIN.getContext("2d"), r = rng(5);
+  for (let i = 0; i < 4200; i++) { g.fillStyle = r() < 0.6 ? "rgba(120,100,70,0.06)" : "rgba(255,255,255,0.25)"; g.fillRect(r() * 512, r() * 512, 1 + r() * 2, 1); }
+  for (let i = 0; i < 60; i++) { g.strokeStyle = "rgba(140,120,90,0.07)"; g.beginPath(); const x = r() * 512, y = r() * 512; g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 40, y + (r() - 0.5) * 6); g.stroke(); }
+}
+function setup(ratio) {
+  R = ratio; W = R === "v" ? 1080 : 1920; H = R === "v" ? 1920 : 1080;
+  cv.width = W; cv.height = H; document.getElementById("stage").className = R;
+  ZOOM = R === "v" ? 1.0 : 1.0; VIEW = H / ZOOM; PAPERX = (W / ZOOM - PAPER.w) / 2 + (R === "v" ? 0 : 0);
+  if (R === "v") PAPERX = 40;
+  // 镜头路径：每个关键点让内容落在画面里，只在需要时滚动
+  CAMPATH = []; let top = 0;
+  for (const k of CAMKEYS) {
+    const span = k.y1 - k.y0;
+    let target;
+    if (k.t === 0) target = k.y0 - 60;
+    else if (span > VIEW * 0.85) target = k.y1 - VIEW * 0.9;
+    else if (k.y0 < top + VIEW * 0.08 || k.y1 > top + VIEW * 0.9) target = (k.y0 + k.y1) / 2 - VIEW * 0.48;
+    else target = top;
+    CAMPATH.push([k.t, target]); top = target;
+  }
+}
+function camTop(t) {
+  if (!CAMPATH.length) return 0;
+  let y = CAMPATH[0][1];
+  for (let i = 1; i < CAMPATH.length; i++) { const [tk, yk] = CAMPATH[i], prev = y; const p = easeInOut(prog(t, tk - 0.6, 1.2)); y = lerp(prev, yk, p); if (t < tk - 0.6) break; }
+  return y;
+}
+function drawPaper(top) {
+  const pw = PAPER.w, x0 = PAPERX;
+  ctx.fillStyle = "#3b3431"; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.scale(ZOOM, ZOOM); ctx.translate(x0, -top);
+  ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 30; ctx.fillStyle = "#f4eee1";
+  ctx.fillRect(0, top - 50, pw, VIEW + 100); ctx.shadowBlur = 0;
+  const pat = ctx.createPattern(GRAIN, "repeat"); ctx.fillStyle = pat; ctx.fillRect(0, top - 50, pw, VIEW + 100);
+  // 稿纸格子
+  const p0 = Math.floor(top / PAPER.pageH), p1 = Math.floor((top + VIEW) / PAPER.pageH);
+  for (let p = p0; p <= p1; p++) {
+    const py = p * PAPER.pageH;
+    ctx.strokeStyle = COL.grid; ctx.lineWidth = 1.2;
+    ctx.strokeRect(PAPER.x0 - 6, py + PAPER.top - 18, PAPER.cols * PAPER.cell + 12, PAPER.rows * PAPER.pitch + 18);
+    for (let r = 0; r < PAPER.rows; r++) {
+      const y = py + PAPER.top + r * PAPER.pitch;
+      ctx.strokeStyle = COL.grid; ctx.lineWidth = 1;
+      ctx.strokeRect(PAPER.x0, y, PAPER.cols * PAPER.cell, PAPER.cell);
+      ctx.beginPath(); for (let c = 1; c < PAPER.cols; c++) { ctx.moveTo(PAPER.x0 + c * PAPER.cell, y); ctx.lineTo(PAPER.x0 + c * PAPER.cell, y + PAPER.cell); } ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(74,140,96,0.65)"; ctx.font = `400 15px ${SANS}`; ctx.textAlign = "right";
+    ctx.fillText("14×14=196", PAPER.x0 + PAPER.cols * PAPER.cell, py + PAPER.top + PAPER.rows * PAPER.pitch + 16);
+    ctx.textAlign = "left"; ctx.fillText(`第 ${p + 1} 页`, PAPER.x0, py + PAPER.top + PAPER.rows * PAPER.pitch + 16);
+  }
+  ctx.restore();
+}
+function render(t) {
+  const top = camTop(t);
+  drawPaper(top);
+  ctx.save(); ctx.scale(ZOOM, ZOOM); ctx.translate(PAPERX, -top);
+  ctx.globalCompositeOperation = "multiply";
+  for (const it of ITEMS) { if (it.y1 < top - 50 || it.y0 > top + VIEW + 50) continue; it.draw(t); }
+  ctx.globalCompositeOperation = "source-over";
+  // 署名：手写名字 + logo 印章
+  if (SIGN) {
+    const a = prog(t, SIGN.t, 0.4);
+    drawLatin("Dylan He", 560, SIGN.y, 70, prog(t, SIGN.t, 1.4), COL.quote, 1, true);
+    if (LOGO && a > 0) { const s = 120, x = 820, y = SIGN.y - 20; ctx.save(); ctx.globalAlpha = 0.9 * prog(t, SIGN.t + 1.6, 0.25); ctx.translate(x + s / 2, y + s / 2); ctx.rotate(-0.06); ctx.scale(lerp(1.3, 1, prog(t, SIGN.t + 1.6, 0.25)), lerp(1.3, 1, prog(t, SIGN.t + 1.6, 0.25))); ctx.beginPath(); ctx.roundRect(-s / 2, -s / 2, s, s, s * 0.2); ctx.clip(); ctx.globalCompositeOperation = "multiply"; ctx.drawImage(LOGO, -s / 2, -s / 2, s, s); ctx.restore(); }
+  }
+  ctx.restore();
+  document.getElementById("clock").textContent = `${t.toFixed(1)}s / ${TOTAL.toFixed(0)}s`;
+  const idx = ACTS.filter(a => a[1] <= t).length - 1;
+  document.querySelectorAll("#acts button").forEach((b, i) => b.classList.toggle("on", i === idx));
+}
+
+/* ================= 启动与播放控制 ================= */
+// ?ar=h 横屏（默认竖屏）；?t=秒 定格；?act=序号 从某一幕开始；?speed=1.5 倍速
+let R, TOTAL;
+makeGrain();
+// 先跑一遍剧本拿到 ERASE_T，再正式编排（擦除时间要在画沙堡时就知道）
+script(); const e = window.ERASE_T; ITEMS.length = 0; CAMKEYS.length = 0; ACTS.length = 0; T = 0; ROW = 0; SIGN = null;
+ERASE_T = e; script();
+TOTAL = T;
+const params = new URLSearchParams(location.search);
+setup(params.get("ar") === "h" ? "h" : "v");
+window.__ms = { TOTAL, ACTS };
+const logoImg = new Image(); logoImg.onload = () => { LOGO = logoImg; }; logoImg.src = "logo.png";
+const actsEl = document.getElementById("acts");
+ACTS.forEach(([n, at], i) => { const b = document.createElement("button"); b.textContent = `${i}·${n}`; b.onclick = () => { offset = at; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; }; actsEl.appendChild(b); });
+let playing = !params.has("t"), startAt = performance.now();
+let offset = params.has("t") ? parseFloat(params.get("t")) : params.has("act") ? (ACTS[+params.get("act")] || [0, 0])[1] : 0;
+let speed = [1, 1.5, 2, 3].includes(+params.get("speed")) ? +params.get("speed") : 1;
+const now = () => playing ? offset + (performance.now() - startAt) / 1000 * speed : offset;
+function setSpeed(s) { offset = now(); startAt = performance.now(); speed = s; document.querySelectorAll("#speeds button").forEach(b => b.classList.toggle("on", +b.dataset.s === s)); }
+document.querySelectorAll("#speeds button").forEach(b => b.onclick = () => setSpeed(+b.dataset.s));
+setSpeed(speed);
+function frame() { const t = now(); render(Math.min(t, TOTAL)); if (t >= TOTAL && playing) { offset = TOTAL; playing = false; document.getElementById("play").textContent = "播放"; } requestAnimationFrame(frame); }
+document.getElementById("play").onclick = e => { if (playing) { offset = now(); playing = false; } else { if (offset >= TOTAL) offset = 0; startAt = performance.now(); playing = true; } e.target.textContent = playing ? "暂停" : "播放"; };
+document.getElementById("restart").onclick = () => { offset = 0; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; };
+document.getElementById("ratio").onclick = () => { const t = now(); setup(R === "v" ? "h" : "v"); offset = t; startAt = performance.now(); };
+document.getElementById("fs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
+document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("play").click(); } });
+document.fonts.ready.then(() => requestAnimationFrame(frame));
+</script>
+</body>
+</html>
