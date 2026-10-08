@@ -1300,9 +1300,24 @@ function initAudio() {
   const cg = ac.createGain(); cg.gain.value = 0; clk.connect(cf); cf.connect(cg); cg.connect(master); clk.start();
   AU.bed = [hg, cg];
   AU.master = master;
-  loadVO();
+  loadVO(); loadMusic();
 }
 const VOBUF = [];
+// 真配乐：music.mp3（Eleven Music V3）。有它时撤掉代码合成的小乐队，只留拟音
+const USE_MUSIC = true;
+const BAND = new Set(['tuba', 'banjo', 'brush', 'trumpet', 'clarinet', 'trombone', 'piano', 'tick', 'stinger']);
+async function loadMusic() {
+  if (!USE_MUSIC) return;
+  try { const r = await fetch('music.mp3'); if (r.ok) { AU.musicBuf = await AU.ctx.decodeAudioData(await r.arrayBuffer()); if (playing) startMusic(T, speed); } } catch (e) { }
+}
+function stopMusic() { if (AU.musicSrc) { try { AU.musicSrc.stop(); } catch (e) { } AU.musicSrc = null; } }
+function startMusic(T, rate) {
+  stopMusic(); if (!AU.musicBuf || !AU.bus || T >= AU.musicBuf.duration) return;
+  const s0 = AU.ctx.createBufferSource(), gn = AU.ctx.createGain(); s0.buffer = AU.musicBuf; s0.playbackRate.value = rate;
+  const left = DUR - T;   // 片尾随画面一起淡出
+  gn.gain.setValueAtTime(.62, AU.ctx.currentTime); gn.gain.setValueAtTime(.62, AU.ctx.currentTime + Math.max(0, left - 2.5) / rate); gn.gain.linearRampToValueAtTime(0, AU.ctx.currentTime + left / rate);
+  s0.connect(gn); gn.connect(AU.bus); s0.start(AU.ctx.currentTime + .03, T); AU.musicSrc = s0;
+}
 async function loadVO() {
   if (!VO_META) return;
   await Promise.all(VO.map(async (v, i) => {
@@ -1370,11 +1385,12 @@ function schedule(now, playing, speed) {
   while (AU.idx < EV.length && EV[AU.idx].t < tNow + ahead * speed) {
     const e = EV[AU.idx++];
     if (e.t < tNow - .05) continue;
+    if (AU.musicBuf && BAND.has(e.k)) continue;
     const w = AU.ctx.currentTime + (e.t - tNow) / speed + .03;
     try { PLAY[e.k](w, e, speed); } catch (err) { }
   }
 }
-function resetSchedule(t) { AU.idx = 0; while (AU.idx < EV.length && EV[AU.idx].t < t) AU.idx++; if (AU.ctx) newBus(); }
+function resetSchedule(t) { AU.idx = 0; while (AU.idx < EV.length && EV[AU.idx].t < t) AU.idx++; if (AU.ctx) { stopMusic(); newBus(); if (playing) startMusic(t, speed); } }
 
 /* ------------------------------ 播放器 ------------------------------ */
 const stage = document.getElementById('stage');
