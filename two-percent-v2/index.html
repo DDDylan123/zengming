@@ -23,12 +23,15 @@
   #start { position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; cursor:pointer; padding-bottom:9%; }
   #start span { color:#F1EEE6; border:2px solid #F1EEE6; padding:10px 24px; font-size:15px; letter-spacing:.25em; background:rgba(12,11,10,.85); }
   #start.hidden { display:none; }
+  #src { position:absolute; left:50%; bottom:13%; transform:translateX(-50%); color:#F1EEE6; background:rgba(12,11,10,.85); border:1.5px solid #F1EEE6; padding:8px 18px; font:14px/1 monospace; letter-spacing:.1em; text-decoration:none; display:none; }
+  #src.on { display:block; }
 </style>
 </head>
 <body>
 <div id="stage" class="paused">
   <canvas id="c" width="1920" height="1080"></canvas>
   <div id="start"><span>▶ 播放（含声音）</span></div>
+  <a id="src" href="https://www.youtube.com/watch?v=BjT27aaM_FY" target="_blank" rel="noopener">▶ 看原访谈（YouTube）</a>
   <div id="bar">
     <button id="play">播放</button>
     <div id="seek"><div class="track"></div><div class="fill"></div></div>
@@ -875,11 +878,12 @@ const SHOT = {
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
     g.translate(960, 540 + fall * 1300); g.rotate(fall * .35); g.translate(-960, -540);
     sunburst(g, t, 960, 540);
-    g.fillStyle = P.white; g.beginPath(); g.roundRect(470, 330, 980, 440, 40); g.fill();
+    g.fillStyle = P.white; g.beginPath(); g.roundRect(420, 310, 1080, 500, 40); g.fill();
     g.strokeStyle = P.ink; g.lineWidth = 6; g.stroke();
-    fatTitle(g, '百分之二', 960, 470, 190, { bounce: i => -Math.max(0, Math.sin((t / BEAT - i * .5) * Math.PI)) * 24 * seg(t, .4, .9) });
-    g.font = `700 52px ${LAT}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('TWO PERCENT', 960, 655);
-    g.font = `500 28px ${LAT}`; g.fillStyle = P.ink; g.fillText('a cartoon by Dylan He', 960, 720);
+    fatTitle(g, '百分之二', 960, 450, 190, { bounce: i => -Math.max(0, Math.sin((t / BEAT - i * .5) * Math.PI)) * 24 * seg(t, .4, .9) });
+    g.font = `700 52px ${LAT}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('TWO PERCENT', 960, 635);
+    g.font = `500 28px ${LAT}`; g.fillStyle = P.ink; g.fillText('a cartoon by Dylan He', 960, 695);
+    g.font = `600 24px ${ZH_SUB}`; g.fillStyle = P.dmid; g.fillText('受 Anthropic 首席经济学家与哈佛教授的一场对话启发', 960, 760);
     g.restore();
   },
   open(t) {
@@ -1115,15 +1119,17 @@ const SHOT = {
   end(t) {
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
     sunburst(g, t, 960, 540);
-    g.fillStyle = P.white; g.beginPath(); g.roundRect(430, 170, 1060, 740, 40); g.fill(); g.strokeStyle = P.ink; g.lineWidth = 6; g.stroke();
+    g.fillStyle = P.white; g.beginPath(); g.roundRect(330, 170, 1260, 720, 40); g.fill(); g.strokeStyle = P.ink; g.lineWidth = 6; g.stroke();
     fatTitle(g, '完', 960, 270, 130, { bounce: () => -Math.max(0, Math.sin((t / BEAT) * Math.PI)) * 12 });
     g.font = `700 40px ${LAT}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('TWO PERCENT', 960, 420);
     if (LOGO) { g.save(); g.filter = 'grayscale(1) contrast(1.15)'; g.drawImage(LOGO, 960 - 300, 470, 170, 170); g.restore(); }   // 片尾 logo 也黑白，不出戏
     g.font = `700 76px ${LAT}`; g.textAlign = 'left'; g.fillStyle = P.ink; g.fillText('Dylan He', 960 - 100, 580);
-    g.font = `600 22px ${ZH_SUB}`; g.textAlign = 'center'; g.fillStyle = P.inkL;
-    g.fillText('受哈佛大学政治研究所 JFK Jr. 论坛上 Peter McCrory 与 Jason Furman 的对话启发', 960, 730);
-    g.fillText('新药、沙漏、抬木头等例子为补充，不代表对话者观点', 960, 768);
-    g.fillText('画面与声音全部由代码生成', 960, 806);
+    g.textAlign = 'center'; g.fillStyle = P.ink;
+    g.font = `600 23px ${ZH_SUB}`; g.fillText('灵感来源：2026 年 9 月 23 日 · 哈佛大学政治研究所 JFK Jr. 论坛', 960, 700);
+    g.font = `500 23px ${LAT}`; g.fillText('"AI and the Future of the Economy" — Peter McCrory (Anthropic) × Jason Furman (Harvard)', 960, 738);
+    g.font = `500 23px ${LAT}`; g.fillStyle = P.dmid; g.fillText('youtube.com/watch?v=BjT27aaM_FY', 960, 776);
+    g.font = `600 20px ${ZH_SUB}`; g.fillStyle = P.inkL;
+    g.fillText('新药、沙漏、抬木头等例子为补充，不代表对话者观点 · 画面与声音全部由代码生成', 960, 826);
     // 墨退开：从满屏的墨里露出片尾卡
     const ir = eio(seg(t, 128.0, 129.4));
     if (ir < 1) { g.fillStyle = P.ink; g.beginPath(); g.rect(0, 0, W, H); g.arc(960, 540, lerp(0, 1300, ir), 0, TAU, true); g.fill('evenodd'); }
@@ -1399,6 +1405,7 @@ mainG = cv.getContext('2d');
 sceneCv = document.createElement('canvas'); sceneCv.width = W; sceneCv.height = H;
 const bar = { play: document.getElementById('play'), seek: document.getElementById('seek'), time: document.getElementById('time'), subs: document.getElementById('subs'), fs: document.getElementById('fs'), speed: document.getElementById('speed') };
 const fillEl = bar.seek.querySelector('.fill');
+const srcEl = document.getElementById('src');
 const params = new URLSearchParams(location.search);
 let T = +(params.get('t') || 0), playing = false, lastNow = 0, speed = 1;
 const SPEEDS = [1, 1.5, 2, 3];
@@ -1418,6 +1425,7 @@ function loop(now) {
   if (playing) { T += (now - lastNow) / 1000 * speed; if (T >= DUR) { T = DUR; setPlaying(false); } }
   lastNow = now;
   if (!window.__frozen) { render(T); schedule(T, playing, speed); }
+  srcEl.classList.toggle('on', T >= toFilm(128.6));
   fillEl.style.width = (T / DUR * 100) + '%'; bar.time.textContent = fmt(T) + ' / ' + fmt(DUR);
   requestAnimationFrame(loop);
 }
