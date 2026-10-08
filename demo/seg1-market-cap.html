@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>三个阶段，三批王</title>
+<title>互联网霸主更替</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -42,8 +42,8 @@
   <g id="labels"></g>
   <line id="playhead" y1="200" y2="860" stroke="var(--text-muted)" stroke-width="2" stroke-dasharray="4 6" opacity="0"/>
   <text id="year" x="1760" y="150" text-anchor="end" font-size="96" font-weight="700" class="muted" opacity="0">1994</text>
-  <text id="title" x="160" y="120" font-size="56" font-weight="700" opacity="0">互联网的三个阶段，三批王</text>
-  <text id="subtitle" x="160" y="170" font-size="26" class="secondary" opacity="0">关键时点市值 / 收购价，单位：亿美元</text>
+  <text id="title" x="160" y="120" font-size="56" font-weight="700" opacity="0">互联网每个阶段的霸主，都没能赢下一个阶段</text>
+  <text id="subtitle" x="160" y="170" font-size="26" class="secondary" opacity="0">第一阶段：基础设施（让人上网）　第二阶段：应用爆发　第三阶段：原生应用　｜　单位：亿美元</text>
   <g id="quote" opacity="0">
     <text x="960" y="110" text-anchor="middle" font-size="44" font-weight="500">「第一阶段的企业，很难活到第二阶段；</text>
     <text x="960" y="172" text-anchor="middle" font-size="44" font-weight="500">第二阶段的企业，很难活到第三阶段。」</text>
@@ -67,16 +67,16 @@ const h = v => v / V_MAX * (Y0 - YTOP);
 
 // 已核实的时点。yr 用小数表示月份；off 是同年并排时的像素偏移
 const EVENTS = [
-  { co: "Netscape", stage: "入口", yr: 1995.62, v: 29,   color: "var(--netscape)", noLabel: true },
-  { co: "Netscape", stage: "入口", yr: 1998.9,  v: 42,   note: "1995 IPO → 1998 被 AOL 收购", color: "var(--netscape)",
-    lx: 1997.25, valText: g => (g < 1 ? fmt(42 * g) : "29 → 42") + " 亿" },
-  { co: "AOL",      stage: "接入", yr: 2000.03, v: 1630, note: "2000.1 并购时代华纳前", color: "var(--aol)", off: -26, anchor: "end" },
-  { co: "Yahoo",    stage: "入口", yr: 2000.01, v: 1200, note: "2000.1 历史峰值", color: "var(--yahoo)", off: 26, anchor: "start" },
-  { co: "Google",   stage: "原生", yr: 2004.63, v: 230,  note: "2004 IPO", color: "var(--google)" },
-  { co: "Google",   stage: "原生", yr: 2007.8,  v: 1870, note: "2007.10", color: "var(--google)" },
-  { co: "Facebook", stage: "原生", yr: 2012.38, v: 1040, note: "2012 IPO", color: "var(--facebook)", lift: 50 },
-  { co: "AOL",      stage: "接入", yr: 2015.36, v: 44,   note: "2015 卖给威瑞森", color: "var(--aol)", anchor: "end", lift: 110 },
-  { co: "Yahoo",    stage: "入口", yr: 2016.56, v: 48.3, note: "2016 核心业务出售", color: "var(--yahoo)", anchor: "end" },
+  { co: "Netscape", stage: "第二阶段", yr: 1995.62, v: 29,   color: "var(--netscape)", noLabel: true },
+  { co: "Netscape", stage: "第二阶段", yr: 1998.9,  v: 42,   note: "1995 IPO → 1998 被 AOL 收购", color: "var(--netscape)",
+    lx: 1996.85, valText: g => (g < 1 ? fmt(42 * g) : "29 → 42") + " 亿" },
+  { co: "AOL",      stage: "第一阶段", yr: 2000.03, v: 1630, note: "2000.1 并购时代华纳前", color: "var(--aol)", off: -26, anchor: "end" },
+  { co: "Yahoo",    stage: "第二阶段", yr: 2000.01, v: 1200, note: "2000.1 历史峰值", color: "var(--yahoo)", off: 26, anchor: "start" },
+  { co: "Google",   stage: "第三阶段", yr: 2004.63, v: 230,  note: "2004 IPO", color: "var(--google)" },
+  { co: "Google",   stage: "第三阶段", yr: 2007.8,  v: 1870, note: "2007.10", color: "var(--google)" },
+  { co: "Facebook", stage: "第三阶段", yr: 2012.38, v: 1040, note: "2012 IPO", color: "var(--facebook)", lift: 50 },
+  { co: "AOL",      stage: "第一阶段", yr: 2015.36, v: 44,   note: "2015 卖给威瑞森", color: "var(--aol)", anchor: "end", lift: 110 },
+  { co: "Yahoo",    stage: "第二阶段", yr: 2016.56, v: 48.3, note: "2016 核心业务出售", color: "var(--yahoo)", anchor: "end" },
 ];
 // 峰值 → 退场：side 是跌幅文字放在下落线的哪一侧
 const DROPS = [
