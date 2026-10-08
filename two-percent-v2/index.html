@@ -824,7 +824,25 @@ const VO = [
   [121.3, '就连画这条线的笔——也不知道！'],
   [129.4, '各位观众，下回再见！'],
 ].map(([t, s]) => ({ t, s, d: Math.max(1.8, s.replace(/\s/g, '').length / 6.2 + .4) }));
-const DUR = 137;
+/* 真实旁白：vo/NN.mp3（Seed Audio，老电视处理后），VO_META 由 tools/process_vo.py 生成 */
+const VO_META = null; /*VO_META*/
+const STORY_DUR = 137;
+// 按真实时长把每句的开始时间往后推（不重叠、留 0.35 s 气口），整片时间轴随之伸缩
+const WARP = (() => {
+  const A = [];
+  let prevA = 0, prevP = 0, prevD = 0;
+  VO.forEach((v, i) => {
+    const m = VO_META && VO_META[String(i + 1).padStart(2, '0')];
+    const d = m ? m.dur : v.d;
+    const a = i === 0 ? v.t : Math.max(v.t + (prevA - prevP), prevA + prevD + .35);
+    A.push([v.t, a]); v.ft = a; v.d = m ? d + .2 : v.d; v.real = !!m;
+    prevA = a; prevP = v.t; prevD = d;
+  });
+  return A;
+})();
+const toFilm = t => { if (t <= WARP[0][0]) return t; for (let i = 1; i < WARP.length; i++) if (t <= WARP[i][0]) return lerp(WARP[i - 1][1], WARP[i][1], (t - WARP[i - 1][0]) / (WARP[i][0] - WARP[i - 1][0])); const L = WARP[WARP.length - 1]; return t + L[1] - L[0]; };
+const toStory = T => { if (T <= WARP[0][1]) return T; for (let i = 1; i < WARP.length; i++) if (T <= WARP[i][1]) return lerp(WARP[i - 1][0], WARP[i][0], (T - WARP[i - 1][1]) / (WARP[i][1] - WARP[i - 1][1])); const L = WARP[WARP.length - 1]; return T - L[1] + L[0]; };
+const DUR = toFilm(STORY_DUR);
 const SHOTS = [[0, 'title'], [4.8, 'open'], [16.4, 'walk'], [34.0, 'rocket'], [56.0, 'glass'], [89.5, 'log'], [107.5, 'which'], [112.5, 'edge'], [128.0, 'end']];
 const shotAt = t => { let s = SHOTS[0]; for (const x of SHOTS) if (t >= x[0]) s = x; return s; };
 
@@ -1108,7 +1126,7 @@ const SHOT = {
     // 墨退开：从满屏的墨里露出片尾卡
     const ir = eio(seg(t, 128.0, 129.4));
     if (ir < 1) { g.fillStyle = P.ink; g.beginPath(); g.rect(0, 0, W, H); g.arc(960, 540, lerp(0, 1300, ir), 0, TAU, true); g.fill('evenodd'); }
-    const fadeOut = seg(t, DUR - 1.2, DUR);
+    const fadeOut = seg(t, STORY_DUR - 1.2, STORY_DUR);
     if (fadeOut > 0) { g.fillStyle = `rgba(0,0,0,${fadeOut})`; g.fillRect(0, 0, W, H); }
     g.restore();
   },
@@ -1176,8 +1194,9 @@ const GRAIN = (() => { const c = document.createElement('canvas'); c.width = 600
 
 /* ------------------------------ 合成一帧 ------------------------------ */
 let showSubs = true;
-function render(t) {
-  t = clamp(t, 0, DUR - 1e-4);
+function render(T) {
+  T = clamp(T, 0, DUR - 1e-4);
+  const t = Math.min(toStory(T), STORY_DUR - 1e-4);
   g = sceneCv.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.fillStyle = P.paper; g.fillRect(0, 0, W, H);
   frameStart(t);
@@ -1185,7 +1204,7 @@ function render(t) {
   if (new URLSearchParams(location.search).has('sample')) { SHOT_SAMPLE(t); post(t, 0); return; }
   SHOT[sh[1]](t);
   // 字卡
-  if (showSubs) { const v = VO.find(v => t >= v.t && t < v.t + v.d); if (v) subPlate(g, v.s, 960, sh[1] === 'rocket' && t > 46 ? 140 : 980, 38); }
+  if (showSubs) { const v = VO.find(v => T >= v.ft && T < v.ft + v.d); if (v) subPlate(g, v.s, 960, sh[1] === 'rocket' && t > 46 ? 140 : 980, 38); }
   const f = Math.round(t * 24), jump = SHOTS.some(s => s[0] > 0 && Math.round(s[0] * 24) === f) ? 3 : 0;
   post(t, jump);
 }
@@ -1251,6 +1270,8 @@ const EV = [];   // { t, k: 种类, ...参数 }
   ev(125.4, 'slide', { up: true, d: 1.8 });
   // 片尾
   ev(128.2, 'stinger'); band(128.4, 4, { melody: 'trumpet' }); ev(136.0, 'stinger');
+  EV.forEach(e => { e.t = toFilm(e.t); });
+  VO.forEach((v, i) => { if (v.real) EV.push({ t: v.ft, k: 'vo', i, d: v.d }); });
   EV.sort((a, b) => a.t - b.t);
 })();
 
@@ -1277,8 +1298,17 @@ function initAudio() {
   const cf = ac.createBiquadFilter(); cf.type = 'bandpass'; cf.frequency.value = 1800; cf.Q.value = 4;
   const cg = ac.createGain(); cg.gain.value = 0; clk.connect(cf); cf.connect(cg); cg.connect(master); clk.start();
   AU.bed = [hg, cg];
+  AU.master = master;
+  loadVO();
 }
-function newBus() { if (AU.bus) { try { AU.bus.disconnect(); } catch (e) { } } AU.bus = AU.ctx.createGain(); AU.bus.gain.value = 1; AU.bus.connect(AU.out); }
+const VOBUF = [];
+async function loadVO() {
+  if (!VO_META) return;
+  await Promise.all(VO.map(async (v, i) => {
+    try { const r = await fetch(`vo/${String(i + 1).padStart(2, '0')}.mp3`); VOBUF[i] = await AU.ctx.decodeAudioData(await r.arrayBuffer()); } catch (e) { }
+  }));
+}
+function newBus() { for (const k of ['bus', 'voBus']) if (AU[k]) { try { AU[k].disconnect(); } catch (e) { } } AU.bus = AU.ctx.createGain(); AU.bus.gain.value = 1; AU.bus.connect(AU.out); AU.voBus = AU.ctx.createGain(); AU.voBus.connect(AU.master); }
 function env2(gn, w, a, peak, d) { gn.gain.setValueAtTime(0, w); gn.gain.linearRampToValueAtTime(peak, w + a); gn.gain.exponentialRampToValueAtTime(.0001, w + a + d); }
 function osc(type, f, w, dur, peak, o = {}) {
   const ac = AU.ctx, os = ac.createOscillator(), gn = ac.createGain(); os.type = type; os.frequency.setValueAtTime(f, w);
@@ -1325,6 +1355,13 @@ const PLAY = {
   sand: (w, e, r) => noise(w, e.d / r, .06 * e.v, { f: 6000, q: .5, flat: true, type: 'highpass' }),
   creak: (w) => osc('sawtooth', 140, w, .3, .06, { bp: 700, q: 6, glide: 110, a: .05 }),
   stop: () => { },
+  vo: (w, e, r) => {
+    const buf = VOBUF[e.i]; if (!buf) return;
+    const ac = AU.ctx, s0 = ac.createBufferSource(), gn = ac.createGain(); s0.buffer = buf; s0.playbackRate.value = r;
+    gn.gain.value = 1.1; s0.connect(gn); gn.connect(AU.voBus); s0.start(w);
+    const len = buf.duration / r;
+    AU.bus.gain.setTargetAtTime(.4, w - .05, .06); AU.bus.gain.setTargetAtTime(1, w + len, .25);
+  },
 };
 function schedule(now, playing, speed) {
   if (!AU.ctx || !playing) return;
