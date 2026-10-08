@@ -8,8 +8,14 @@
 <meta property="og:type" content="video.other"><meta property="og:site_name" content="Dylan He"><meta property="og:title" content="百分之二 — Dylan He">
 <meta property="og:description" content="AI 越来越聪明，经济为什么还走在百分之二的路上？纯代码黑白卡通。"><meta property="og:image" content="https://dylanhe.cn/assets/two-percent.jpg"><meta property="og:url" content="https://dylanhe.cn/explainers/two-percent/">
 <meta name="twitter:card" content="summary_large_image"><link rel="canonical" href="https://dylanhe.cn/explainers/two-percent/">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=ZCOOL+KuaiLe&family=Noto+Serif+SC:wght@600;900&display=swap" rel="stylesheet">
+<style>
+  /* 字体自带（只含片中用到的字），不依赖 Google Fonts：国内也能秒开 */
+  @font-face { font-family:"Fredoka"; font-weight:500; font-display:swap; src:url(fonts/fredoka-500.woff2) format("woff2"); }
+  @font-face { font-family:"Fredoka"; font-weight:700; font-display:swap; src:url(fonts/fredoka-700.woff2) format("woff2"); }
+  @font-face { font-family:"Noto Serif SC"; font-weight:600; font-display:swap; src:url(fonts/serif-600.woff2) format("woff2"); }
+  @font-face { font-family:"Noto Serif SC"; font-weight:900; font-display:swap; src:url(fonts/serif-900.woff2) format("woff2"); }
+  @font-face { font-family:"ZCOOL KuaiLe"; font-weight:400; font-display:swap; src:url(fonts/kuaile.woff2) format("woff2"); }
+</style>
 <style>
   :root { color-scheme: dark; --ui:#F1EEE6; --ui-dim:rgba(241,238,230,.45); }
   html,body { margin:0; height:100%; background:#000; overflow:hidden; }
@@ -742,6 +748,7 @@ function wrapZH(gg, text, maxW) {
       let k = -1;
       for (let i = cur.length - 2; i >= cur.length * .45; i--) if ('，。！？：；、—'.includes(cur[i])) { k = i; break; }
       if (k < 0) k = cur.length - 2;
+      while (k < cur.length - 1 && '，。！？：；、）」”'.includes(cur[k + 1])) k++;   // 标点不放行首
       lines.push(cur.slice(0, k + 1).join('')); cur = cur.slice(k + 1);
     }
   }
@@ -1492,7 +1499,12 @@ function setSound(on) {
 function setSpeed(v) { speed = v; bar.speed.textContent = v + '×'; if (soundOn) resetSchedule(T); }
 function seekSet(t) { T = clamp(t, 0, DUR); if (soundOn) resetSchedule(T); if (!playing) render(T); }
 function loop(now) {
-  if (playing) { T += (now - lastNow) / 1000 * speed; if (T >= DUR) { T = DUR; setPlaying(false); } }
+  if (playing) {
+    // 卡顿的一帧最多只往前走 0.25 秒，不跳戏；有声音时顺手对齐音乐
+    let dt = (now - lastNow) / 1000;
+    if (dt > .25) { dt = 1 / 30; if (soundOn) resetSchedule(T); }
+    T += dt * speed; if (T >= DUR) { T = DUR; setPlaying(false); }
+  }
   lastNow = now;
   if (!window.__frozen) { render(T); if (soundOn) schedule(T, playing, speed); }
   srcEl.classList.toggle('on', T >= toFilm(128.6));
@@ -1535,10 +1547,13 @@ addEventListener('keydown', e => {
 if (params.has('speed') && SPEEDS.includes(+params.get('speed'))) setSpeed(+params.get('speed'));
 window.__film = { render, DUR, VO, SHOTS, setMode };
 (async () => {
-  try { await document.fonts.ready; for (const f of [`700 40px ${LAT}`, `500 40px ${LAT}`, `40px ${ZH_TITLE}`, `600 40px ${ZH_SUB}`, `900 40px "Noto Serif SC"`]) await document.fonts.load(f, '百分之二各位观众'); } catch (e) { }
+  // 最多等 4 秒字体，网慢也照常开播
+  const fontsP = Promise.all([`700 40px ${LAT}`, `500 40px ${LAT}`, `40px ${ZH_TITLE}`, `600 40px ${ZH_SUB}`, `900 40px "Noto Serif SC"`].map(f => document.fonts.load(f, '百分之二各位观众')));
+  try { await Promise.race([fontsP, new Promise(r => setTimeout(r, 4000))]); } catch (e) { }
   SKY = paintSky();
   window.READY = true;
   if (POSTER) { document.body.classList.add('poster'); render(0); return; }
+  render(T);   // 先画好第一帧（最慢的一帧），再开始计时
   setPlaying(!params.has('t'));   // 默认静音自动播放；带 ?t= 时停在那一帧
   requestAnimationFrame(loop);
 })();
