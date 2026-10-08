@@ -819,8 +819,9 @@ function render(t) {
     const D = ch.e - ch.s, blk = eprog(lt, D - 6.2, D - 3.8);
     if (blk > 0) { ctx.save(); ctx.globalAlpha = blk; ctx.fillStyle = '#0d0c0b'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
     const cr = vis(lt, D - 3.4, D - .2, .8);
-    text('对话来源：哈佛大学政治研究所 JFK Jr. 论坛 · Peter McCrory × Jason Furman', W / 2, H / 2, { size: 26, align: 'center', color: '#bfb6a4', alpha: cr });
-    text('画面、声音与字幕全部由代码生成', W / 2, H / 2 + 48, { size: 22, align: 'center', color: '#8a8273', alpha: cr });
+    text('受哈佛大学政治研究所 JFK Jr. 论坛上 Peter McCrory 与 Jason Furman 的对话启发', W / 2, H / 2 - 24, { size: 26, align: 'center', color: '#bfb6a4', alpha: cr });
+    text('新药、接力赛、实习生等例子及示意图为补充，不代表对话者观点', W / 2, H / 2 + 24, { size: 22, align: 'center', color: '#8a8273', alpha: cr });
+    text('画面、声音与字幕全部由代码生成', W / 2, H / 2 + 64, { size: 22, align: 'center', color: '#8a8273', alpha: cr });
   }
 }
 
