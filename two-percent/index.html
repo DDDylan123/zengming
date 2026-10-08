@@ -111,7 +111,7 @@ const CHAPTERS = [
     ['工作没有消失。它只是换了人做。', 1.2],
     ['所以比起你的专业叫什么，更要紧的是：你是这两个人里的哪一个。', 1.0],
   ]},
-  { key: 'end', name: '', lead: 2.4, tail: 8.0, lines: [
+  { key: 'end', name: '', lead: 2.4, tail: 10.0, lines: [
     ['这段影像是 AI 做的。', 1.0, { noSub: true }],
     ['它也不知道，那条线会不会弯。', 0, { noSub: true }],
   ]},
@@ -252,6 +252,56 @@ function pathPoint(P, p) {
     return [lerp(P.pts[i - 1][0], P.pts[i][0], k), lerp(P.pts[i - 1][1], P.pts[i][1], k)];
   }
   return P.pts[P.pts.length - 1];
+}
+
+/* ---------------- Dylan He 的标志（按原图用代码重画） ---------------- */
+const LOGO = (() => {
+  const S = 600, cv2 = document.createElement('canvas'); cv2.width = cv2.height = S;
+  const g = cv2.getContext('2d'), R0 = S * .46, ox = S / 2, oy = S / 2;
+  const BLUE = '#4a62c4', ORANGE = '#ea7a3d', BROWN = '#4a2f36', CREAM = '#e9e2d1';
+  const blob = (cx, cy, r, seed) => {
+    g.beginPath();
+    for (let i = 0; i <= 120; i++) {
+      const a = i / 120 * Math.PI * 2;
+      const rr = r * (1 + .016 * Math.sin(3 * a + seed) + .01 * Math.sin(5 * a + seed * 2.3) + .006 * Math.sin(9 * a + seed * .7));
+      const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.closePath();
+  };
+  const P = (fx, fy) => [ox + fx * R0, oy + fy * R0];
+  const solid = (fx, fy, fr, col, seed) => { const [x, y] = P(fx, fy); blob(x, y, fr * R0, seed); g.fillStyle = col; g.fill(); };
+  const dots = (fx, fy, fr, bg, col, step, dr, seed) => {
+    const [x, y] = P(fx, fy); blob(x, y, fr * R0, seed); g.fillStyle = bg; g.fill();
+    g.save(); g.clip(); g.fillStyle = col;
+    for (let yy = y - fr * R0; yy < y + fr * R0; yy += step) for (let xx = x - fr * R0; xx < x + fr * R0; xx += step) {
+      g.beginPath(); g.arc(xx + (hash(xx * 3 + yy) - .5) * 1.2, yy + (hash(yy * 7 + xx) - .5) * 1.2, dr, 0, Math.PI * 2); g.fill();
+    }
+    g.restore();
+  };
+  solid(0, 0, 1, BLUE, 1);
+  dots(.02, -.01, .80, CREAM, BLUE, 9.5, 3.1, 2);
+  dots(.10, -.04, .62, CREAM, ORANGE, 8.5, 2.9, 3);
+  solid(.13, -.08, .42, ORANGE, 4);
+  solid(.13, -.09, .30, BROWN, 5);
+  dots(.17, -.10, .19, BROWN, BLUE, 7, 2.9, 6);
+  solid(.18, -.14, .095, CREAM, 7);
+  // 小人
+  const [fx, fy] = P(-.565, .50), u = R0 * .01;
+  g.fillStyle = BROWN;
+  g.fillRect(fx - 4 * u, fy - 3 * u, 11 * u, 13 * u);
+  g.fillRect(fx - 4 * u, fy + 9 * u, 4 * u, 13 * u); g.fillRect(fx + 3 * u, fy + 9 * u, 4 * u, 13 * u);
+  g.fillStyle = ORANGE;
+  g.beginPath(); g.arc(fx + 1.5 * u, fy - 8 * u, 4.2 * u, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(fx + 4 * u, fy + 1 * u, 3.6 * u, 0, Math.PI * 2); g.fill();
+  // 颗粒
+  g.globalCompositeOperation = 'source-atop';
+  for (let i = 0; i < 26000; i++) { g.fillStyle = hash(i * 1.7) > .5 ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.07)'; g.fillRect(hash(i) * S, hash(i + 5e4) * S, 1.4, 1.4); }
+  return cv2;
+})();
+function logo(x, y, size, a = 1) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.drawImage(LOGO, x - size / 2, y - size / 2, size, size); ctx.restore();
 }
 
 /* ---------------- 共用小画件 ---------------- */
@@ -414,6 +464,8 @@ const SCENES = {
     text('TWO PERCENT', W / 2, H / 2 + 70, { font: MONO, size: 30, align: 'center', color: C.ink2, alpha: k * fin(lt, 1.8) });
     line(W / 2 - 260, H / 2 + 110, W / 2 + 260, H / 2 + 110, eprog(lt, 1.8, 3.0), { w: 2, alpha: k });
     text('一场关于 AI 与工作的对话', W / 2, H / 2 + 160, { size: 30, align: 'center', color: C.ink2, alpha: k * fin(lt, 2.6) });
+    logo(W / 2 - 62, H / 2 + 262, 44, k * fin(lt, 3.0));
+    text('Dylan He', W / 2 - 30, H / 2 + 271, { font: MONO, size: 24, color: C.ink2, alpha: k * fin(lt, 3.0) });
   },
 
   ask(lt, ch) {
@@ -817,12 +869,14 @@ function render(t) {
   const wash = Math.max(1 - clamp(sinceStart / .5), 1 - clamp(toNext / .5));
   if (wash > 0 && ch.key !== 'title' && ch.key !== 'end') { ctx.save(); ctx.globalAlpha = wash * .9; ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H); ctx.restore(); }
   if (ch.key === 'end') {
-    const D = ch.e - ch.s, blk = eprog(lt, D - 6.2, D - 3.8);
+    const D = ch.e - ch.s, blk = eprog(lt, D - 8.2, D - 5.8);
     if (blk > 0) { ctx.save(); ctx.globalAlpha = blk; ctx.fillStyle = '#0d0c0b'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
-    const cr = vis(lt, D - 3.4, D - .2, .8);
-    text('受哈佛大学政治研究所 JFK Jr. 论坛上 Peter McCrory 与 Jason Furman 的对话启发', W / 2, H / 2 - 24, { size: 26, align: 'center', color: '#bfb6a4', alpha: cr });
-    text('新药、接力赛、实习生等例子及示意图为补充，不代表对话者观点', W / 2, H / 2 + 24, { size: 22, align: 'center', color: '#8a8273', alpha: cr });
-    text('画面、声音与字幕全部由代码生成', W / 2, H / 2 + 64, { size: 22, align: 'center', color: '#8a8273', alpha: cr });
+    const cr = vis(lt, D - 5.4, D - .2, .8);
+    logo(W / 2, H / 2 - 230, 200, cr);
+    text('Dylan He', W / 2, H / 2 - 90, { font: MONO, size: 30, align: 'center', color: '#e9e2d1', alpha: cr });
+    text('受哈佛大学政治研究所 JFK Jr. 论坛上 Peter McCrory 与 Jason Furman 的对话启发', W / 2, H / 2 + 6, { size: 26, align: 'center', color: '#bfb6a4', alpha: cr });
+    text('新药、接力赛、实习生等例子及示意图为补充，不代表对话者观点', W / 2, H / 2 + 54, { size: 22, align: 'center', color: '#8a8273', alpha: cr });
+    text('画面、声音与字幕全部由代码生成', W / 2, H / 2 + 94, { size: 22, align: 'center', color: '#8a8273', alpha: cr });
   }
 }
 
