@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>三个阶段，三批王</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #111110;
+    --surface: #1a1a19;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8a8980;
+    --grid: #2c2c2a;
+    --axis: #55544f;
+    /* 公司颜色：参考调色板暗色档，按固定顺序分配 */
+    --aol: #3987e5;
+    --netscape: #d95926;
+    --yahoo: #199e70;
+    --google: #c98500;
+    --facebook: #d55181;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  #stage { width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; }
+  svg { width: 100%; height: 100%; display: block; }
+  text { fill: var(--text-primary); }
+  .muted { fill: var(--text-muted); }
+  .secondary { fill: var(--text-secondary); }
+  #controls { position: fixed; left: 16px; bottom: 12px; display: flex; gap: 8px; align-items: center; color: var(--text-muted); font-size: 13px; opacity: 0; transition: opacity .3s; }
+  body:hover #controls { opacity: 1; }
+  #controls button { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--axis); border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="stage">
+<svg id="svg" viewBox="0 0 1920 1080" role="img" aria-label="AOL、Netscape、Yahoo、Google、Facebook 关键时点市值（亿美元）">
+  <g id="grid"></g>
+  <g id="bars"></g>
+  <g id="arcs"></g>
+  <g id="labels"></g>
+  <line id="playhead" y1="200" y2="860" stroke="var(--text-muted)" stroke-width="2" stroke-dasharray="4 6" opacity="0"/>
+  <text id="year" x="1760" y="150" text-anchor="end" font-size="96" font-weight="700" class="muted" opacity="0">1994</text>
+  <text id="title" x="160" y="120" font-size="56" font-weight="700" opacity="0">互联网的三个阶段，三批王</text>
+  <text id="subtitle" x="160" y="170" font-size="26" class="secondary" opacity="0">关键时点市值 / 收购价，单位：亿美元</text>
+  <g id="quote" opacity="0">
+    <text x="960" y="110" text-anchor="middle" font-size="44" font-weight="500">「第一阶段的企业，很难活到第二阶段；</text>
+    <text x="960" y="172" text-anchor="middle" font-size="44" font-weight="500">第二阶段的企业，很难活到第三阶段。」</text>
+    <text x="1760" y="222" text-anchor="end" font-size="26" class="secondary">—— 曾鸣</text>
+  </g>
+  <g id="source" font-size="18" class="muted">
+    <text x="160" y="1010" class="muted">来源：CNN Money 2000-01-10；Wikipedia（Netscape IPO）；AOL 8-K 2015；Yahoo 8-K 2016；Google 2004 IPO 及 2007-10 报道；Facebook 2012 IPO。</text>
+    <text x="160" y="1038" class="muted">只画已核实时点，中间走势未画。Yahoo 2016 年为核心业务售价，不含阿里巴巴、雅虎日本股权。</text>
+  </g>
+</svg>
+</div>
+<div id="controls">
+  <button id="play">暂停</button><button id="restart">重播</button><button id="fs">全屏</button><span id="clock">0.0s</span>
+</div>
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const X0 = 160, X1 = 1760, Y0 = 860, YTOP = 200;
+const Y_START = 1994, Y_END = 2017, V_MAX = 2200;
+const x = yr => X0 + (yr - Y_START) / (Y_END - Y_START) * (X1 - X0);
+const h = v => v / V_MAX * (Y0 - YTOP);
+
+// 已核实的时点。yr 用小数表示月份；off 是同年并排时的像素偏移
+const EVENTS = [
+  { co: "Netscape", stage: "入口", yr: 1995.62, v: 29,   color: "var(--netscape)", noLabel: true },
+  { co: "Netscape", stage: "入口", yr: 1998.9,  v: 42,   note: "1995 IPO → 1998 被 AOL 收购", color: "var(--netscape)",
+    lx: 1997.25, valText: g => (g < 1 ? fmt(42 * g) : "29 → 42") + " 亿" },
+  { co: "AOL",      stage: "接入", yr: 2000.03, v: 1630, note: "2000.1 并购时代华纳前", color: "var(--aol)", off: -26, anchor: "end" },
+  { co: "Yahoo",    stage: "入口", yr: 2000.01, v: 1200, note: "2000.1 历史峰值", color: "var(--yahoo)", off: 26, anchor: "start" },
+  { co: "Google",   stage: "原生", yr: 2004.63, v: 230,  note: "2004 IPO", color: "var(--google)" },
+  { co: "Google",   stage: "原生", yr: 2007.8,  v: 1870, note: "2007.10", color: "var(--google)" },
+  { co: "Facebook", stage: "原生", yr: 2012.38, v: 1040, note: "2012 IPO", color: "var(--facebook)", lift: 50 },
+  { co: "AOL",      stage: "接入", yr: 2015.36, v: 44,   note: "2015 卖给威瑞森", color: "var(--aol)", anchor: "end", lift: 110 },
+  { co: "Yahoo",    stage: "入口", yr: 2016.56, v: 48.3, note: "2016 核心业务出售", color: "var(--yahoo)", anchor: "end" },
+];
+// 峰值 → 退场：side 是跌幅文字放在下落线的哪一侧
+const DROPS = [
+  { from: 2, to: 7, label: "−97%", side: "left" },
+  { from: 3, to: 8, label: "−96%", side: "right" },
+];
+
+const T = { intro: 0, sweepStart: 3, sweepEnd: 45, arcs: 46, quote: 53, end: 62 };
+const BAR_W = 40, GROW = 1.2;
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// 网格与坐标轴
+const grid = document.getElementById("grid");
+for (const v of [500, 1000, 1500, 2000]) {
+  el("line", { x1: X0, x2: X1, y1: Y0 - h(v), y2: Y0 - h(v), stroke: "var(--grid)", "stroke-width": 1 }, grid);
+  el("text", { x: X0 - 16, y: Y0 - h(v) + 8, "text-anchor": "end", "font-size": 22, class: "muted" }, grid).textContent = v;
+}
+el("line", { x1: X0, x2: X1, y1: Y0, y2: Y0, stroke: "var(--axis)", "stroke-width": 2 }, grid);
+for (let yr = 1995; yr <= 2015; yr += 5) {
+  el("text", { x: x(yr), y: Y0 + 44, "text-anchor": "middle", "font-size": 24, class: "muted" }, grid).textContent = yr;
+}
+
+// 柱子与标签
+const bars = document.getElementById("bars"), labels = document.getElementById("labels");
+EVENTS.forEach(e => {
+  const cx = x(e.yr) + (e.off || 0);
+  e.cx = cx;
+  e.rect = el("rect", { x: cx - BAR_W / 2, width: BAR_W, y: Y0, height: 0, rx: 4, fill: e.color }, bars);
+  if (e.noLabel) return;
+  const anchor = e.anchor || "middle";
+  const lx = e.lx ? x(e.lx) : anchor === "end" ? cx + BAR_W / 2 : anchor === "start" ? cx - BAR_W / 2 : cx;
+  e.label = el("g", { opacity: 0 }, labels);
+  e.name = el("text", { x: lx, "text-anchor": anchor, "font-size": 30, "font-weight": 700 }, e.label);
+  e.name.textContent = e.co + " · " + e.stage;
+  e.val = el("text", { x: lx, "text-anchor": anchor, "font-size": 26, class: "secondary" }, e.label);
+  e.noteEl = el("text", { x: lx, "text-anchor": anchor, "font-size": 20, class: "muted" }, e.label);
+  e.noteEl.textContent = e.note;
+});
+
+// 峰值水平虚线 + 竖直下落线
+const dropsG = document.getElementById("arcs");
+DROPS.forEach(d => {
+  const p = EVENTS[d.from], q = EVENTS[d.to];
+  d.yPeak = Y0 - h(p.v);
+  d.yEnd = Y0 - h(q.v) - 104 - (q.lift || 0);
+  d.xStart = p.cx + BAR_W / 2; d.xEnd = q.cx;
+  d.hline = el("line", { x1: d.xStart, x2: d.xStart, y1: d.yPeak, y2: d.yPeak, stroke: p.color, "stroke-width": 2, "stroke-dasharray": "6 8" }, dropsG);
+  d.vline = el("line", { x1: d.xEnd, x2: d.xEnd, y1: d.yPeak, y2: d.yPeak, stroke: p.color, "stroke-width": 3 }, dropsG);
+  d.text = el("text", { x: d.xEnd + (d.side === "left" ? -18 : 18), y: 620, "text-anchor": d.side === "left" ? "end" : "start",
+    "font-size": 56, "font-weight": 700, opacity: 0, fill: p.color }, dropsG);
+  d.text.textContent = d.label;
+});
+
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const ease = t => 1 - Math.pow(1 - t, 3);
+const fmt = v => v >= 100 ? Math.round(v).toLocaleString("en-US") : v.toFixed(1).replace(/\.0$/, "");
+const sweepT = yr => T.sweepStart + (yr - Y_START) / (Y_END - Y_START) * (T.sweepEnd - T.sweepStart);
+
+function render(t) {
+  const $ = id => document.getElementById(id);
+  const intro = ease(clamp(t / 1.5));
+  $("title").setAttribute("opacity", intro * (1 - clamp((t - T.quote + 1) / 1)));
+  $("subtitle").setAttribute("opacity", intro * (1 - clamp((t - T.quote + 1) / 1)));
+  grid.setAttribute("opacity", intro);
+
+  const s = clamp((t - T.sweepStart) / (T.sweepEnd - T.sweepStart));
+  const yr = Y_START + s * (Y_END - Y_START);
+  const sweeping = t >= T.sweepStart && t <= T.sweepEnd + 0.8;
+  $("playhead").setAttribute("x1", x(yr)); $("playhead").setAttribute("x2", x(yr));
+  $("playhead").setAttribute("opacity", sweeping ? 0.6 : 0);
+  $("year").textContent = Math.floor(yr);
+  $("year").setAttribute("opacity", clamp((t - T.sweepStart) / 0.5) * (1 - clamp((t - T.sweepEnd) / 1)));
+
+  // 弧线阶段，非 AOL/Yahoo 的柱子变暗
+  const focus = ease(clamp((t - T.arcs) / 1));
+  EVENTS.forEach((e, i) => {
+    const g = ease(clamp((t - sweepT(e.yr)) / GROW));
+    const hh = h(e.v) * g;
+    e.rect.setAttribute("y", Y0 - hh);
+    e.rect.setAttribute("height", hh);
+    const inArc = DROPS.some(d => d.from === i || d.to === i);
+    const dim = inArc ? 1 : 1 - 0.7 * focus;
+    e.rect.setAttribute("opacity", dim);
+    if (e.noLabel) return;
+    e.label.setAttribute("opacity", clamp(g * 1.5) * dim);
+    e.val.textContent = e.valText ? e.valText(g) : fmt(e.v * g) + " 亿";
+    const top = Y0 - hh - (e.lift || 0);
+    e.name.setAttribute("y", top - 74);
+    e.val.setAttribute("y", top - 42);
+    e.noteEl.setAttribute("y", top - 14);
+  });
+
+  DROPS.forEach((d, k) => {
+    const t0 = T.arcs + k * 1.4;
+    const ph = ease(clamp((t - t0) / 1.4)), pv = ease(clamp((t - t0 - 1.4) / 0.8));
+    d.hline.setAttribute("x2", d.xStart + (d.xEnd - d.xStart) * ph);
+    d.vline.setAttribute("opacity", pv > 0 ? 1 : 0);
+    d.vline.setAttribute("y2", d.yPeak + (d.yEnd - d.yPeak) * pv);
+    d.text.setAttribute("opacity", clamp((t - t0 - 2) / 0.5));
+  });
+
+  $("quote").setAttribute("opacity", ease(clamp((t - T.quote) / 1.2)));
+  $("clock").textContent = t.toFixed(1) + "s";
+}
+
+// 播放控制；?t=秒 可定格到某一帧，便于截图和录屏核对
+const params = new URLSearchParams(location.search);
+let playing = !params.has("t"), offset = parseFloat(params.get("t") || 0), startAt = performance.now();
+function now() { return playing ? offset + (performance.now() - startAt) / 1000 : offset; }
+function frame() {
+  const t = now();
+  render(Math.min(t, T.end));
+  if (t >= T.end && playing) { offset = T.end; playing = false; document.getElementById("play").textContent = "播放"; }
+  requestAnimationFrame(frame);
+}
+document.getElementById("play").onclick = e => {
+  if (playing) { offset = now(); playing = false; } else { if (offset >= T.end) offset = 0; startAt = performance.now(); playing = true; }
+  e.target.textContent = playing ? "暂停" : "播放";
+};
+document.getElementById("restart").onclick = () => { offset = 0; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; };
+document.getElementById("fs").onclick = () => document.documentElement.requestFullscreen?.();
+document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("play").click(); } });
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
