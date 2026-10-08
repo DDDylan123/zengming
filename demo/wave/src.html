@@ -24,19 +24,21 @@
   #controls { position: fixed; left: 16px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--ink); opacity: 0; transition: opacity .3s; }
   body:hover #controls { opacity: 1; }
   /* 触屏：控制条默认收起，轻点画面出现，几秒后自动收起 */
-  @media (hover: none) { #controls { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); pointer-events: none; } body:hover #controls { opacity: 0; } body.ui #controls, body.ui:hover #controls { opacity: 1; pointer-events: auto; } }
+  @media (hover: none) { #controls { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); pointer-events: none; } body:hover #controls { opacity: 0; } body.ui #controls, body.ui:hover #controls { opacity: 1; pointer-events: auto; } body.ui #hint { opacity: 0; pointer-events: none; } }
   #controls button { background: var(--paper); color: var(--ink); border: 1px solid rgba(61, 42, 45, .35); border-radius: 6px; padding: 4px 9px; font: inherit; cursor: pointer; }
   #controls button.on { background: var(--ink); color: var(--paper); }
   #home { background: var(--paper); color: var(--ink); border: 1px solid rgba(61, 42, 45, .35); border-radius: 6px; padding: 4px 9px; text-decoration: none; }
   #controls button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
   #speeds, #acts { display: flex; flex-wrap: wrap; gap: 4px; }
-  #hint { position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: 999px; font-size: 14px; letter-spacing: 1px; cursor: pointer; z-index: 2; transition: opacity .4s; }
+  /* 默认静音播放；只有点这个按钮才出声 */
+  #hint { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 6px; background: rgba(61, 42, 45, .86); color: var(--paper); border: 0; padding: 8px 14px; border-radius: 999px; font: inherit; font-size: 14px; letter-spacing: 1px; cursor: pointer; z-index: 3; transition: opacity .3s; }
+  #hint svg { width: 16px; height: 16px; }
   #hint.off { opacity: 0; pointer-events: none; }
 </style>
 </head>
 <body>
 <div id="stage"><canvas id="cv" aria-label="动画：巨浪冲走沙堡，解读曾鸣访谈"></canvas></div>
-<div id="hint" role="button" tabindex="0">轻触画面开启声音</div>
+<button id="hint" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg>开启声音</button>
 <div id="controls">
   <a id="home" href="https://dylanhe.cn/zh/#explainers">Dylan He 首页</a><button id="snd">开启声音</button><button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button>
   <span id="speeds"><button data-s="1">1×</button><button data-s="1.5">1.5×</button><button data-s="2">2×</button><button data-s="3">3×</button></span>
@@ -614,8 +616,14 @@ function drawCaptions(t, inv) {
     (f[R] || f.v).forEach((s, i) => text(s, W / 2, L.foot.y[i], { size: L.foot.size, c: ink, a, ls: 1 }));
   }
 }
+let POSTER = false;   // 海报模式：标题常驻，不画图例和字幕
 function drawIntro(t) {
   const T = L.title, v = R === "v";
+  if (POSTER) {
+    text("曾鸣的产业史观 · 张小珺商业访谈录第 153 期", W / 2, T.eyebrow, { size: v ? 28 : 26, ls: 4, c: C.blue, w: 500 });
+    drawHand("巨浪", W / 2, T.y, T.size, { style: "ink", c: C.ink, t0: 0, per: 0 }, 1);
+    return;
+  }
   const out = 1 - prog(t, 8, 0.8);
   if (out <= 0) return;
   const a1 = easeOut(prog(t, 0.2, 0.9)) * out, a2 = easeOut(prog(t, 0.5, 1.2)) * out;
@@ -683,7 +691,7 @@ function render(t) {
   drawSea(t, inv);
   drawLabels(t, inv);
   drawIntro(t);
-  drawCaptions(t, inv);
+  if (!POSTER) drawCaptions(t, inv);
   drawCounterChrome(t, inv);
   drawWatermark(t, inv);
   drawSign(t);
@@ -872,7 +880,7 @@ function audioTick(ft) {
 function enableSound() {
   if (!soundOn) startSound(); else { soundOn = false; AC.suspend(); }
   document.getElementById("snd").textContent = soundOn ? "关闭声音" : "开启声音";
-  document.getElementById("hint").classList.add("off");
+  document.getElementById("hint").classList.toggle("off", soundOn);
 }
 
 /* ================= 播放控制 ================= */
@@ -903,7 +911,6 @@ document.getElementById("snd").onclick = enableSound;
 document.getElementById("hint").onclick = enableSound;
 let uiTimer = 0;
 cv.addEventListener("click", () => {
-  if (!soundOn && !AC) { enableSound(); return; }
   document.body.classList.toggle("ui");
   clearTimeout(uiTimer); uiTimer = setTimeout(() => document.body.classList.remove("ui"), 4000);
 });
