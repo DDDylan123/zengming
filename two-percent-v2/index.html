@@ -358,7 +358,7 @@ function walker(p) {
 }
 
 /* ------------------------------ 样张：另外三种主角造型 ------------------------------ */
-const LOOK = new URLSearchParams(location.search).get('look') || 'A';
+const LOOK = new URLSearchParams(location.search).get('look') || 'C';   // 定稿：C 铅笔头
 function hoseLegs(c, hx, hy) {
   const { o, fL, fR, bob } = c;
   hose([-hx, hy], [fL.x - 2, fL.y - 12 - bob], -5, 13, P.ink, o); hose([hx, hy], [fR.x + 2, fR.y - 12 - bob], 5, 13, P.ink, o);
@@ -805,7 +805,7 @@ const VO = [
   [82.2, '代码多了二十倍，真正发布的软件，只多了三成。'],
   [91.0, '主持人问他：我现在用 AI 做研究，那我以前的研究助理呢？'],
   [99.2, '他说：你变强了，他的位子没了。两件事，同时发生。'],
-  [104.0, '工作没有消失。它只是换了人做。'],
+  [104.4, '工作没有消失。它只是换了人做。'],
   [108.2, '你在抬哪一头？'],
   [114.2, '这条线，接下来会不会弯？他没有给答案。'],
   [121.4, '画这条线的笔，也不知道。'],
@@ -1009,12 +1009,20 @@ const SHOT = {
     const backHands = lift < 1;
     const fy = roadY(fx), by = roadY(bxp);
     const logA = [bxp + 60, by - 150 + (1 - lift) * 0 - lift * 30], logB = [fx + 80, fy - 150 - lift * 40];
-    walker({ x: bxp, y: by, t, hat: 'cap', walk: walkA ? tq / BEAT : null, stride: 18, breathe: walkA ? 0 : br,
-      alpha: lerp(1, .22, fade), dash: fade > .3,
+    // 后面那支铅笔：木头离手后，从脚往上被一点点擦掉，只剩一道淡淡的印子
+    const partner = (extra) => walker({ x: bxp, y: by, t, hat: 'cap', walk: walkA ? tq / BEAT : null, stride: 18, breathe: walkA ? 0 : br, ...extra,
       eyes: { lx: lift > 0 ? .8 : 0, type: t > 98.6 && t < 100 ? 'wide' : 'open' }, mouth: { type: lift > 0 ? (t > 101 ? 'frown' : 'o') : 'wavy' }, brows: lift > 0 ? 'sad' : 'worry',
       sweat: walkA ? [[60, -40]] : null,
       armR: backHands ? { x: 70, y: -150 + strain * 6, hand: 'grab', rot: -.6 } : { x: 64, y: -96, hand: 'open', rot: .8 },
       armL: backHands ? { x: 50, y: -170 + strain * 6, hand: 'grab', rot: -.4, front: true } : { x: 40, y: -100, hand: 'open', rot: 1.2, front: true } });
+    if (fade <= 0) partner({});
+    else {
+      partner({ alpha: .2, dash: true });
+      const ey = by - 340 * eio(fade), [, sy] = tx(0, ey);
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath(); g.rect(0, 0, W, sy); g.clip(); partner({}); g.restore();
+      // 橡皮屑
+      if (fade < 1) for (let i = 0; i < 9; i++) { const cx = bxp - 50 + hash(i * 3.3) * 100, cy = ey + 6 + ((t * 2 + hash(i)) % 1) * 40; stroke(quad([cx, cy], [cx + 6, cy - 6], [cx + 12, cy]), 3, { line: P.mid }); }
+    }
     log(lift < 1 ? logA : [fx - 360, fy - 190], logB);
     // 前面的人 + 背上的机器人
     const rob = seg(t, 96.6, 97.6);
