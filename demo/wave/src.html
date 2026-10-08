@@ -23,9 +23,11 @@
   canvas { width: 100%; height: 100%; display: block; }
   #controls { position: fixed; left: 16px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--ink); opacity: 0; transition: opacity .3s; }
   body:hover #controls { opacity: 1; }
-  @media (hover: none) { #controls { opacity: 1; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); } }
+  /* 触屏：控制条默认收起，轻点画面出现，几秒后自动收起 */
+  @media (hover: none) { #controls { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); pointer-events: none; } body:hover #controls { opacity: 0; } body.ui #controls, body.ui:hover #controls { opacity: 1; pointer-events: auto; } }
   #controls button { background: var(--paper); color: var(--ink); border: 1px solid rgba(61, 42, 45, .35); border-radius: 6px; padding: 4px 9px; font: inherit; cursor: pointer; }
   #controls button.on { background: var(--ink); color: var(--paper); }
+  #home { background: var(--paper); color: var(--ink); border: 1px solid rgba(61, 42, 45, .35); border-radius: 6px; padding: 4px 9px; text-decoration: none; }
   #controls button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
   #speeds, #acts { display: flex; flex-wrap: wrap; gap: 4px; }
   #hint { position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: 999px; font-size: 14px; letter-spacing: 1px; cursor: pointer; z-index: 2; transition: opacity .4s; }
@@ -36,7 +38,7 @@
 <div id="stage"><canvas id="cv" aria-label="动画：巨浪冲走沙堡，解读曾鸣访谈"></canvas></div>
 <div id="hint" role="button" tabindex="0">轻触画面开启声音</div>
 <div id="controls">
-  <button id="snd">开启声音</button><button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button>
+  <a id="home" href="https://dylanhe.cn/zh/#explainers">Dylan He 首页</a><button id="snd">开启声音</button><button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button>
   <span id="speeds"><button data-s="1">1×</button><button data-s="1.5">1.5×</button><button data-s="2">2×</button><button data-s="3">3×</button></span>
   <span id="acts"></span><span id="clock">0.0s</span>
 </div>
@@ -876,7 +878,8 @@ function enableSound() {
 /* ================= 播放控制 ================= */
 // ?ar=h 横屏（默认竖屏）；?t=秒 定格；?act=序号 从某一幕开始；?speed=1.5 倍速
 const params = new URLSearchParams(location.search);
-build(params.get("ar") === "h" ? "h" : "v");
+// 没指定横竖屏时按屏幕方向选：电脑横屏，手机竖屏
+build(params.get("ar") === "h" || (!params.get("ar") && innerWidth > innerHeight) ? "h" : "v");
 window.__wave = { TOTAL, ACTS };
 const logoImg = new Image(); logoImg.onload = () => { LOGO = logoImg; }; logoImg.src = "logo.png";
 const actsEl = document.getElementById("acts");
@@ -898,7 +901,13 @@ function frame() {
 document.getElementById("play").onclick = e => { if (playing) { offset = now(); playing = false; } else { if (offset >= TOTAL) offset = 0; startAt = performance.now(); playing = true; } e.target.textContent = playing ? "暂停" : "播放"; };
 document.getElementById("snd").onclick = enableSound;
 document.getElementById("hint").onclick = enableSound;
-cv.addEventListener("click", () => { if (!soundOn && !AC) enableSound(); });
+let uiTimer = 0;
+cv.addEventListener("click", () => {
+  if (!soundOn && !AC) { enableSound(); return; }
+  document.body.classList.toggle("ui");
+  clearTimeout(uiTimer); uiTimer = setTimeout(() => document.body.classList.remove("ui"), 4000);
+});
+document.getElementById("controls").addEventListener("click", () => { clearTimeout(uiTimer); uiTimer = setTimeout(() => document.body.classList.remove("ui"), 4000); });
 document.getElementById("restart").onclick = () => { offset = 0; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; };
 document.getElementById("ratio").onclick = () => { const t = now(); build(R === "v" ? "h" : "v"); buildSound(); offset = t; startAt = performance.now(); lastFt = null; };
 document.getElementById("fs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
