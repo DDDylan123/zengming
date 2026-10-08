@@ -4,30 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>互联网霸主更替</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #111110;
-    --surface: #1a1a19;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #8a8980;
-    --axis: #55544f;
-    /* 公司颜色：参考调色板暗色档，按固定顺序分配 */
-    --aol: #3987e5;
-    --yahoo: #199e70;
-    --google: #c98500;
-    --facebook: #d55181;
+    --bg: #0c0b0a;
+    --ivory: #efe7d6;
+    --ivory-2: rgba(239, 231, 214, 0.66);
+    --ivory-3: rgba(239, 231, 214, 0.40);
+    --hair: rgba(239, 231, 214, 0.22);
+    --accent: #e8654a;
+    --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
   }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
-  body { display: flex; align-items: center; justify-content: center; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; font-family: var(--sans); }
   #stage.h { width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; }
   #stage.v { height: 100vh; width: 56.25vh; max-width: 100vw; max-height: 177.78vw; }
   svg { width: 100%; height: 100%; display: block; }
-  text { fill: var(--text-primary); }
-  #controls { position: fixed; left: 16px; bottom: 12px; display: flex; gap: 8px; align-items: center; color: var(--text-muted); font-size: 13px; opacity: 0; transition: opacity .3s; }
+  svg { fill: var(--ivory); }
+  text { font-family: var(--sans); }
+  .serif { font-family: var(--serif); }
+  #controls { position: fixed; left: 16px; bottom: 12px; display: flex; gap: 8px; align-items: center; color: var(--ivory-3); font-size: 13px; opacity: 0; transition: opacity .3s; }
   body:hover #controls { opacity: 1; }
-  #controls button { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--axis); border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+  #controls button { background: #1a1917; color: var(--ivory-2); border: 1px solid var(--hair); border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -41,47 +40,48 @@ const NS = "http://www.w3.org/2000/svg";
 // ---- 数据（均已核实，见 script/narration-v1.md）----
 const V_MAX = 2000;
 const STAGES = [
-  { name: "第一阶段", desc: "基础设施：让人上网", cos: [0] },
-  { name: "第二阶段", desc: "应用爆发", cos: [1] },
-  { name: "第三阶段", desc: "原生应用", cos: [2, 3] },
+  { num: "01", name: "第一阶段", desc: "基础设施", line: "让所有人连上网", cos: [0] },
+  { num: "02", name: "第二阶段", desc: "应用爆发", line: "网上长出海量应用", cos: [1] },
+  { num: "03", name: "第三阶段", desc: "原生应用", line: "世界换了一种运转方式", cos: [2, 3] },
 ];
 const COS = [
-  { co: "AOL",      v: 1630, yr: "2000", color: "var(--aol)",      exit: { v: 44,   yr: "2015 卖掉", pct: "−97%" } },
-  { co: "Yahoo",    v: 1200, yr: "2000", color: "var(--yahoo)",    exit: { v: 48,   yr: "2016 卖掉", pct: "−96%" } },
-  { co: "Google",   v: 1870, yr: "2007", color: "var(--google)" },
-  { co: "Facebook", v: 1040, yr: "2012 上市", color: "var(--facebook)" },
+  { co: "AOL",      v: 1630, yr: "2000", exit: { v: 44, yr: "2015 年卖掉", pct: "−97%" } },
+  { co: "YAHOO",    v: 1200, yr: "2000", exit: { v: 48, yr: "2016 年卖掉", pct: "−96%" } },
+  { co: "GOOGLE",   v: 1870, yr: "2007" },
+  { co: "FACEBOOK", v: 1040, yr: "2012 上市" },
 ];
 
 // ---- 时间轴（秒）----
-const T = { title: 0, s1: 2, s2: 8, s3: 14, fall: 22, quote: 33, end: 42 };
-const GROW = 1.4, DRAIN = 2.2;
+const T = { title: 0, s1: 3, s2: 9, s3: 15, fall: 23, quote: 34, end: 44 };
+const GROW = 1.6, DRAIN = 2.4;
 
 // ---- 两套版式：v 竖屏 1080×1920，h 横屏 1920×1080 ----
 const LAYOUTS = {
   v: { W: 1080, H: 1920,
-       title: { x: 540, y: [210, 310], size: 84, anchor: "middle" },
-       caption: { x: 540, y: 470, size: 58 },
-       plot: { x0: 60, x1: 1020, y0: 1560, top: 720, barW: 160 },
-       label: { name: 56, value: 52, year: 38, gap: 18 },
-       stageLabel: { y: 1640, size: 44 },
-       pct: { size: 72 },
-       quote: { x: 540, y: [190, 280, 390, 480], size: 66, by: 565 },
-       source: { x: 540, y: [1790, 1840], size: 30 } },
+       open: { eyebrow: 760, lines: [880, 1000], size: 96 },
+       cap: { eyebrow: 330, main: 425, size: 64 },
+       plot: { x0: 60, x1: 1020, y0: 1520, top: 760, barW: 150 },
+       label: { name: 30, value: 68, unit: 28, year: 26 },
+       stage: { bracket: 1552, num: 1606, desc: 1652, numSize: 28, descSize: 36 },
+       pct: 92,
+       quote: { mark: 210, lines: [300, 378, 456, 534], size: 56, by: 600 },
+       source: { y: [1810, 1852], size: 26 } },
   h: { W: 1920, H: 1080,
-       title: { x: 960, y: [120], size: 76, anchor: "middle" },
-       caption: { x: 960, y: 225, size: 52 },
-       plot: { x0: 260, x1: 1660, y0: 880, top: 480, barW: 200 },
-       label: { name: 60, value: 52, year: 36, gap: 16 },
-       stageLabel: { y: 950, size: 44 },
-       pct: { size: 76 },
-       quote: { x: 960, y: [110, 195], size: 64, by: 262 },
-       source: { x: 960, y: [1040], size: 28 } },
+       open: { eyebrow: 430, lines: [550], size: 100 },
+       cap: { eyebrow: 92, main: 175, size: 60 },
+       plot: { x0: 300, x1: 1620, y0: 860, top: 470, barW: 190 },
+       label: { name: 30, value: 72, unit: 28, year: 26 },
+       stage: { bracket: 888, num: 932, desc: 972, numSize: 26, descSize: 34 },
+       pct: 96,
+       quote: { mark: 0, lines: [150, 228], size: 54, by: 288 },
+       source: { y: [1048], size: 22 } },
 };
 const TEXT = {
+  eyebrow: "互联网 · 1995—2016",
   title: { v: ["每个阶段的霸主", "都没赢下一个阶段"], h: ["每个阶段的霸主，都没赢下一个阶段"] },
-  quote: { v: ["「第一阶段的企业，", "很难活到第二阶段；", "第二阶段的企业，", "很难活到第三阶段。」"],
-           h: ["「第一阶段的企业，很难活到第二阶段；", "第二阶段的企业，很难活到第三阶段。」"] },
-  source: { v: ["单位：亿美元", "数据：CNN、美国证监会文件、上市报道"], h: ["单位：亿美元　数据：CNN、美国证监会文件、上市报道"] },
+  quote: { v: ["第一阶段的企业，", "很难活到第二阶段；", "第二阶段的企业，", "很难活到第三阶段。"],
+           h: ["第一阶段的企业，很难活到第二阶段；", "第二阶段的企业，很难活到第三阶段。"] },
+  source: { v: ["单位：亿美元", "数据：CNN、美国证监会文件、上市报道"], h: ["单位：亿美元　·　数据：CNN、美国证监会文件、上市报道"] },
 };
 
 const svg = document.getElementById("svg");
@@ -91,111 +91,155 @@ function el(tag, attrs, parent) {
   (parent || svg).appendChild(e);
   return e;
 }
-function lines(arr, ys, attrs, parent) {
-  const g = el("g", {}, parent);
-  arr.forEach((s, i) => { el("text", { ...attrs, y: ys[i] }, g).textContent = s; });
-  return g;
-}
+function txt(s, attrs, parent) { const e = el("text", attrs, parent); e.textContent = s; return e; }
 
 let L, ratio, N = {};
 function build(r) {
   ratio = r; L = LAYOUTS[r];
-  svg.innerHTML = "";
+  svg.innerHTML = ""; N = {};
   svg.setAttribute("viewBox", `0 0 ${L.W} ${L.H}`);
   document.getElementById("stage").className = r;
-  const P = L.plot, h = v => v / V_MAX * (P.y0 - P.top);
+  const P = L.plot, cx = L.W / 2, h = v => v / V_MAX * (P.y0 - P.top);
   N.h = h;
 
-  N.title = lines(TEXT.title[r], L.title.y, { x: L.title.x, "text-anchor": "middle", "font-size": L.title.size, "font-weight": 900 });
-  N.caption = el("text", { x: L.caption.x, y: L.caption.y, "text-anchor": "middle", "font-size": L.caption.size, "font-weight": 700 });
-  N.base = el("line", { x1: P.x0, x2: P.x1, y1: P.y0, y2: P.y0, stroke: "var(--axis)", "stroke-width": 3 });
+  // 背景：暗角 + 胶片颗粒
+  const defs = el("defs", {});
+  const rg = el("radialGradient", { id: "vig", cx: "50%", cy: "45%", r: "75%" }, defs);
+  el("stop", { offset: "0%", "stop-color": "#1b1915" }, rg);
+  el("stop", { offset: "100%", "stop-color": "#080707" }, rg);
+  const bg = el("linearGradient", { id: "bar", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  el("stop", { offset: "0%", "stop-color": "#efe7d6", "stop-opacity": 0.95 }, bg);
+  el("stop", { offset: "100%", "stop-color": "#efe7d6", "stop-opacity": 0.22 }, bg);
+  const f = el("filter", { id: "grain" }, defs);
+  el("feTurbulence", { type: "fractalNoise", baseFrequency: 0.9, numOctaves: 2, stitchTiles: "stitch" }, f);
+  el("feColorMatrix", { values: "0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.5 0" }, f);
+  el("rect", { width: L.W, height: L.H, fill: "url(#vig)" });
+  el("rect", { width: L.W, height: L.H, filter: "url(#grain)", opacity: 0.07 });
 
-  // 公司位置：四列等分
+  // 开场
+  N.open = el("g", {});
+  N.openEyebrow = txt(TEXT.eyebrow, { x: cx, y: L.open.eyebrow, "text-anchor": "middle", "font-size": 30, "letter-spacing": 8, fill: "var(--accent)" }, N.open);
+  N.openLines = TEXT.title[r].map((s, i) => txt(s, { x: cx, y: L.open.lines[i], "text-anchor": "middle", "font-size": L.open.size, "font-weight": 900, class: "serif" }, N.open));
+
+  // 字幕：小标 + 宋体主句
+  N.capEyebrow = txt("", { x: cx, y: L.cap.eyebrow, "text-anchor": "middle", "font-size": 30, "letter-spacing": 8, fill: "var(--accent)" });
+  N.capMain = txt("", { x: cx, y: L.cap.main, "text-anchor": "middle", "font-size": L.cap.size, "font-weight": 700, class: "serif" });
+
+  N.base = el("line", { x1: cx, x2: cx, y1: P.y0, y2: P.y0, stroke: "var(--hair)", "stroke-width": 2 });
+
   const step = (P.x1 - P.x0) / COS.length;
   COS.forEach((c, i) => {
     c.cx = P.x0 + step * (i + 0.5);
     c.g = el("g", {});
-    c.ghost = el("rect", { x: c.cx - P.barW / 2, width: P.barW, y: P.y0 - h(c.v), height: h(c.v), rx: 6,
-      fill: "none", stroke: c.color, "stroke-width": 3, "stroke-dasharray": "10 10", opacity: 0 }, c.g);
-    c.rect = el("rect", { x: c.cx - P.barW / 2, width: P.barW, y: P.y0, height: 0, rx: 6, fill: c.color }, c.g);
-    c.label = el("g", { opacity: 0 }, c.g);
-    c.nameEl = el("text", { x: c.cx, "text-anchor": "middle", "font-size": L.label.name, "font-weight": 700 }, c.label);
-    c.nameEl.textContent = c.co;
-    c.valEl = el("text", { x: c.cx, "text-anchor": "middle", "font-size": L.label.value, fill: "var(--text-secondary)" }, c.label);
-    c.yrEl = el("text", { x: c.cx, "text-anchor": "middle", "font-size": L.label.year, fill: "var(--text-muted)" }, c.label);
+    const bx = c.cx - P.barW / 2;
     if (c.exit) {
-      c.pctEl = el("text", { x: c.cx, y: P.y0 - h(c.v) / 2, "text-anchor": "middle", "font-size": L.pct.size, "font-weight": 900, fill: c.color, opacity: 0 }, c.g);
-      c.pctEl.textContent = c.exit.pct;
+      // 失去的部分：极淡的填充 + 峰值处一条细线
+      c.ghost = el("g", { opacity: 0 }, c.g);
+      el("rect", { x: bx, width: P.barW, y: P.y0 - h(c.v), height: h(c.v), fill: "#efe7d6", "fill-opacity": 0.05 }, c.ghost);
+      el("line", { x1: bx, x2: bx + P.barW, y1: P.y0 - h(c.v), y2: P.y0 - h(c.v), stroke: "var(--ivory-3)", "stroke-width": 2 }, c.ghost);
     }
+    c.rect = el("rect", { x: bx, width: P.barW, y: P.y0, height: 0, fill: "url(#bar)" }, c.g);
+    c.cap = el("rect", { x: bx, width: P.barW, height: 3, y: P.y0, fill: "var(--ivory)" }, c.g);
+    c.label = el("g", {}, c.g);
+    const lg = L.label;
+    c.nameEl = txt(c.co, { x: c.cx, "text-anchor": "middle", "font-size": lg.name, "font-weight": 500, "letter-spacing": 5, fill: "var(--ivory-2)" }, c.label);
+    c.valEl = el("text", { x: c.cx, "text-anchor": "middle", "font-size": lg.value, "font-weight": 300 }, c.label);
+    c.valNum = el("tspan", {}, c.valEl);
+    c.valUnit = el("tspan", { "font-size": lg.unit, dx: 6, fill: "var(--ivory-3)" }, c.valEl);
+    c.valUnit.textContent = "亿";
+    c.yrEl = txt("", { x: c.cx, "text-anchor": "middle", "font-size": lg.year, fill: "var(--ivory-3)", "letter-spacing": 2 }, c.label);
+    if (c.exit) c.pctEl = txt(c.exit.pct, { x: c.cx, y: P.y0 - h(c.v) / 2 + L.pct * 0.35, "text-anchor": "middle", "font-size": L.pct, "font-weight": 300, fill: "var(--accent)", opacity: 0 }, c.g);
   });
 
-  // 阶段名写在基线下方，第三阶段横跨两列
+  // 阶段：括线 + 编号 + 名称
   STAGES.forEach(s => {
-    const xs = s.cos.map(i => COS[i].cx);
-    s.el = el("text", { x: (xs[0] + xs[xs.length - 1]) / 2, y: L.stageLabel.y, "text-anchor": "middle",
-      "font-size": L.stageLabel.size, "font-weight": 500, fill: "var(--text-secondary)", opacity: 0 });
-    s.el.textContent = s.name;
+    const a = COS[s.cos[0]].cx - P.barW / 2, b = COS[s.cos[s.cos.length - 1]].cx + P.barW / 2, m = (a + b) / 2;
+    s.g = el("g", { opacity: 0 });
+    el("path", { d: `M${a},${L.stage.bracket - 10} V${L.stage.bracket} H${b} V${L.stage.bracket - 10}`, fill: "none", stroke: "var(--hair)", "stroke-width": 2 }, s.g);
+    txt(s.num, { x: m, y: L.stage.num, "text-anchor": "middle", "font-size": L.stage.numSize, "letter-spacing": 4, fill: "var(--accent)" }, s.g);
+    txt(s.desc, { x: m, y: L.stage.desc, "text-anchor": "middle", "font-size": L.stage.descSize, fill: "var(--ivory-2)" }, s.g);
   });
 
+  // 结尾引语
   N.quote = el("g", { opacity: 0 });
-  lines(TEXT.quote[r], L.quote.y, { x: L.quote.x, "text-anchor": "middle", "font-size": L.quote.size, "font-weight": 700 }, N.quote);
-  el("text", { x: L.quote.x, y: L.quote.by, "text-anchor": "middle", "font-size": L.quote.size * 0.6, fill: "var(--text-secondary)" }, N.quote).textContent = "—— 曾鸣";
-  N.source = lines(TEXT.source[r], L.source.y, { x: L.source.x, "text-anchor": "middle", "font-size": L.source.size, fill: "var(--text-muted)" });
+  const Q = L.quote;
+  if (Q.mark) txt("“", { x: cx, y: Q.mark, "text-anchor": "middle", "font-size": 160, class: "serif", fill: "var(--accent)" }, N.quote);
+  TEXT.quote[r].forEach((s, i) => txt(s, { x: cx, y: Q.lines[i], "text-anchor": "middle", "font-size": Q.size, "font-weight": 700, class: "serif" }, N.quote));
+  txt("— 曾 鸣", { x: cx, y: Q.by, "text-anchor": "middle", "font-size": 30, "letter-spacing": 6, fill: "var(--ivory-2)" }, N.quote);
+
+  N.source = el("g", { opacity: 0 });
+  TEXT.source[r].forEach((s, i) => txt(s, { x: cx, y: L.source.y[i], "text-anchor": "middle", "font-size": L.source.size, fill: "var(--ivory-3)", "letter-spacing": 1 }, N.source));
 }
 
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-const ease = t => 1 - Math.pow(1 - t, 3);
-const fade = (t, t0, d = 0.6) => clamp((t - t0) / d);
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const expo = t => t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+const prog = (t, t0, d) => clamp((t - t0) / d);
 const fmt = v => Math.round(v).toLocaleString("en-US");
+// 上浮淡入：p 为 0→1
+function reveal(e, p, dy = 24) { e.setAttribute("opacity", p); e.setAttribute("transform", `translate(0,${(1 - easeOut(p)) * dy})`); }
 const appearAt = i => {
   const s = STAGES.findIndex(st => st.cos.includes(i));
-  return [T.s1, T.s2, T.s3][s] + 0.6 + STAGES[s].cos.indexOf(i) * 1.6;
+  return [T.s1, T.s2, T.s3][s] + 0.9 + STAGES[s].cos.indexOf(i) * 1.8;
 };
 
 function render(t) {
-  const P = L.plot, h = N.h;
-  const quoteIn = ease(fade(t, T.quote, 1.2));
-  N.title.setAttribute("opacity", fade(t, T.title, 1) * (1 - fade(t, T.s1 - 0.4, 0.4)));
+  const P = L.plot, h = N.h, cx = L.W / 2;
+  const quoteIn = prog(t, T.quote, 1.4);
 
-  // 当前字幕
-  let cap = "", capT = 0;
-  if (t >= T.s1 && t < T.fall) { const s = t < T.s2 ? 0 : t < T.s3 ? 1 : 2; cap = STAGES[s].name + "：" + STAGES[s].desc; capT = [T.s1, T.s2, T.s3][s]; }
-  else if (t >= T.fall && t < T.quote) { cap = "后来呢？"; capT = T.fall; }
-  N.caption.textContent = cap;
-  N.caption.setAttribute("opacity", fade(t, capT, 0.5));
+  // 开场：小标先出，标题逐行上浮；进入第一阶段前淡出
+  const openOut = 1 - prog(t, T.s1 - 0.6, 0.6);
+  reveal(N.openEyebrow, prog(t, 0.2, 0.8) * openOut);
+  N.openLines.forEach((e, i) => reveal(e, prog(t, 0.6 + i * 0.35, 0.9) * openOut, 30));
 
-  const focus = ease(fade(t, T.fall, 1));
+  // 基线从中间向两边画开
+  const b = expo(prog(t, T.s1 - 0.2, 1.2)), half = (P.x1 - P.x0) / 2 * b;
+  N.base.setAttribute("x1", cx - half); N.base.setAttribute("x2", cx + half);
+
+  // 字幕
+  let s = -1, capT = 0;
+  if (t >= T.s1 && t < T.fall) { s = t < T.s2 ? 0 : t < T.s3 ? 1 : 2; capT = [T.s1, T.s2, T.s3][s]; }
+  const capOut = 1 - prog(t, (s >= 0 ? [T.s2, T.s3, T.fall][s] : T.quote) - 0.4, 0.4);
+  if (s >= 0) { N.capEyebrow.textContent = STAGES[s].name; N.capMain.textContent = STAGES[s].line; }
+  else if (t >= T.fall) { N.capEyebrow.textContent = "然后"; N.capMain.textContent = "前两个阶段的霸主，后来怎样了？"; capT = T.fall; }
+  if (ratio === "v" && s < 0 && t >= T.fall) N.capMain.textContent = "后来怎样了？";
+  const capVis = t >= T.s1 ? 1 : 0;
+  reveal(N.capEyebrow, capVis * prog(t, capT, 0.5) * capOut * (1 - quoteIn), 16);
+  reveal(N.capMain, capVis * prog(t, capT + 0.15, 0.6) * capOut * (1 - quoteIn), 20);
+
+  const focus = easeOut(prog(t, T.fall, 1));
   COS.forEach((c, i) => {
-    const g = ease(clamp((t - appearAt(i)) / GROW));
+    const g = expo(prog(t, appearAt(i), GROW));
     let v = c.v * g, yrText = c.yr, drain = 0;
     if (c.exit) {
       const k = COS.filter(x => x.exit).indexOf(c);
-      const d0 = T.fall + 1.2 + k * 3.2;
-      drain = ease(clamp((t - d0) / DRAIN));
-      v = v - (c.v - c.exit.v) * drain;
+      const d0 = T.fall + 1.4 + k * 3.4;
+      drain = easeOut(prog(t, d0, DRAIN));
+      v -= (c.v - c.exit.v) * drain;
       if (drain > 0) yrText = c.exit.yr;
-      c.ghost.setAttribute("opacity", drain > 0 ? 0.8 : 0);
-      c.pctEl.setAttribute("opacity", fade(t, d0 + DRAIN - 0.3, 0.5));
+      c.ghost.setAttribute("opacity", drain > 0 ? 1 : 0);
+      reveal(c.pctEl, prog(t, d0 + DRAIN - 0.4, 0.6), 20);
+      // 坠落时柱子变成强调色
+      c.rect.setAttribute("fill", drain > 0 ? "var(--accent)" : "url(#bar)");
+      c.cap.setAttribute("fill", drain > 0 ? "var(--accent)" : "var(--ivory)");
     }
     const hh = h(v);
-    c.rect.setAttribute("y", P.y0 - hh);
-    c.rect.setAttribute("height", hh);
-    c.g.setAttribute("opacity", c.exit ? 1 : 1 - 0.75 * focus);
-    c.label.setAttribute("opacity", clamp(g * 2));
-    c.valEl.textContent = fmt(v) + " 亿";
+    c.rect.setAttribute("y", P.y0 - hh); c.rect.setAttribute("height", hh);
+    c.cap.setAttribute("y", P.y0 - hh); c.cap.setAttribute("opacity", g > 0.01 ? 1 : 0);
+    c.g.setAttribute("opacity", c.exit ? 1 : (1 - 0.72 * focus) * (1 - 0.6 * quoteIn));
+    if (!c.exit) c.label.style.visibility = quoteIn > 0.5 ? "hidden" : "visible";
+    c.valNum.textContent = fmt(v);
     c.yrEl.textContent = yrText;
-    // 标签跟着柱顶走；漏空后留在峰值轮廓上方，不随柱子掉下去
-    const top = P.y0 - (c.exit && drain > 0 ? h(c.v) : hh);
-    const lg = L.label;
-    c.yrEl.setAttribute("y", top - lg.gap);
-    c.valEl.setAttribute("y", top - lg.gap - lg.year - 8);
-    c.nameEl.setAttribute("y", top - lg.gap - lg.year - lg.value - 16);
+    // 标签停在峰值上方，不随柱子掉落
+    const top = P.y0 - (c.exit && drain > 0 ? h(c.v) : hh), lg = L.label;
+    const yYr = top - 22, yVal = yYr - lg.year - 14, yName = yVal - lg.value - 6;
+    c.yrEl.setAttribute("y", yYr); c.valEl.setAttribute("y", yVal); c.nameEl.setAttribute("y", yName);
+    reveal(c.label, prog(t, appearAt(i) + 0.3, 0.7), 18);
   });
-  STAGES.forEach((s, k) => s.el.setAttribute("opacity", fade(t, [T.s1, T.s2, T.s3][k], 0.5) * (1 - 0.6 * focus * (k === 2))));
+  STAGES.forEach((st, k) => reveal(st.g, prog(t, [T.s1, T.s2, T.s3][k] + 0.5, 0.6) * (k === 2 ? 1 - 0.6 * focus : 1), 12));
 
-  N.caption.setAttribute("opacity", +N.caption.getAttribute("opacity") * (1 - quoteIn));
-  N.quote.setAttribute("opacity", quoteIn);
-  N.source.setAttribute("opacity", fade(t, T.s1, 1));
+  reveal(N.quote, quoteIn, 24);
+  N.source.setAttribute("opacity", prog(t, T.s1, 1) * 0.9);
   document.getElementById("clock").textContent = t.toFixed(1) + "s";
 }
 

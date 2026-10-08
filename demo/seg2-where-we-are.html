@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 走到哪了</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0b0a;
+    --ivory: #efe7d6;
+    --ivory-2: rgba(239, 231, 214, 0.66);
+    --ivory-3: rgba(239, 231, 214, 0.40);
+    --hair: rgba(239, 231, 214, 0.22);
+    --accent: #e8654a;
+    --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; font-family: var(--sans); }
+  #stage.h { width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; }
+  #stage.v { height: 100vh; width: 56.25vh; max-width: 100vw; max-height: 177.78vw; }
+  svg { width: 100%; height: 100%; display: block; fill: var(--ivory); }
+  text { font-family: var(--sans); }
+  .serif { font-family: var(--serif); }
+  #controls { position: fixed; left: 16px; bottom: 12px; display: flex; gap: 8px; align-items: center; color: var(--ivory-3); font-size: 13px; opacity: 0; transition: opacity .3s; }
+  body:hover #controls { opacity: 1; }
+  #controls button { background: #1a1917; color: var(--ivory-2); border: 1px solid var(--hair); border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="stage"><svg id="svg" role="img" aria-label="互联网与 AI 三个阶段对照：AI 刚走到第二阶段门口，模型公司相当于当年的 AOL"></svg></div>
+<div id="controls">
+  <button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button><span id="clock">0.0s</span>
+</div>
+<script>
+const NS = "http://www.w3.org/2000/svg";
+
+const STAGES = [
+  { num: "01", desc: "基础设施" },
+  { num: "02", desc: "应用爆发" },
+  { num: "03", desc: "原生应用" },
+];
+// 每格内容；null 表示未知
+const ROWS = [
+  { name: "互联网", cells: [["AOL"], ["Netscape", "Yahoo"], ["Google", "Facebook"]] },
+  { name: "AI",     cells: [["OpenAI", "Anthropic"], null, null] },
+];
+
+// 时间轴（秒）
+const T = { title: 0, net: 3, ai: 10, here: 15, link: 23, end: 31 };
+
+// 字幕：小标 + 宋体主句；引语逐字取自节目页摘录
+const CAPS = [
+  { at: "net",  eyebrow: "回顾", v: ["互联网走完了三个阶段"], h: ["互联网走完了三个阶段"] },
+  { at: "ai",   eyebrow: "对照", v: ["AI 呢？"], h: ["AI 呢？"] },
+  { at: "here", eyebrow: "曾鸣说", v: ["我们现在刚刚走到浏览器阶段，", "甚至比 Yahoo 还要早。"], h: ["我们现在刚刚走到浏览器阶段，甚至比 Yahoo 还要早。"] },
+  { at: "link", eyebrow: "曾鸣说", v: ["模型公司就是", "未来的 AI 云公司。"], h: ["模型公司就是未来的 AI 云公司。"] },
+];
+
+// 两套版式。竖屏：阶段是行、互联网/AI 是列；横屏：阶段是列、互联网/AI 是行
+const LAYOUTS = {
+  v: { W: 1080, H: 1920,
+       open: { eyebrow: 840, lines: [960], size: 100 },
+       cap: { eyebrow: 330, main: [425, 505], size: 56, mainSingle: 64 },
+       // 网格
+       rule: { x1: 40, x2: 1040 }, rows: s => 800 + s * 320, rowH: 320,
+       head: (r) => ({ x: 470 + r * 380, y: 760 }),
+       stageLbl: s => ({ x: 150, y: 800 + s * 320 + 160 }),
+       cell: (r, s) => ({ cx: 470 + r * 380, cy: 800 + s * 320 + 160 }),
+       cellText: 54, q: 150, numSize: 28, descSize: 36,
+       here: { line: c => ({ x1: c.cx - 150, x2: c.cx + 150, y: c.cy - 110 }), label: c => ({ x: c.cx, y: c.cy - 50 }), qShift: c => ({ x: c.cx, y: c.cy + 90 }) },
+       link: { x: 660, y: 800 + 160 },
+       sep: "h" },
+  h: { W: 1920, H: 1080,
+       open: { eyebrow: 450, lines: [580], size: 104 },
+       cap: { eyebrow: 92, main: [178], size: 56, mainSingle: 60 },
+       rule: { x1: 120, x2: 1840 }, rows: s => 420 + s * 230, rowH: 230,
+       head: (r) => ({ x: 240, y: 420 + r * 230 + 115 }),
+       stageLbl: s => ({ x: 640 + s * 480, y: 330 }),
+       cell: (r, s) => ({ cx: 640 + s * 480, cy: 420 + r * 230 + 115 }),
+       cellText: 52, q: 140, numSize: 26, descSize: 34,
+       here: { line: c => ({ x: c.cx - 170, y1: c.cy - 100, y2: c.cy + 100 }), label: c => ({ x: c.cx - 140, y: c.cy + 14, anchor: "start" }), qShift: c => ({ x: c.cx + 150, y: c.cy }) },
+       link: { x: 640, y: 420 + 230 },
+       sep: "v" },
+};
+
+const svg = document.getElementById("svg");
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || svg).appendChild(e);
+  return e;
+}
+function txt(s, attrs, parent) { const e = el("text", attrs, parent); e.textContent = s; return e; }
+function block(arr, cx, cy, size, attrs, parent) {
+  const g = el("g", {}, parent), lh = size * 1.25, y0 = cy - (arr.length - 1) * lh / 2 + size * 0.35;
+  arr.forEach((s, i) => txt(s, { x: cx, y: y0 + i * lh, "text-anchor": "middle", "font-size": size, ...attrs }, g));
+  return g;
+}
+
+let L, ratio, N = {};
+function build(r) {
+  ratio = r; L = LAYOUTS[r];
+  svg.innerHTML = ""; N = {};
+  svg.setAttribute("viewBox", `0 0 ${L.W} ${L.H}`);
+  document.getElementById("stage").className = r;
+  const cx = L.W / 2;
+
+  // 背景：暗角 + 胶片颗粒
+  const defs = el("defs", {});
+  const rg = el("radialGradient", { id: "vig", cx: "50%", cy: "45%", r: "75%" }, defs);
+  el("stop", { offset: "0%", "stop-color": "#1b1915" }, rg);
+  el("stop", { offset: "100%", "stop-color": "#080707" }, rg);
+  const glow = el("radialGradient", { id: "glow" }, defs);
+  el("stop", { offset: "0%", "stop-color": "#e8654a", "stop-opacity": 0.55 }, glow);
+  el("stop", { offset: "100%", "stop-color": "#e8654a", "stop-opacity": 0 }, glow);
+  const f = el("filter", { id: "grain" }, defs);
+  el("feTurbulence", { type: "fractalNoise", baseFrequency: 0.9, numOctaves: 2, stitchTiles: "stitch" }, f);
+  el("feColorMatrix", { values: "0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.5 0" }, f);
+  el("rect", { width: L.W, height: L.H, fill: "url(#vig)" });
+  el("rect", { width: L.W, height: L.H, filter: "url(#grain)", opacity: 0.07 });
+
+  // 开场
+  N.openEyebrow = txt("AI · 现在", { x: cx, y: L.open.eyebrow, "text-anchor": "middle", "font-size": 30, "letter-spacing": 8, fill: "var(--accent)" });
+  N.openLines = ["AI 走到哪一步了？"].map((s, i) => txt(s, { x: cx, y: L.open.lines[i], "text-anchor": "middle", "font-size": L.open.size, "font-weight": 900, class: "serif" }));
+
+  // 字幕
+  N.caps = CAPS.map(c => {
+    const g = el("g", { opacity: 0 });
+    const e = txt(c.eyebrow, { x: cx, y: L.cap.eyebrow, "text-anchor": "middle", "font-size": 30, "letter-spacing": 8, fill: "var(--accent)" }, g);
+    const lines = c[r];
+    const m = lines.map((s, i) => txt(s, { x: cx, y: lines.length === 1 ? L.cap.main[0] : L.cap.main[i], "text-anchor": "middle",
+      "font-size": lines.length === 1 ? L.cap.mainSingle : L.cap.size, "font-weight": 700, class: "serif" }, g));
+    return { ...c, g, e, m };
+  });
+
+  // 网格：只用细线分隔，不画格子
+  N.grid = el("g", { opacity: 0 });
+  for (let s = 0; s <= (r === "v" ? 3 : 2); s++) {
+    const y = L.rows(s);
+    N.grid.appendChild(el("line", { x1: L.rule.x1, x2: L.rule.x2, y1: y, y2: y, stroke: "var(--hair)", "stroke-width": 2 }));
+  }
+  ROWS.forEach((row, ri) => {
+    const hp = L.head(ri);
+    txt(row.name, { x: hp.x, y: hp.y + (r === "h" ? 14 : 0), "text-anchor": "middle", "font-size": r === "v" ? 32 : 40, "letter-spacing": 8, fill: "var(--ivory-2)", "font-weight": 500 }, N.grid);
+  });
+  STAGES.forEach((st, s) => {
+    const p = L.stageLbl(s);
+    txt(st.num, { x: p.x, y: p.y - 14, "text-anchor": "middle", "font-size": L.numSize, "letter-spacing": 4, fill: "var(--accent)" }, N.grid);
+    txt(st.desc, { x: p.x, y: p.y + 32, "text-anchor": "middle", "font-size": L.descSize, fill: "var(--ivory-2)" }, N.grid);
+  });
+
+  // 格子内容
+  ROWS.forEach((row, ri) => {
+    row.els = row.cells.map((items, s) => {
+      const c = L.cell(ri, s), g = el("g", { opacity: 0 });
+      let q = null;
+      if (items) block(items, c.cx, c.cy, L.cellText, { "font-weight": 500 }, g);
+      else {
+        const pos = s === 1 ? L.here.qShift(c) : { x: c.cx, y: c.cy };
+        q = txt("?", { x: pos.x, y: pos.y + L.q * 0.35, "text-anchor": "middle", "font-size": L.q, "font-weight": 300, fill: "var(--ivory-3)" }, g);
+      }
+      return { g, c, q, known: !!items };
+    });
+  });
+
+  // 「我们在这里」：AI 第二阶段的开头，一个发光的点 + 一条线
+  const hc = ROWS[1].els[1].c;
+  N.here = el("g", { opacity: 0 });
+  const hl = L.here.line(hc), lb = L.here.label(hc);
+  if (L.sep === "h") {
+    el("line", { x1: hl.x1, x2: hl.x2, y1: hl.y, y2: hl.y, stroke: "var(--accent)", "stroke-width": 3 }, N.here);
+    el("circle", { cx: hl.x1, cy: hl.y, r: 40, fill: "url(#glow)" }, N.here);
+    el("circle", { cx: hl.x1, cy: hl.y, r: 10, fill: "var(--accent)" }, N.here);
+  } else {
+    el("line", { x1: hl.x, x2: hl.x, y1: hl.y1, y2: hl.y2, stroke: "var(--accent)", "stroke-width": 3 }, N.here);
+    el("circle", { cx: hl.x, cy: hl.y1, r: 40, fill: "url(#glow)" }, N.here);
+    el("circle", { cx: hl.x, cy: hl.y1, r: 10, fill: "var(--accent)" }, N.here);
+  }
+  txt("我们在这里", { x: lb.x, y: lb.y, "text-anchor": lb.anchor || "middle", "font-size": 40, "font-weight": 700, "letter-spacing": 4, fill: "var(--accent)" }, N.here);
+
+  // AOL ≈ 模型公司
+  N.link = el("g", { opacity: 0 });
+  // 横屏时 ≈ 压在分隔线上，用底色遮住那一小段线
+  if (r === "h") el("rect", { x: L.link.x - 40, y: L.link.y - 30, width: 80, height: 60, fill: "#161512" }, N.link);
+  txt("≈", { x: L.link.x, y: L.link.y + 26, "text-anchor": "middle", "font-size": 80, "font-weight": 300, fill: "var(--accent)" }, N.link);
+}
+
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const prog = (t, t0, d) => clamp((t - t0) / d);
+function reveal(e, p, dy = 24) { e.setAttribute("opacity", p); e.setAttribute("transform", `translate(0,${(1 - easeOut(p)) * dy})`); }
+
+function render(t) {
+  const openOut = 1 - prog(t, T.net - 0.6, 0.6);
+  reveal(N.openEyebrow, prog(t, 0.2, 0.8) * openOut);
+  N.openLines.forEach((e, i) => reveal(e, prog(t, 0.6 + i * 0.35, 0.9) * openOut, 30));
+
+  const order = ["net", "ai", "here", "link"], at = k => T[k];
+  N.caps.forEach((c, i) => {
+    const t0 = at(c.at), t1 = i + 1 < N.caps.length ? at(N.caps[i + 1].at) : T.end + 99;
+    const out = 1 - prog(t, t1 - 0.4, 0.4);
+    reveal(c.e, prog(t, t0, 0.5) * out, 16);
+    c.m.forEach((m, j) => reveal(m, prog(t, t0 + 0.15 + j * 0.2, 0.6) * out, 20));
+    c.g.setAttribute("opacity", t >= t0 - 0.01 && t < t1 ? 1 : 0);
+  });
+
+  N.grid.setAttribute("opacity", prog(t, T.net, 0.8));
+  const lk = easeOut(prog(t, T.link + 0.6, 0.9));
+  ROWS.forEach((row, ri) => row.els.forEach((e, s) => {
+    const t0 = ri === 0 ? T.net + 0.8 + s * 1.8 : T.ai + 0.8 + s * 1.0;
+    reveal(e.g, prog(t, t0, 0.7) * (s === 0 ? 1 : 1 - 0.75 * lk), 18);
+  }));
+  // 问号轻轻呼吸，表示未知
+  ROWS[1].els.forEach(e => { if (e.q) e.q.setAttribute("opacity", 0.75 + 0.25 * Math.sin(t * 2.2)); });
+  reveal(N.here, prog(t, T.here + 0.9, 0.6) * (1 - 0.7 * lk), 0);
+  N.link.setAttribute("opacity", lk);
+  document.getElementById("clock").textContent = t.toFixed(1) + "s";
+}
+
+// 播放控制；?ar=h 横屏（默认竖屏），?t=秒 定格到某一帧
+const params = new URLSearchParams(location.search);
+build(params.get("ar") === "h" ? "h" : "v");
+let playing = !params.has("t"), offset = parseFloat(params.get("t") || 0), startAt = performance.now();
+function now() { return playing ? offset + (performance.now() - startAt) / 1000 : offset; }
+function frame() {
+  const t = now();
+  render(Math.min(t, T.end));
+  if (t >= T.end && playing) { offset = T.end; playing = false; document.getElementById("play").textContent = "播放"; }
+  requestAnimationFrame(frame);
+}
+document.getElementById("play").onclick = e => {
+  if (playing) { offset = now(); playing = false; } else { if (offset >= T.end) offset = 0; startAt = performance.now(); playing = true; }
+  e.target.textContent = playing ? "暂停" : "播放";
+};
+document.getElementById("restart").onclick = () => { offset = 0; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; };
+document.getElementById("ratio").onclick = () => build(ratio === "v" ? "h" : "v");
+document.getElementById("fs").onclick = () => document.documentElement.requestFullscreen?.();
+document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("play").click(); } });
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
