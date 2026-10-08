@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>为什么 OpenAI 很可能赢不到最后</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  /* 孔版印刷（riso）风格：米白纸、蓝/橙/深棕三色网点，取自 Dylan He 的 logo */
+  :root {
+    color-scheme: light;
+    --paper: #ece6da;
+    --ink: #3d2a2d;
+    --blue: #4a5cc0;
+    --orange: #e8773d;
+    --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  }
+  html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); overflow: hidden; font-family: var(--sans); }
+  body { display: flex; align-items: center; justify-content: center; }
+  #stage.h { width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; }
+  #stage.v { height: 100vh; width: 56.25vh; max-width: 100vw; max-height: 177.78vw; }
+  canvas { width: 100%; height: 100%; display: block; }
+  #controls { position: fixed; left: 16px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--ink); opacity: 0; transition: opacity .3s; }
+  body:hover #controls { opacity: 1; }
+  @media (hover: none) { #controls { opacity: 1; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); } }
+  #controls button { background: var(--paper); color: var(--ink); border: 1px solid rgba(61, 42, 45, .35); border-radius: 6px; padding: 4px 9px; font: inherit; cursor: pointer; }
+  #controls button.on { background: var(--ink); color: var(--paper); }
+  #controls button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  #speeds, #acts { display: flex; flex-wrap: wrap; gap: 4px; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv" aria-label="动画：巨浪冲走沙堡，解读曾鸣访谈"></canvas></div>
+<div id="controls">
+  <button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button>
+  <span id="speeds"><button data-s="1">1×</button><button data-s="1.5">1.5×</button><button data-s="2">2×</button><button data-s="3">3×</button></span>
+  <span id="acts"></span><span id="clock">0.0s</span>
+</div>
+<script>
+/*__HANZI__*/
+/* ================= 工具 ================= */
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const prog = (t, t0, d) => clamp((t - t0) / d);
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const lerp = (a, b, k) => a + (b - a) * k;
+const smooth = (a, b, x) => { const k = clamp((x - a) / (b - a)); return k * k * (3 - 2 * k); };
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mix = (a, b, k) => { const A = hex(a), B = hex(b); return `rgb(${A.map((v, i) => Math.round(lerp(v, B[i], k))).join(",")})`; };
+const rgba = (h, a) => { const [r, g, b] = hex(h); return `rgba(${r},${g},${b},${a})`; };
+const fmt = v => Math.round(v).toLocaleString("en-US");
+
+const C = { paper: "#ece6da", ink: "#3d2a2d", blue: "#4a5cc0", orange: "#e8773d", cream: "#efe7d6", dark: "#2e2326", blueLight: "#8496ee" };
+const SANS = '"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif', SERIF = '"Noto Serif SC","Songti SC","STSong",serif';
+
+/* ================= 手写：汉字按笔顺写出 ================= */
+// HANZI[ch] = { s: [svg 轮廓], m: [[[x,y],…] 笔画中线] }，1024 方框、y 向上；数据取自 Make Me a Hanzi（Arphic 公共许可）
+const HAND = '"Caveat","Noto Sans SC",cursive';
+const GLYPH = {};
+const COMPOSE = { "珺": [{ ch: "王", sx: 0.42, dx: 40 }, { ch: "君", sx: 0.6, dx: 400 }] };
+const PUNCT = {
+  "，": [[[250, 150], [262, 95], [235, 30], [190, -30]]],
+  "、": [[[200, 170], [260, 120], [310, 60]]],
+  "。": [[[230, 140], [285, 120], [300, 70], [262, 25], [205, 30], [180, 80], [205, 128], [235, 140]]],
+  "：": [[[300, 560], [312, 540]], [[300, 200], [312, 180]]],
+  "；": [[[300, 560], [312, 540]], [[305, 210], [315, 160], [290, 90], [250, 40]]],
+  "？": [[[330, 690], [380, 770], [500, 800], [610, 760], [640, 660], [560, 560], [500, 470], [500, 360]], [[495, 200], [505, 180]]],
+  "！": [[[500, 790], [500, 330]], [[495, 190], [505, 170]]],
+  "「": [[[620, 800], [430, 800], [430, 520]]],
+  "」": [[[200, 260], [200, -20], [10, -20]]],
+  "·": [[[500, 400], [512, 385]]],
+  "—": [[[60, 380], [964, 380]]],
+  "→": [[[60, 380], [900, 380]], [[700, 520], [920, 380], [700, 240]]],
+  "=": [[[160, 470], [860, 470]], [[160, 290], [860, 290]]],
+};
+const NARROW = "，。、；：「」·";
+const isLatin = ch => /[A-Za-z0-9.%+\-−×]/.test(ch);
+const polyLen = m => { let l = 0; for (let i = 1; i < m.length; i++) l += Math.hypot(m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]); return Math.max(l, 1); };
+function glyph(ch) {
+  if (ch in GLYPH) return GLYPH[ch];
+  let g = null;
+  if (COMPOSE[ch]) g = { parts: COMPOSE[ch] };
+  else if (typeof HANZI !== "undefined" && HANZI[ch]) g = { strokes: HANZI[ch].s.map(q => new Path2D(q)), medians: HANZI[ch].m };
+  else if (PUNCT[ch]) g = { medians: PUNCT[ch] };
+  if (g && g.medians) g.lens = g.medians.map(polyLen);
+  return GLYPH[ch] = g;
+}
+function partialPath(m, len) {
+  ctx.beginPath(); ctx.moveTo(m[0][0], m[0][1]);
+  let acc = 0;
+  for (let i = 1; i < m.length; i++) {
+    const d = Math.hypot(m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]);
+    if (acc + d >= len) { const k = (len - acc) / d; ctx.lineTo(lerp(m[i - 1][0], m[i][0], k), lerp(m[i - 1][1], m[i][1], k)); return; }
+    acc += d; ctx.lineTo(m[i][0], m[i][1]);
+  }
+  if (m.length === 1 || len < 2) ctx.lineTo(m[0][0] + 1, m[0][1]);
+}
+// style：ink = 楷体轮廓按笔顺显出；pen = 细笔中线；felt = 粗笔中线
+function drawGlyph(ch, x, y, size, p, style, color, alpha = 1) {
+  const g = glyph(ch);
+  if (!g || p <= 0) return;
+  ctx.save(); ctx.translate(x, y);
+  if (g.parts) {
+    g.parts.forEach((pt, i) => { ctx.save(); ctx.translate(pt.dx / 1024 * size, 0); ctx.scale(pt.sx, 1); drawGlyph(pt.ch, 0, 0, size, clamp(p * g.parts.length - i), style, color, alpha); ctx.restore(); });
+    ctx.restore(); return;
+  }
+  const k = size / 1024; ctx.scale(k, -k); ctx.translate(0, -900);
+  ctx.globalAlpha *= alpha; ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const total = g.lens.reduce((a, b) => a + b, 0);
+  let acc = 0;
+  for (let i = 0; i < g.medians.length; i++) {
+    const s0 = acc / total, s1 = (acc + g.lens[i]) / total; acc += g.lens[i];
+    const sp = clamp((p - s0) / (s1 - s0)); if (sp <= 0) break;
+    if (style === "ink" && g.strokes) {
+      if (sp >= 1) ctx.fill(g.strokes[i]);
+      else { ctx.save(); ctx.clip(g.strokes[i]); ctx.lineWidth = 160; partialPath(g.medians[i], sp * g.lens[i]); ctx.stroke(); ctx.restore(); }
+    } else { ctx.lineWidth = style === "pen" ? 54 : style === "felt" ? 80 : 96; partialPath(g.medians[i], sp * g.lens[i]); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+function latinFont(size, bold) { return `${bold ? 700 : 500} ${size * 1.08}px ${HAND}`; }
+function tokens(str) { const out = []; let buf = ""; for (const ch of str) { if (isLatin(ch) || (ch === " " && buf && isLatin(buf[buf.length - 1]))) buf += ch; else { if (buf) { out.push(buf.trimEnd()); buf = ""; } if (ch !== " ") out.push(ch); else out.push(" "); } } if (buf) out.push(buf.trimEnd()); return out; }
+const LAYOUT_CACHE = {};
+function layoutLine(str, size, bold) {
+  const key = str + "|" + size + "|" + bold;
+  if (LAYOUT_CACHE[key]) return LAYOUT_CACHE[key];
+  ctx.save();
+  const items = []; let x = 0;
+  for (const tok of tokens(str)) {
+    if (tok === " ") { x += size * 0.3; continue; }
+    const lat = isLatin(tok[0]);
+    let w;
+    if (lat) { ctx.font = latinFont(size, bold); w = ctx.measureText(tok).width + size * 0.04; if (items.length && !items[items.length - 1].lat) x += size * 0.06; }
+    else { w = size * (NARROW.includes(tok) ? 0.62 : 1.02); if (NARROW.includes(tok) && items.length && items[items.length - 1].lat) x += size * 0.1; }
+    items.push({ tok, x, w, lat, n: lat ? Math.max(1, tok.length * 0.35) : 1 });
+    x += w;
+  }
+  ctx.restore();
+  return LAYOUT_CACHE[key] = { items, w: x, n: items.reduce((a, b) => a + b.n, 0) };
+}
+// 写一行字。baseline：基线 y；t0 起笔时间；per：每个字的时间；返回写完的时刻
+function drawHand(str, x, baseline, size, o, t) {
+  const lay = layoutLine(str, size, o.bold), x0 = o.align === "left" ? x : o.align === "right" ? x - lay.w : x - lay.w / 2;
+  let tt = o.t0;
+  for (const it of lay.items) {
+    const d = o.per * it.n, p = d > 0 ? clamp((t - tt) / d) : (t >= tt ? 1 : 0);
+    if (p > 0) {
+      if (it.lat) {
+        ctx.save(); ctx.font = latinFont(size, o.bold); ctx.globalAlpha *= o.a ?? 1; ctx.fillStyle = o.c;
+        ctx.beginPath(); ctx.rect(x0 + it.x - 2, baseline - size * 1.2, (it.w + 6) * p, size * 1.6); ctx.clip();
+        ctx.fillText(it.tok, x0 + it.x, baseline); ctx.restore();
+      } else {
+        // 标点紧贴前一个字：句读放在格子左下
+        const gx = NARROW.includes(it.tok) && "，。、".includes(it.tok) ? x0 + it.x - size * 0.12 : NARROW.includes(it.tok) ? x0 + it.x - size * 0.22 : x0 + it.x;
+        drawGlyph(it.tok, gx, baseline - size * 0.86, size, p, o.style, o.c, o.a ?? 1);
+      }
+    }
+    tt += d;
+  }
+  return tt;
+}
+const handLen = (str, size, bold) => layoutLine(str, size, bold).n;
+
+/* ================= 时间轴（秒） ================= */
+const ACTS = [["开场", 0], ["筑沙堡", 16], ["浪来了", 36], ["AI", 52], ["同质化", 68], ["新入口", 94], ["反方", 120], ["收尾", 150]];
+const TOTAL = 176;
+
+// 字幕：原话 = 节目页摘录，一字不改，打「」；转述 = 曾鸣观点换了说法；补充 = 本片加的；反方 = 本片反驳曾鸣的观点
+const CAPS = [
+  { k: "quote", at: 9, to: 16, v: ["我从来觉得在巨浪面前", "没有人是安全的。", "谁觉得安全，", "谁就是最不安全的。"], h: ["我从来觉得在巨浪面前没有人是安全的。", "谁觉得安全，谁就是最不安全的。"] },
+  { k: "para", at: 16, to: 22, v: ["第一阶段", "技术成为社会基础设施"], h: ["第一阶段：技术成为社会基础设施"] },
+  { k: "para", at: 22, to: 28, v: ["第二阶段", "基础设施上长出海量新应用"], h: ["第二阶段：基础设施上长出海量新应用"] },
+  { k: "para", at: 28, to: 36, v: ["第三阶段", "需要更底层的方法运行新世界"], h: ["第三阶段：需要更底层的方法运行新世界"] },
+  { k: "add", at: 36, to: 43, v: ["后来，浪来了"] },
+  { k: "quote", at: 43, to: 52, v: ["第一阶段的企业，", "很难活到第二阶段；", "第二阶段的企业，", "很难活到第三阶段。"], h: ["第一阶段的企业，很难活到第二阶段；", "第二阶段的企业，很难活到第三阶段。"] },
+  { k: "quote", at: 52.5, to: 60, v: ["我们现在刚刚走到浏览器阶段，", "甚至比 Yahoo 还要早。"], h: ["我们现在刚刚走到浏览器阶段，甚至比 Yahoo 还要早。"] },
+  { k: "quote", at: 60, to: 68, v: ["Anthropic、OpenAI，", "大概率不是原生应用阶段的", "大玩家、大赢家。"], h: ["Anthropic、OpenAI，大概率不是原生应用阶段的大玩家、大赢家。"] },
+  { k: "quote", at: 68, to: 77, v: ["因为经济学基本规律，", "只要有同质化的供给，", "你就不可能获取高额利润，", "你就是一家不怎么值钱的公司。"], h: ["因为经济学基本规律，只要有同质化的供给，", "你就不可能获取高额利润，你就是一家不怎么值钱的公司。"] },
+  { k: "add", at: 77, to: 83, v: ["电力、电信、云计算，", "都走到了同一个结局"], h: ["电力、电信、云计算，都走到了同一个结局"] },
+  { k: "quote", at: 83, to: 89, v: ["公共基础设施的行业，", "只有一种商业模式是成立的，", "叫寡头垄断加政府强监管"], h: ["公共基础设施的行业，只有一种商业模式是成立的，", "叫寡头垄断加政府强监管"] },
+  { k: "quote", at: 89, to: 94, v: ["直白一点说，", "模型公司就是未来的 AI 云公司。"], h: ["直白一点说，模型公司就是未来的 AI 云公司。"] },
+  { k: "quote", at: 94, to: 101, v: ["下个阶段就是看", "谁是 Netscape、谁是 Yahoo，", "谁把 Agent 的标准建立起来，", "谁抢住 Agent 的用户入口。"], h: ["下个阶段就是看谁是 Netscape、谁是 Yahoo，", "谁把 Agent 的标准建立起来，谁抢住 Agent 的用户入口。"] },
+  { k: "quote", at: 101, to: 106, v: ["未来三年是有可能", "开始出现 Agent 入口的。"], h: ["未来三年是有可能开始出现 Agent 入口的。"] },
+  { k: "quote", at: 106, to: 111.5, v: ["新的平台大概率", "不诞生自旧的平台。"], h: ["新的平台大概率不诞生自旧的平台。"] },
+  { k: "quote", at: 111.5, to: 120, v: ["因为旧平台做的是简单信息匹配，", "新平台要做的是能力跟需求的匹配，", "复杂度高了很多。"], h: ["因为旧平台做的是简单信息匹配，", "新平台要做的是能力跟需求的匹配，复杂度高了很多。"] },
+  { k: "counter", at: 124, to: 130, v: ["但这个类比，", "有一个值得盯住的漏洞"], h: ["但这个类比，有一个值得盯住的漏洞"] },
+  { k: "counter", at: 130, to: 137, v: ["AOL 只负责接入；", "模型公司在生产智能本身"], h: ["AOL 只负责接入；模型公司在生产智能本身"] },
+  { k: "counter", at: 137, to: 142, v: ["关键变量：", "最强的模型，能不能一直领先？"], h: ["关键变量：最强的模型，能不能一直领先？"] },
+  { k: "counter", at: 142, to: 146, v: ["如果被追平：", "石头也会变成沙，曾鸣的判断成立"], h: ["如果被追平：石头也会变成沙，曾鸣的判断成立"] },
+  { k: "counter", at: 146, to: 150, v: ["如果一直领先：", "石头留下，结论要打折扣"], h: ["如果一直领先：石头留下，结论要打折扣"] },
+  { k: "quote", at: 152, to: 164, v: ["这一点都不让人绝望啊，", "人有生老病死，", "公司也有生老病死，", "没有比这更正常的了。", "这样，新公司才有机会，", "年轻人才有梦想，", "这多好的一件事情啊！"],
+    h: ["这一点都不让人绝望啊，人有生老病死，公司也有生老病死，", "没有比这更正常的了。这样，新公司才有机会，", "年轻人才有梦想，这多好的一件事情啊！"] },
+  { k: "add", at: 164, to: 171, v: ["下一个阶段的赢家，", "也许今天还没有名字"], h: ["下一个阶段的赢家，也许今天还没有名字"] },
+];
+const KIND = { quote: "原话 · 曾鸣", para: "转述 · 曾鸣观点", add: "补充 · 本片", counter: "反方 · 本片观点，非曾鸣原意" };
+const FOOTS = [
+  { at: 16, to: 52, v: ["沙堡高度按市值比例（亿美元）· 数据：CNN、美国证监会文件、上市报道", "把公司归入三个阶段，是本片的推断"], h: ["沙堡高度按市值比例（亿美元）· 数据：CNN、美国证监会文件、上市报道 · 把公司归入三个阶段，是本片的推断"] },
+  { at: 52, to: 68, v: ["OpenAI、Anthropic 的沙堡与 AOL 同形，取自曾鸣把模型公司比作 AOL", "沙堡高度为示意，不代表估值"], h: ["OpenAI、Anthropic 的沙堡与 AOL 同形，取自曾鸣把模型公司比作 AOL · 高度为示意，不代表估值"] },
+  { at: 68, to: 94, v: ["电力、电信、云计算三例为本片补充"] },
+  { at: 94, to: 120, v: ["需求连向多种能力的网，是本片的示意"] },
+  { at: 150, to: 171, v: ["素材：张小珺商业访谈录第 153 期 · 嘉宾曾鸣 · 「」内原话均取自节目页摘录", "汉字笔画数据：Make Me a Hanzi（Arphic 公共许可）"], h: ["素材：张小珺商业访谈录第 153 期 · 嘉宾曾鸣 · 「」内原话均取自节目页摘录 · 汉字笔画：Make Me a Hanzi（Arphic 公共许可）"] },
+];
+
+/* ================= 版式 ================= */
+const LAY = {
+  v: { W: 1080, H: 1920, G: 1480, S: 880, slope: 0.9, cell: 12, sandD: 230, maxH: 600, castleW: 130,
+       castles: [230, 400, 570, 740], figX: 92, ai: [330, 520], copies: { x0: 200, n: 14, step: 46, w: 38, h: 120 }, wall: { x0: 160, x1: 840, h: 64 },
+       stone: { x: 520, r: 135 }, net: { cx: 540, cy: 1120, rx: 400, ry: 230 },
+       cap: { pill: 250, y0: 350, lh: 78, size: 54, sizeAdd: 50 }, foot: { y: [1790, 1832], size: 24 },
+       title: { eyebrow: 470, y: 690, size: 250, legend: 860, step: 100 } },
+  h: { W: 1920, H: 1080, G: 880, S: 1520, slope: 0.6, cell: 12, sandD: 130, maxH: 440, castleW: 170,
+       castles: [430, 660, 890, 1120], figX: 230, ai: [560, 820], copies: { x0: 380, n: 15, step: 70, w: 54, h: 130 }, wall: { x0: 340, x1: 1460, h: 66 },
+       stone: { x: 900, r: 135 }, net: { cx: 900, cy: 560, rx: 640, ry: 190 },
+       cap: { pill: 62, y0: 142, lh: 68, size: 50, sizeAdd: 46 }, foot: { y: [1050], size: 21 },
+       title: { eyebrow: 220, y: 410, size: 210, legend: 560, step: 74 } },
+};
+let L, R, W, H, G, S, K;
+
+/* ================= 海浪 ================= */
+// 每道浪：t0 开始，dur 时长，amp 高度（相对最高沙堡），reach 最远冲到的 x
+let WAVES;
+function makeWaves() {
+  const m = L.maxH;
+  WAVES = [
+    { t0: 10, dur: 6, amp: 0.2 * m, reach: S - 220 },
+    { t0: 37.5, dur: 8, amp: 1.12 * m, reach: -80 },
+    { t0: 77.3, dur: 3.6, amp: 0.32 * m, reach: L.wall.x0 - 60 },
+    { t0: 80.3, dur: 3.6, amp: 0.34 * m, reach: L.wall.x0 - 60 },
+    { t0: 83.3, dur: 3.6, amp: 0.3 * m, reach: L.wall.x0 - 60 },
+    { t0: 132, dur: 3.4, amp: 0.45 * m, reach: L.stone.x - 260 },
+    { t0: 135.6, dur: 3.4, amp: 0.5 * m, reach: L.stone.x - 260 },
+    { t0: 139.2, dur: 3.4, amp: 0.48 * m, reach: L.stone.x - 260 },
+    { t0: 150.5, dur: 9, amp: 1.55 * m, reach: -250 },
+  ];
+}
+function front(w, t) {
+  const p = (t - w.t0) / w.dur;
+  if (p <= 0 || p >= 1) return null;
+  if (p < 0.6) return lerp(W + 160, w.reach, easeInOut(p / 0.6));
+  return lerp(w.reach, S + 60, easeInOut((p - 0.6) / 0.4));
+}
+function waveAmp(w, t) { const p = (t - w.t0) / w.dur; return w.amp * smooth(0, 0.15, p) * (1 - smooth(0.55, 1, p)); }
+// x 处海面高出海滩的高度
+function waveH(x, t) {
+  let h = 0;
+  for (const w of WAVES) {
+    const f = front(w, t); if (f === null || x < f) continue;
+    const a = waveAmp(w, t), d = x - f;
+    h = Math.max(h, a * (1 - Math.exp(-d / 55)) * (0.55 + 0.45 * Math.exp(-d / 500)) + a * 0.22 * Math.exp(-(((d - 45) / 40) ** 2)));
+  }
+  return h;
+}
+const groundY = x => G + Math.max(0, x - S) * L.slope;
+const surfaceY = (x, t) => G + 6 - waveH(x, t) - 5 * Math.sin(x * 0.018 - t * 1.6) - 3 * Math.sin(x * 0.041 + t * 1.1);
+// 浪头第一次越过 x 的时刻
+function passTime(w, x) { for (let t = w.t0; t < w.t0 + w.dur * 0.6; t += 0.02) { const f = front(w, t); if (f !== null && f <= x + 20) return t; } return w.t0 + w.dur; }
+
+/* ================= 沙堡 ================= */
+function inCastle(dx, dy, w, h) {
+  // dx：离中心的水平距离；dy：离地高度。旗尖的高度就是 h（市值），城堡本体都在它下面
+  const ax = Math.abs(dx);
+  const crenel = (x, top, step) => (Math.floor((x + 999) / step) % 2 === 0) ? top : top - step * 0.8;
+  if (ax < w * 0.1 && dy < h * 0.15 && Math.hypot(ax / (w * 0.1), dy / (h * 0.15)) < 1.25) return false;   // 城门洞
+  const bodyH = h * 0.48, sideW = w * 0.2, sideH = h * 0.66, midW = w * 0.16, midH = h * 0.86;
+  if (ax <= w * 0.4 && dy <= crenel(dx, bodyH, w / 9)) return true;                        // 城墙 + 垛口
+  if (ax >= w * 0.5 - sideW && ax <= w * 0.5 && dy <= crenel(dx, sideH, sideW / 2)) return true;   // 两侧塔楼
+  if (ax <= midW && dy <= crenel(dx, midH, midW / 1.5)) return true;                     // 中间高塔
+  if (ax <= 2 && dy <= h) return true;                                                   // 旗杆
+  if (dx >= 0 && dx <= w * 0.2 && dy >= h * 0.9 && dy <= h && dx <= (h - dy) * 2.2 * w / h + 0) return true; // 小旗
+  return false;
+}
+function sampleCastle(r, cx, w, h, dens) {
+  const pts = [], n = Math.round(w * h * 0.75 / dens);
+  let guard = 0;
+  while (pts.length < n && guard++ < n * 8) {
+    const dx = (r() - 0.5) * w, dy = r() * h;
+    if (inCastle(dx, dy, w, h)) pts.push([cx + dx, G - dy]);
+  }
+  return pts;
+}
+function sampleDome(r, cx, w, h) { const dx = (r() - 0.5) * w, k = 1 - (2 * dx / w) ** 2; return [cx + dx, G - r() * h * k]; }
+
+let MAIN, BEACH, STONE, NET, PAPER, LOGO = null, SKETCH = [];
+// 城堡外轮廓（和 inCastle 同样的比例），用来先用细笔起稿
+function castleOutline(cx, w, h) {
+  const base = G, sw = w * 0.2, mw = w * 0.16, bh = h * 0.48, sh = h * 0.66, mh = h * 0.86;
+  const cren = (x0, x1, y, n) => { const pts = [], st = (x1 - x0) / n; for (let i = 0; i < n; i++) { const a = x0 + i * st, up = i % 2 === 0; pts.push([a, y - (up ? st * 0.8 : 0)], [a + st, y - (up ? st * 0.8 : 0)], [a + st, y - (up ? 0 : st * 0.8)]); } return pts; };
+  return [[cx - w / 2, base], [cx - w / 2, base - sh], ...cren(cx - w / 2, cx - w / 2 + sw, base - sh, 2), [cx - w * 0.4, base - bh], ...cren(cx - w * 0.4, cx - mw, base - bh, 3),
+    [cx - mw, base - mh], ...cren(cx - mw, cx + mw, base - mh, 3), [cx, base - mh], [cx, base - h], [cx + w * 0.2, base - h * 0.95], [cx, base - h * 0.9],
+    [cx + mw, base - mh], [cx + mw, base - bh], ...cren(cx + mw, cx + w * 0.4, base - bh, 3), [cx + w / 2 - sw, base - sh], ...cren(cx + w / 2 - sw, cx + w / 2, base - sh, 2), [cx + w / 2, base]];
+}
+// 起稿线：pts 折线，t0 开始画，dur 画完，alpha(t) 之后的浓淡
+function sketch(pts, t0, dur, alpha) {
+  const r = rng(Math.round(pts[0][0] * 3 + t0 * 100)), P = [];
+  for (let i = 0; i < pts.length - 1; i++) { const [ax, ay] = pts[i], [bx, by] = pts[i + 1], n = Math.max(2, Math.ceil(Math.hypot(bx - ax, by - ay) / 12)); for (let j = 0; j < n; j++) P.push([lerp(ax, bx, j / n) + (r() - 0.5) * 1.4, lerp(ay, by, j / n) + (r() - 0.5) * 1.4]); }
+  P.push(pts[pts.length - 1]);
+  const Ls = [0]; for (let i = 1; i < P.length; i++) Ls.push(Ls[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  SKETCH.push({ P, Ls, t0, dur, alpha });
+}
+function drawSketch(t, inv) {
+  ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = inv > 0.5 ? C.cream : C.ink;
+  for (const s of SKETCH) {
+    const p = easeInOut(prog(t, s.t0, s.dur)); if (p <= 0) continue;
+    const a = s.alpha(t); if (a <= 0.01) continue;
+    const lim = s.Ls[s.Ls.length - 1] * p;
+    for (const [w, al, off] of [[2.4, 0.8, 0], [1.4, 0.35, 0.9]]) {
+      ctx.globalAlpha = a * al; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(s.P[0][0] + off, s.P[0][1]);
+      for (let i = 1; i < s.P.length && s.Ls[i] <= lim; i++) ctx.lineTo(s.P[i][0] + off, s.P[i][1] - off * 0.5);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+const COS = [
+  { co: "AOL", v: 1630, yr: "2000", stage: 0, exit: { v: 44, yr: "2015 年卖掉", pct: "−97%" } },
+  { co: "YAHOO", v: 1200, yr: "2000", stage: 1, exit: { v: 48, yr: "2016 年卖掉", pct: "−96%" } },
+  { co: "GOOGLE", v: 1870, yr: "2007", stage: 2 },
+  { co: "FACEBOOK", v: 1040, yr: "2012 上市", stage: 2 },
+];
+const STAGE_T = [16, 22, 28];
+
+function build(ratio) {
+  R = ratio; L = LAY[R]; W = L.W; H = L.H; G = L.G; S = L.S; K = L.maxH / 1870;
+  cv.width = W; cv.height = H;
+  document.getElementById("stage").className = R;
+  makeWaves();
+  SKETCH = [];
+  const r = rng(7);
+  const dens = R === "v" ? 24 : 26;
+
+  // 第一片海滩：四座沙堡
+  MAIN = COS.map((c, i) => {
+    const cx = L.castles[i], h = c.v * K, w = L.castleW;
+    const t0 = STAGE_T[c.stage] + 1.8 + (i === 3 ? 1.8 : 0);
+    const pts = sampleCastle(r, cx, w, h, dens).sort((a, b) => b[1] - a[1]);
+    const grains = pts.map(([x, y], j) => {
+      const g = { hx: x, hy: y, sx: cx + (r() - 0.5) * w * 2.4, sy: G + 10 + r() * 50, bt: t0 + (G - y) / h * 1.4 + r() * 0.5, col: r() < 0.16 ? 1 : 0, sink: 52 + r() * 1.6 };
+      if (c.exit) {
+        const nm = Math.round(pts.length * 0.12);
+        g.tw = passTime(WAVES[1], x) + r() * 0.5;
+        if (j % Math.round(pts.length / nm) === 0) { const d = sampleDome(r, cx, w * 1.05, c.exit.v * K * 1.8); g.fx = d[0]; g.fy = d[1]; g.fa = 1; }
+        else { g.fx = x - 40 - r() * 320; g.fy = G - r() * 3; g.fa = 0.45; }
+        g.cx = x - 30 - r() * 170; g.cy = Math.min(y, G - 20) - r() * 90;
+        g.ghost = r() < 0.18;
+      }
+      return g;
+    });
+    const tw0 = c.exit ? Math.min(...grains.map(g => g.tw)) : 1e9;
+    sketch(castleOutline(cx, w, h), t0 - 1.1, 1.0, t => {
+      let a = lerp(0.9, 0.3, prog(t, t0 + 0.6, 1.2));
+      if (c.exit) a = lerp(a, 0.16, prog(t, tw0, 1));          // 冲走后只剩一圈淡淡的起稿线
+      return a * (1 - prog(t, 52, 2));
+    });
+    return { ...c, cx, h, w, t0, grains };
+  });
+
+  // 第二片海滩：OpenAI、Anthropic（与 AOL 同形）+ 一排同质的沙堡 → 压成一道堤
+  const cp = L.copies, aiH = 1630 * K * 0.62;
+  BEACH = [];
+  const copyXs = [...Array(cp.n)].map((_, i) => cp.x0 + i * cp.step);
+  const aiIdx = L.ai.map(ax => copyXs.reduce((bi, x, i) => Math.abs(x - ax) < Math.abs(copyXs[bi] - ax) ? i : bi, 0));
+  copyXs.forEach((x, i) => {
+    const isAI = aiIdx.indexOf(i);
+    const tf0 = 77.6 + (S - x) / (S - L.wall.x0) * 7;
+    if (isAI >= 0) sketch(castleOutline(x, L.castleW * 0.85, aiH), 54.1 + isAI * 1.4, 1.0, t => lerp(0.9, 0.3, prog(t, 56 + isAI * 1.4, 1.2)) * (1 - prog(t, 69, 1.2)));
+    else sketch(castleOutline(x, cp.w, cp.h), 69.2 + (i / cp.n) * 6, 0.45, t => lerp(0.9, 0.3, prog(t, 70.5 + (i / cp.n) * 6, 1)) * (1 - prog(t, tf0, 0.8)));
+    const small = sampleCastle(r, x, cp.w, cp.h, dens);
+    let big = null;
+    if (isAI >= 0) big = sampleCastle(r, x, L.castleW * 0.85, aiH, dens);
+    const n = big ? big.length : small.length;
+    for (let j = 0; j < n; j++) {
+      const home1 = big ? big[j] : small[j % small.length];
+      const home2 = small[j % small.length];
+      const bt = big ? 55.1 + isAI * 1.4 + (G - home1[1]) / aiH * 1.4 + r() * 0.4 : 69.6 + (i / cp.n) * 6 + r() * 0.6;
+      BEACH.push({ hx: home1[0], hy: home1[1], h2x: home2[0] + (r() - 0.5) * 2, h2y: home2[1], sx: x + (r() - 0.5) * 120, sy: G + 10 + r() * 50, bt, ai: isAI, col: r() < 0.16 ? 1 : 0,
+        morph: 69 + isAI * 0.6 + r() * 0.8, tf: 77.6 + (S - x) / (S - L.wall.x0) * 7 + r() * 0.6, ctrlR: [r(), r()] });
+    }
+  });
+  BEACH.sort((a, b) => a.h2x - b.h2x);
+  const wl = L.wall, nW = BEACH.length, area = (wl.x1 - wl.x0) * wl.h, sp = Math.sqrt(area / nW);
+  const cols = Math.ceil((wl.x1 - wl.x0) / sp), rows = Math.ceil(nW / cols);
+  BEACH.forEach((g, k) => {
+    const c = Math.floor(k / rows), rr = k % rows;
+    g.wx = wl.x0 + (c + 0.5) * (wl.x1 - wl.x0) / cols + (r() - 0.5) * sp * 0.6;
+    g.wy = G - (rr + 0.5) * wl.h / rows + (r() - 0.5) * sp * 0.5;
+    g.te = passTime(WAVES[8], g.wx) + r() * 0.6;
+    g.ex = g.wx - 80 - r() * 500; g.ey = G - r() * 4; g.ecx = g.wx - r() * 200; g.ecy = g.wy - 40 - r() * 160;
+  });
+
+  // 蓝色石头
+  const st = L.stone; STONE = [];
+  for (let y = -st.r * 1.3; y <= st.r * 0.2; y += 9) for (let x = -st.r * 1.3; x <= st.r * 1.3; x += 9) {
+    const a = Math.atan2(y, x), rr = st.r * (1 + 0.12 * Math.sin(3 * a) + 0.07 * Math.sin(5 * a + 1)) * 1.15;
+    if (Math.hypot(x / 1.25, y) < rr) STONE.push({ hx: st.x + x + (r() - 0.5) * 3, hy: G - st.r * 0.2 + y + st.r * 0.2 - 4, dx: -20 - r() * 220, dy: r(), te: 0 });
+  }
+  STONE.forEach(s => { s.hy = Math.min(s.hy, G - 4); s.te = passTime(WAVES[8], s.hx) + r() * 0.5; });
+
+  // 需求—能力网
+  const nt = L.net; NET = { hub: [nt.cx, nt.cy], nodes: [], cross: [] };
+  for (let i = 0; i < 18; i++) {
+    const a = i / 18 * Math.PI * 2 + r() * 0.3, rr = 0.45 + r() * 0.55;
+    NET.nodes.push({ x: nt.cx + Math.cos(a) * nt.rx * rr, y: nt.cy + Math.sin(a) * nt.ry * rr, t: 95 + i * 0.45 + r() * 0.3, label: i % 5 === 0 });
+  }
+  for (let i = 0; i < 18; i++) for (const j of [i + 1, i + 4, i + 7]) NET.cross.push([i, j % 18, 112 + r() * 6]);
+
+  // 纸张颗粒
+  PAPER = document.createElement("canvas"); PAPER.width = W; PAPER.height = H;
+  const pc = PAPER.getContext("2d"), pr = rng(3);
+  for (let i = 0; i < W * H / 260; i++) { pc.fillStyle = pr() < 0.5 ? "rgba(61,42,45,0.05)" : "rgba(255,255,255,0.18)"; pc.fillRect(pr() * W, pr() * H, 1 + pr() * 1.6, 1 + pr() * 1.6); }
+}
+
+/* ================= 绘制 ================= */
+function text(s, x, y, o = {}) {
+  ctx.save();
+  ctx.globalAlpha = o.a ?? 1;
+  ctx.font = `${o.w || 400} ${o.size || 30}px ${o.serif ? SERIF : SANS}`;
+  ctx.fillStyle = o.c || C.ink;
+  ctx.textAlign = o.align || "center"; ctx.textBaseline = "alphabetic";
+  if ("letterSpacing" in ctx) ctx.letterSpacing = (o.ls || 0) + "px";
+  ctx.fillText(s, x, y + (o.dy || 0));
+  ctx.restore();
+}
+function measure(s, size, w = 500, ls = 0) { ctx.save(); ctx.font = `${w} ${size}px ${SANS}`; if ("letterSpacing" in ctx) ctx.letterSpacing = ls + "px"; const m = ctx.measureText(s).width; ctx.restore(); return m; }
+function pill(kind, x, y, a, inv, label) {
+  const lab = label || KIND[kind], fs = R === "v" ? 24 : 22, w = measure(lab, fs, 500, 3) + 44, h = fs + 22;
+  ctx.save(); ctx.globalAlpha = a; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
+  let fg;
+  const inkC = inv > 0.5 ? C.cream : C.ink, bgC = inv > 0.5 ? C.dark : C.paper;
+  if (kind === "quote") { ctx.fillStyle = C.orange; ctx.fill(); fg = C.paper; }
+  else if (kind === "counter") { ctx.fillStyle = inkC; ctx.fill(); fg = bgC; }
+  else { ctx.strokeStyle = rgba(inv > 0.5 ? C.cream : C.ink, kind === "para" ? 0.8 : 0.5); if (kind === "add") ctx.setLineDash([6, 5]); ctx.stroke(); fg = rgba(inv > 0.5 ? C.cream : C.ink, kind === "para" ? 0.85 : 0.6); }
+  ctx.restore();
+  text(lab, x, y + fs * 0.36, { size: fs, w: 500, ls: 3, c: fg, a });
+}
+
+function drawSea(t, inv) {
+  const c = L.cell, seaC = mix(C.blue, C.blueLight, inv);
+  ctx.save();
+  ctx.globalCompositeOperation = inv > 0.5 ? "source-over" : "multiply";
+  ctx.fillStyle = seaC;
+  ctx.beginPath();
+  for (let x = c / 2, col = 0; x < W; x += c, col++) {
+    const sy = surfaceY(x, t), gy = groundY(x);
+    if (gy - sy < 2) continue;
+    const off = (col % 2) * c / 2;
+    for (let y = Math.ceil((sy - off) / c) * c + off; y < gy; y += c) {
+      const d = y - sy, rr = c * 0.52 * clamp(0.22 + d / 220, 0.22, 1);
+      ctx.moveTo(x + rr, y); ctx.arc(x, y, rr, 0, Math.PI * 2);
+    }
+    // 浪尖的水花
+    if (gy - sy > 30 && (col * 7 + Math.floor(t * 9)) % 5 === 0) { const ry = sy - 6 - ((col * 13) % 23); ctx.moveTo(x + 3, ry); ctx.arc(x, ry, 3, 0, Math.PI * 2); }
+  }
+  ctx.fill();
+  ctx.restore();
+}
+function drawSand(inv) {
+  const c = L.cell;
+  ctx.save(); ctx.fillStyle = C.orange; ctx.globalAlpha = 0.85;
+  ctx.beginPath();
+  for (let x = c / 2, col = 0; x < W; x += c, col++) {
+    const gy = groundY(x), off = (col % 2) * c / 2;
+    for (let y = gy + c / 2 + off; y < Math.min(H, gy + L.sandD); y += c) {
+      const rr = c * 0.46 * clamp(1 - (y - gy) / L.sandD);
+      if (rr < 0.6) continue;
+      ctx.moveTo(x + rr, y); ctx.arc(x, y, rr, 0, Math.PI * 2);
+    }
+  }
+  ctx.fill(); ctx.restore();
+}
+function grain(x, y, col, a) { ctx.globalAlpha = a; ctx.fillStyle = col ? C.ink : C.orange; ctx.fillRect(x - 1.6, y - 1.6, 3.4, 3.4); }
+
+function drawMain(t) {
+  ctx.save();
+  for (const c of MAIN) for (const g of c.grains) {
+    if (t < g.bt) continue;
+    const b = easeOut(prog(t, g.bt, 1.1));
+    let x = lerp(g.sx, g.hx, b), y = lerp(g.sy, g.hy, b) - Math.sin(b * Math.PI) * 30, a = 1;
+    if (c.exit && t > g.tw) {
+      const p = easeOut(prog(t, g.tw, 1.8)), q = 1 - p;
+      x = q * q * g.hx + 2 * q * p * g.cx + p * p * g.fx; y = q * q * g.hy + 2 * q * p * g.cy + p * p * g.fy; a = lerp(1, g.fa, p);
+    }
+    const s = easeOut(prog(t, g.sink, 2));
+    if (s > 0) { y = lerp(y, G + 30, s); a *= 1 - s; }
+    if (a > 0.01) grain(x, y, g.col, a);
+    // 冲走后留下原来轮廓的虚影
+    if (c.exit && g.ghost && t > g.tw + 1) { const ga = 0.22 * prog(t, g.tw + 1, 1) * (1 - s); ctx.globalAlpha = ga; ctx.fillStyle = C.ink; ctx.fillRect(g.hx - 1, g.hy - 1, 2, 2); }
+  }
+  ctx.restore();
+}
+function drawBeach(t) {
+  ctx.save();
+  for (const g of BEACH) {
+    if (t < g.bt) continue;
+    const b = easeOut(prog(t, g.bt, 1.1));
+    let x = lerp(g.sx, g.hx, b), y = lerp(g.sy, g.hy, b) - Math.sin(b * Math.PI) * 24, a = 1;
+    if (g.ai >= 0) { const m = easeInOut(prog(t, g.morph, 2.4)); x = lerp(x, g.h2x, m); y = lerp(y, g.h2y, m); }
+    const f = easeOut(prog(t, g.tf, 1.5));
+    if (f > 0) { const q = 1 - f, cx = (x + g.wx) / 2 - 40 * g.ctrlR[0], cy = Math.min(y, g.wy) - 60 * g.ctrlR[1]; x = q * q * x + 2 * q * f * cx + f * f * g.wx; y = q * q * y + 2 * q * f * cy + f * f * g.wy; }
+    const e = easeOut(prog(t, g.te, 2.2));
+    if (e > 0) { const q = 1 - e; x = q * q * x + 2 * q * e * g.ecx + e * e * g.ex; y = q * q * y + 2 * q * e * g.ecy + e * e * g.ey; a = 1 - 0.6 * e - 0.4 * prog(t, 160, 4); }
+    a *= 1 - 0.65 * prog(t, 125, 1.5) * (1 - prog(t, 149.5, 1));   // 反方段让石头更突出
+    if (a > 0.01) grain(x, y, g.col, a);
+  }
+  ctx.restore();
+}
+function drawStone(t, inv) {
+  const show = prog(t, 125.5, 1.2);
+  if (show <= 0) return;
+  const crumble = easeInOut(prog(t, 142.4, 2.6)) * (1 - easeInOut(prog(t, 146.4, 2.6)));
+  ctx.save();
+  ctx.fillStyle = mix(C.blue, C.blueLight, inv);
+  for (const s of STONE) {
+    let x = s.hx + s.dx * crumble, y = lerp(s.hy, G - 2 - s.dy * 6, crumble), a = show;
+    const e = easeOut(prog(t, s.te, 2));
+    if (e > 0) { x += -300 * e * (0.5 + s.dy); y = lerp(y, G - 2, e); a *= 1 - e; }
+    const rise = 1 - easeOut(show);
+    ctx.globalAlpha = a; ctx.beginPath(); ctx.arc(x, y + rise * 60, crumble > 0.3 ? 2 : 3.8, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  const la = show * (1 - crumble) * (1 - prog(t, 150, 1));
+  text("智能", L.stone.x, G - L.stone.r * 1.3 - 40, { size: 34, w: 700, c: inv > 0.5 ? C.cream : C.ink, a: la, ls: 6 });
+}
+function drawNet(t, inv) {
+  const on = prog(t, 94.5, 1) * (1 - 0.88 * prog(t, 120, 1)) * (1 - prog(t, 151, 3));
+  if (on <= 0) return;
+  const [hx, hy] = NET.hub, ink = inv > 0.5 ? C.cream : C.ink;
+  ctx.save();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(ink, 0.35);
+  for (const [i, j, tt] of NET.cross) { const p = prog(t, tt, 0.6); if (p <= 0) continue; const A = NET.nodes[i], B = NET.nodes[j]; ctx.globalAlpha = on * p; ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(lerp(A.x, B.x, p), lerp(A.y, B.y, p)); ctx.stroke(); }
+  ctx.strokeStyle = C.orange; ctx.lineWidth = 2.5;
+  for (const n of NET.nodes) { const p = easeOut(prog(t, n.t, 0.8)); if (p <= 0) continue; ctx.globalAlpha = on; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(lerp(hx, n.x, p), lerp(hy, n.y, p)); ctx.stroke(); }
+  for (const n of NET.nodes) { const p = prog(t, n.t + 0.6, 0.4); if (p <= 0) continue; ctx.globalAlpha = on * p; ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(n.x, n.y, 8, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+  for (const n of NET.nodes) if (n.label) text("能力", n.x, n.y - 18, { size: 24, c: ink, a: on * prog(t, n.t + 0.8, 0.5) });
+  // 中心的「需求」
+  ctx.save(); ctx.globalAlpha = on;
+  const g = ctx.createRadialGradient(hx, hy, 0, hx, hy, 90); g.addColorStop(0, rgba(C.orange, 0.5)); g.addColorStop(1, rgba(C.orange, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(hx, hy, 90, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.orange; ctx.beginPath(); ctx.arc(hx, hy, 44, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  text("需求", hx, hy + 11, { size: 30, w: 700, c: C.paper, a: on });
+}
+// logo 里的小人
+function drawFigure(t, inv) {
+  const x = L.figX, s = R === "v" ? 1 : 0.9, ink = inv > 0.5 ? C.cream : C.ink;
+  ctx.save(); ctx.globalAlpha = 1 - 0.5 * prog(t, 151, 1) * (1 - prog(t, 156, 2));
+  ctx.fillStyle = ink;
+  ctx.beginPath(); ctx.roundRect(x - 15 * s, G - 74 * s, 30 * s, 44 * s, 8 * s); ctx.fill();
+  ctx.fillRect(x - 12 * s, G - 34 * s, 9 * s, 34 * s); ctx.fillRect(x + 3 * s, G - 34 * s, 9 * s, 34 * s);
+  ctx.fillStyle = C.orange; ctx.beginPath(); ctx.arc(x, G - 90 * s, 15 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = mix(C.paper, C.dark, inv);
+  for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.arc(x - 8 * s + (i % 3) * 8 * s, G - 98 * s + Math.floor(i / 3) * 8 * s, 1.6 * s, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+  const here = prog(t, 53, 0.8) * (1 - prog(t, 67.5, 0.8));
+  if (here > 0) { text("我们在这里", x - 30, G - 128 * s, { size: 30, w: 700, c: C.blue, a: here, ls: 2, align: "left" }); }
+}
+function drawLabels(t, inv) {
+  const ink = inv > 0.5 ? C.cream : C.ink, v = R === "v";
+  for (const c of MAIN) {
+    const sink = 1 - prog(t, 51.5, 1.2);
+    const a = prog(t, c.t0 + 0.6, 0.8) * sink;
+    if (a <= 0) continue;
+    const washed = c.exit ? prog(t, c.grains[0].tw + 1.2, 0.8) : 0;
+    const grow = easeOut(prog(t, c.t0, 2.2));
+    let top = G - c.h * grow - 22, val = c.v * grow, yr = c.yr;
+    if (washed > 0) { top = G - c.exit.v * K * 1.8 - 22; val = c.exit.v; yr = c.exit.yr; }
+    const aa = washed > 0 ? a * washed : a * (c.exit ? 1 - prog(t, c.grains[0].tw, 0.4) : 1);
+    text(yr, c.cx, top, { size: v ? 22 : 22, c: rgba(ink, 0.6), a: aa });
+    text(fmt(val) + " 亿", c.cx, top - 30, { size: v ? 40 : 42, w: 300, c: ink, a: aa });
+    text(c.co, c.cx, top - 76, { size: v ? 24 : 24, w: 500, ls: 4, c: rgba(ink, 0.75), a: aa });
+    if (c.exit && washed > 0) text(c.exit.pct, c.cx, G - c.h * 0.55, { size: v ? 64 : 72, w: 300, c: C.blue, a: a * washed });
+  }
+  // AI 两座沙堡的名字
+  const aiA = prog(t, 56.4, 0.8) * (1 - prog(t, 69, 1));
+  if (aiA > 0) ["OpenAI", "Anthropic"].forEach((n, i) => text(n, L.ai[i], G - 1630 * K * 0.62 - 30, { size: v ? 30 : 30, w: 500, c: ink, a: aiA, ls: 2 }));
+  // 堤的名字
+  const wallA = prog(t, 85, 1) * (1 - prog(t, 150.5, 1.5)) * (1 - inv);
+  if (wallA > 0) {
+    const lab = t < 89.5 ? "公共基础设施" : "AI 云";
+    const sw = t < 89.5 ? 1 : prog(t, 89.5, 0.6);
+    text(lab, (L.wall.x0 + L.wall.x1) / 2, G - L.wall.h - 22, { size: v ? 34 : 34, w: 700, ls: 6, c: ink, a: wallA * sw });
+  }
+}
+function drawCaptions(t, inv) {
+  const cp = L.cap, ink = inv > 0.5 ? C.cream : C.ink;
+  for (const c of CAPS) {
+    if (t < c.at - 0.01 || t >= c.to) continue;
+    const out = 1 - prog(t, c.to - 0.45, 0.45);
+    const pa = easeOut(prog(t, c.at, 0.5)) * out;
+    pill(c.k, W / 2, cp.pill + (1 - pa) * 10, pa, inv);
+    let lines = [...(c[R] || c.v)];
+    if (c.k === "quote") { lines[0] = "「" + lines[0]; lines[lines.length - 1] += "」"; }
+    // 原话：楷体按笔顺；转述：蓝色楷体；补充：细笔；反方：粗笔
+    const size = c.k === "quote" || c.k === "para" ? cp.size : cp.sizeAdd;
+    const style = c.k === "quote" || c.k === "para" ? "ink" : c.k === "counter" ? "felt" : "pen";
+    const color = c.k === "para" ? C.blue : ink;
+    const n = lines.reduce((a, l) => a + handLen(l, size, c.k === "counter"), 0);
+    const per = Math.min(0.11, (c.to - c.at - 2.2) / n);
+    let tt = c.at + 0.35;
+    lines.forEach((l, j) => { tt = drawHand(l, W / 2, cp.y0 + j * cp.lh, size, { style, c: color, a: out, t0: tt, per, bold: c.k === "counter" }, t) + 0.08; });
+  }
+  for (const f of FOOTS) {
+    if (t < f.at || t >= f.to) continue;
+    const a = prog(t, f.at, 0.8) * (1 - prog(t, f.to - 0.5, 0.5)) * 0.75;
+    (f[R] || f.v).forEach((s, i) => text(s, W / 2, L.foot.y[i], { size: L.foot.size, c: ink, a, ls: 1 }));
+  }
+}
+function drawIntro(t) {
+  const T = L.title, v = R === "v";
+  const out = 1 - prog(t, 8, 0.8);
+  if (out <= 0) return;
+  const a1 = easeOut(prog(t, 0.2, 0.9)) * out, a2 = easeOut(prog(t, 0.5, 1.2)) * out;
+  text("曾鸣的产业史观 · 张小珺商业访谈录第 153 期", W / 2, T.eyebrow, { size: v ? 28 : 26, ls: 4, c: C.blue, a: a1, w: 500 });
+  drawHand("巨浪", W / 2, T.y, T.size, { style: "ink", c: C.ink, a: out, t0: 0.5, per: 0.9 }, t);
+  const rows = [["quote", "节目页摘录的曾鸣原话，一字未改"], ["para", "曾鸣的观点，本片换了说法"], ["add", "本片加的数据、例子和推断"], ["counter", "本片反驳曾鸣的观点", "反方 · 本片观点"]];
+  rows.forEach(([k, d, lab], i) => {
+    const p = easeOut(prog(t, 2 + i * 0.6, 0.7)) * out, y = T.legend + i * T.step;
+    const px = v ? 250 : 760;
+    pill(k, px, y, p, 0, lab);
+    drawHand(d, px + 150, y + 12, v ? 34 : 30, { style: k === "quote" || k === "para" ? "ink" : k === "counter" ? "felt" : "pen", c: k === "para" ? C.blue : C.ink, a: out, t0: 2.4 + i * 1.2, per: 0.06, align: "left", bold: k === "counter" }, t);
+  });
+}
+function drawCounterChrome(t, inv) {
+  if (inv <= 0) return;
+  const v = R === "v", inset = v ? 22 : 18;
+  ctx.save(); ctx.globalAlpha = inv; ctx.strokeStyle = C.cream; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(inset, inset, W - inset * 2, H - inset * 2, 28); ctx.stroke(); ctx.restore();
+  const lab = "反方 · 本片观点", w = measure(lab, v ? 24 : 22, 500, 3) + 44;
+  pill("counter", 46 + w / 2, v ? 72 : 56, inv, 1, lab);
+  // 开场卡
+  const card = easeOut(prog(t, 120.3, 0.8)) * (1 - prog(t, 123.4, 0.6));
+  if (card > 0) {
+    text("反方", W / 2, H * 0.4, { size: v ? 220 : 200, w: 900, serif: true, c: C.cream, a: card, dy: (1 - card) * 24 });
+    (v ? ["以下是本片自己的观点，", "不是曾鸣说的"] : ["以下是本片自己的观点，不是曾鸣说的"]).forEach((s, i) =>
+      text(s, W / 2, H * 0.4 + 120 + i * 62, { size: 44, w: 500, c: C.cream, a: card }));
+  }
+}
+function drawSign(t) {
+  const a = easeOut(prog(t, 171, 1.2));
+  const seed = prog(t, 165, 1.5);
+  if (seed > 0) {
+    // 空海滩上的新光点
+    const x = L.figX + (R === "v" ? 250 : 420), y = G - 10;
+    ctx.save(); ctx.globalAlpha = seed * (1 - a);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 70 + 8 * Math.sin(t * 3)); g.addColorStop(0, rgba(C.orange, 0.7)); g.addColorStop(1, rgba(C.orange, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 80, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.orange; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H); ctx.drawImage(PAPER, 0, 0); ctx.restore();
+  const v = R === "v", size = v ? 260 : 220, cy = H / 2 - (v ? 120 : 80);
+  if (LOGO) { ctx.save(); ctx.globalAlpha = a; ctx.beginPath(); ctx.roundRect(W / 2 - size / 2, cy - size / 2, size, size, size * 0.22); ctx.clip(); ctx.drawImage(LOGO, W / 2 - size / 2, cy - size / 2, size, size); ctx.restore(); }
+  text("Dylan He", W / 2, cy + size / 2 + (v ? 110 : 90), { size: v ? 72 : 64, w: 700, serif: true, a });
+  text("制 作", W / 2, cy + size / 2 + (v ? 170 : 140), { size: 28, ls: 10, c: rgba(C.ink, 0.6), a });
+}
+function drawWatermark(t, inv) {
+  const v = R === "v", x = W - 40, y = v ? 72 : 52, s = v ? 52 : 44, a = 0.85 * (1 - prog(t, 170.5, 0.6));
+  if (a <= 0) return;
+  let tx = x;
+  if (LOGO) { ctx.save(); ctx.globalAlpha = a; ctx.beginPath(); ctx.roundRect(x - s, y - s / 2, s, s, s * 0.22); ctx.clip(); ctx.drawImage(LOGO, x - s, y - s / 2, s, s); ctx.restore(); tx = x - s - 12; }
+  text("Dylan He", tx, y + 9, { size: v ? 26 : 22, w: 500, ls: 2, align: "right", c: inv > 0.5 ? C.cream : C.ink, a: a * 0.8 });
+}
+
+function render(t) {
+  const inv = easeInOut(prog(t, 120, 1.2)) * (1 - easeInOut(prog(t, 149.4, 1.2)));
+  ctx.save();
+  ctx.fillStyle = mix(C.paper, C.dark, inv); ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = 1 - inv; ctx.drawImage(PAPER, 0, 0); ctx.restore();
+  drawSand(inv);
+  drawSketch(t, inv);
+  drawMain(t); drawBeach(t); drawStone(t, inv);
+  drawNet(t, inv);
+  drawFigure(t, inv);
+  drawSea(t, inv);
+  drawLabels(t, inv);
+  drawIntro(t);
+  drawCaptions(t, inv);
+  drawCounterChrome(t, inv);
+  drawWatermark(t, inv);
+  drawSign(t);
+  document.getElementById("clock").textContent = `${t.toFixed(1)}s / ${TOTAL}s`;
+  const idx = ACTS.filter(a => a[1] <= t).length - 1;
+  document.querySelectorAll("#acts button").forEach((b, i) => b.classList.toggle("on", i === idx));
+}
+
+/* ================= 播放控制 ================= */
+// ?ar=h 横屏（默认竖屏）；?t=秒 定格；?act=序号 从某一幕开始；?speed=1.5 倍速
+const params = new URLSearchParams(location.search);
+build(params.get("ar") === "h" ? "h" : "v");
+window.__wave = { TOTAL, ACTS };
+const logoImg = new Image(); logoImg.onload = () => { LOGO = logoImg; }; logoImg.src = "logo.png";
+const actsEl = document.getElementById("acts");
+ACTS.forEach(([n, at], i) => { const b = document.createElement("button"); b.textContent = `${i}·${n}`; b.onclick = () => { offset = at; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; }; actsEl.appendChild(b); });
+let playing = !params.has("t"), startAt = performance.now();
+let offset = params.has("t") ? parseFloat(params.get("t")) : params.has("act") ? (ACTS[+params.get("act")] || [0, 0])[1] : 0;
+let speed = [1, 1.5, 2, 3].includes(+params.get("speed")) ? +params.get("speed") : 1;
+const now = () => playing ? offset + (performance.now() - startAt) / 1000 * speed : offset;
+function setSpeed(s) { offset = now(); startAt = performance.now(); speed = s; document.querySelectorAll("#speeds button").forEach(b => b.classList.toggle("on", +b.dataset.s === s)); }
+document.querySelectorAll("#speeds button").forEach(b => b.onclick = () => setSpeed(+b.dataset.s));
+setSpeed(speed);
+function frame() {
+  const t = now();
+  render(Math.min(t, TOTAL));
+  if (t >= TOTAL && playing) { offset = TOTAL; playing = false; document.getElementById("play").textContent = "播放"; }
+  requestAnimationFrame(frame);
+}
+document.getElementById("play").onclick = e => { if (playing) { offset = now(); playing = false; } else { if (offset >= TOTAL) offset = 0; startAt = performance.now(); playing = true; } e.target.textContent = playing ? "暂停" : "播放"; };
+document.getElementById("restart").onclick = () => { offset = 0; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; };
+document.getElementById("ratio").onclick = () => { const t = now(); build(R === "v" ? "h" : "v"); offset = t; startAt = performance.now(); };
+document.getElementById("fs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
+document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("play").click(); } });
+// 手写英文字体要等真正下载完再排版，否则量到的是后备字体的宽度
+Promise.all(["500 40px Caveat", "700 40px Caveat"].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(() => {
+  for (const k in LAYOUT_CACHE) delete LAYOUT_CACHE[k];
+  requestAnimationFrame(frame);
+});
+</script>
+</body>
+</html>
