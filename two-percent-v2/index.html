@@ -1118,7 +1118,7 @@ const SHOT = {
     g.fillStyle = P.white; g.beginPath(); g.roundRect(430, 170, 1060, 740, 40); g.fill(); g.strokeStyle = P.ink; g.lineWidth = 6; g.stroke();
     fatTitle(g, '完', 960, 270, 130, { bounce: () => -Math.max(0, Math.sin((t / BEAT) * Math.PI)) * 12 });
     g.font = `700 40px ${LAT}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('TWO PERCENT', 960, 420);
-    if (LOGO) g.drawImage(LOGO, 960 - 300, 470, 170, 170);
+    if (LOGO) { g.save(); g.filter = 'grayscale(1) contrast(1.15)'; g.drawImage(LOGO, 960 - 300, 470, 170, 170); g.restore(); }   // 片尾 logo 也黑白，不出戏
     g.font = `700 76px ${LAT}`; g.textAlign = 'left'; g.fillStyle = P.ink; g.fillText('Dylan He', 960 - 100, 580);
     g.font = `600 22px ${ZH_SUB}`; g.textAlign = 'center'; g.fillStyle = P.inkL;
     g.fillText('受哈佛大学政治研究所 JFK Jr. 论坛上 Peter McCrory 与 Jason Furman 的对话启发', 960, 730);
