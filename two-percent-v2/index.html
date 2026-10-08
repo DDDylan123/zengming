@@ -84,6 +84,7 @@ const P = { white: '#FCFBF7', paper: '#F1EEE6', pale: '#E2DFD6', light: '#C8C5BC
 const ACC = '#E2622B';
 const ZH_TITLE = '"ZCOOL KuaiLe","Noto Serif SC","WenQuanYi Zen Hei",sans-serif';
 const ZH_SUB = '"Noto Serif SC","WenQuanYi Zen Hei",serif';
+const ZH_CARD = `900 "Noto Serif SC","WenQuanYi Zen Hei",serif`;   // 字卡：粗宋体，像民国报纸和老新闻片字卡
 const LAT = '"Fredoka","Noto Serif SC",sans-serif';
 // 网点（15° 网角），缓存成图案
 const PATS = {};
@@ -719,22 +720,28 @@ function fatTitle(gg, text, cx, cy, size, { font = ZH_TITLE, bounce = null, face
 }
 // 字卡：一条撕边的纸胶带标签；太长就按标点断成两行（宽度不超出片门）
 function wrapZH(gg, text, maxW) {
-  if (gg.measureText(text).width <= maxW) return [text];
-  const chars = [...text], half = gg.measureText(text).width / 2;
-  let best = -1, bestD = 1e9, acc = '';
-  for (let i = 0; i < chars.length - 1; i++) {
-    acc += chars[i];
-    if ('，。！？：；、—'.includes(chars[i])) { const d = Math.abs(gg.measureText(acc).width - half); if (d < bestD) { bestD = d; best = i; } }
+  // 逐字排，超宽时优先退回到本行后半段最近的标点处断开
+  const chars = [...text], lines = []; let cur = [];
+  for (const ch of chars) {
+    cur.push(ch);
+    if (gg.measureText(cur.join('')).width > maxW) {
+      let k = -1;
+      for (let i = cur.length - 2; i >= cur.length * .45; i--) if ('，。！？：；、—'.includes(cur[i])) { k = i; break; }
+      if (k < 0) k = cur.length - 2;
+      lines.push(cur.slice(0, k + 1).join('')); cur = cur.slice(k + 1);
+    }
   }
-  if (best < 0) { acc = ''; for (let i = 0; i < chars.length; i++) { acc += chars[i]; if (gg.measureText(acc).width >= half) { best = i; break; } } }
-  return [chars.slice(0, best + 1).join(''), chars.slice(best + 1).join('').replace(/^[—]+/, '')];
+  if (cur.length) lines.push(cur.join(''));
+  // 行首不留破折号
+  return lines.map(l => l.replace(/^[—]+/, '')).filter(Boolean);
 }
 function subPlate(gg, text, cx, cy, size = 40) {
   gg.save(); gg.setTransform(1, 0, 0, 1, 0, 0);
-  gg.font = `600 ${size}px ${ZH_SUB}`; gg.textAlign = 'center'; gg.textBaseline = 'middle';
-  const lines = wrapZH(gg, text, 1200), lh = size * 1.32;
+  gg.font = ZH_CARD.replace("900 ", `900 ${size}px `); gg.textAlign = 'center'; gg.textBaseline = 'middle';
+  const lines = wrapZH(gg, text, 1240), lh = size * 1.28;
   const tw = Math.max(...lines.map(l => gg.measureText(l).width)), w = tw + size * 1.6, h = size * .75 + lh * lines.length;
   if (cy + h / 2 > 1060) cy = 1060 - h / 2;
+  if (cy - h / 2 < 20) cy = 20 + h / 2;
   gg.translate(cx, cy); gg.rotate(-.008);
   const edge = (x0, s) => { const pts = []; for (let i = 0; i <= 10; i++) pts.push([x0 + s * (hash(i * 7.3 + x0) * 7), -h / 2 + i * h / 10]); return pts; };
   const L = edge(-w / 2, -1), Rr = edge(w / 2, 1).reverse();
@@ -1194,7 +1201,7 @@ function render(T) {
   if (new URLSearchParams(location.search).has('sample')) { SHOT_SAMPLE(t); post(t, 0); return; }
   SHOT[sh[1]](t);
   // 字卡
-  if (showSubs) { const v = VO.find(v => T >= v.ft && T < v.ft + v.d); if (v) subPlate(g, v.s, 960, sh[1] === 'rocket' && t > 46 ? 140 : 980, 38); }
+  if (showSubs) { const v = VO.find(v => T >= v.ft && T < v.ft + v.d); if (v) subPlate(g, v.s, 960, sh[1] === 'rocket' && t > 46 ? 150 : 990, 60); }
   const f = Math.round(t * 24), jump = SHOTS.some(s => s[0] > 0 && Math.round(s[0] * 24) === f) ? 3 : 0;
   post(t, jump);
 }
@@ -1433,7 +1440,7 @@ addEventListener('keydown', e => {
 if (params.has('speed') && SPEEDS.includes(+params.get('speed'))) setSpeed(+params.get('speed'));
 window.__film = { render, DUR, VO, SHOTS };
 (async () => {
-  try { await document.fonts.ready; for (const f of [`700 40px ${LAT}`, `500 40px ${LAT}`, `40px ${ZH_TITLE}`, `600 40px ${ZH_SUB}`]) await document.fonts.load(f, '百分之二'); } catch (e) { }
+  try { await document.fonts.ready; for (const f of [`700 40px ${LAT}`, `500 40px ${LAT}`, `40px ${ZH_TITLE}`, `600 40px ${ZH_SUB}`, `900 40px "Noto Serif SC"`]) await document.fonts.load(f, '百分之二各位观众'); } catch (e) { }
   SKY = paintSky();
   window.READY = true;
   requestAnimationFrame(loop);
