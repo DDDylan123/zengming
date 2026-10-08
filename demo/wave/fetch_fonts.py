@@ -21,8 +21,8 @@ def fetch(family, weights, text, prefix):
     return out
 faces = []
 faces += fetch("Noto Sans SC", [300, 400, 500, 700], cjk + ascii_, "sans")
-faces += fetch("Noto Serif SC", [900], "反方", "serif")
-faces += fetch("Caveat", [500, 700], ascii_ + "−×", "caveat")
+faces += fetch("Noto Serif SC", [900], "反方Counterpoint", "serif")
+faces += fetch("Caveat", [500, 700], ascii_ + "−×’‘“”—–…·", "caveat")
 # Google 返回的是可变字体，各字重是同一个文件：每个字体只留一个，用字重范围声明
 import hashlib
 seen, rules = {}, []

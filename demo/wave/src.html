@@ -84,7 +84,7 @@ const PUNCT = {
   "=": [[[160, 470], [860, 470]], [[160, 290], [860, 290]]],
 };
 const NARROW = "，。、；：「」·";
-const isLatin = ch => /[A-Za-z0-9.%+\-−×]/.test(ch);
+const isLatin = ch => /[A-Za-z0-9.%+\-−×]/.test(ch) || (LANG === "en" && /[\x21-\x7E\u2018\u2019\u201C\u201D\u2014\u2013\u2026·]/.test(ch));
 const polyLen = m => { let l = 0; for (let i = 1; i < m.length; i++) l += Math.hypot(m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]); return Math.max(l, 1); };
 function glyph(ch) {
   if (ch in GLYPH) return GLYPH[ch];
@@ -171,8 +171,31 @@ function drawHand(str, x, baseline, size, o, t) {
 }
 const handLen = (str, size, bold) => layoutLine(str, size, bold).n;
 
+/* ================= 语言 ================= */
+// <html lang="en"> 时显示英文版；曾鸣的原话由本片翻译，标签写明 translated
+const LANG = document.documentElement.lang.startsWith("en") ? "en" : "zh";
+const EN = {
+  "开场": "Open", "筑沙堡": "Castles", "浪来了": "The wave", "同质化": "Sameness", "新入口": "New gate", "反方": "Counter", "收尾": "End",
+  "2015 年卖掉": "sold 2015", "2016 年卖掉": "sold 2016", "2012 上市": "IPO 2012",
+  "智能": "INTELLIGENCE", "能力": "capability", "需求": "need", "我们在这里": "We are here",
+  "公共基础设施": "PUBLIC INFRASTRUCTURE", "AI 云": "AI CLOUD",
+  "曾鸣的产业史观 · 张小珺商业访谈录第 153 期": "Zeng Ming · Zhang Xiaojun Podcast, Ep. 153",
+  "巨浪": "The Wave",
+  "节目页摘录的曾鸣原话，一字未改": "Zeng Ming’s words from the episode page, translated",
+  "曾鸣的观点，本片换了说法": "His view, in this film’s own words",
+  "本片加的数据、例子和推断": "Data, examples and inferences added by this film",
+  "本片反驳曾鸣的观点": "This film arguing against Zeng Ming",
+  "反方 · 本片观点": "Counterpoint · this film",
+  "以下是本片自己的观点，": "What follows is this film’s own view,", "不是曾鸣说的": "not Zeng Ming’s",
+  "以下是本片自己的观点，不是曾鸣说的": "What follows is this film’s own view, not Zeng Ming’s",
+  "制 作": "made by", "开启声音": "Sound on", "关闭声音": "Sound off", "暂停": "Pause", "播放": "Play",
+};
+const tr = s => LANG === "en" && EN[s] !== undefined ? EN[s] : s;
+// 金额：中文用「亿」（亿美元），英文换算成美元
+const money = v => LANG === "en" ? "$" + (v >= 100 ? Math.round(v / 10) : (v / 10).toFixed(1).replace(/\.0$/, "")) + "B" : fmt(v) + " 亿";
+
 /* ================= 时间轴（秒） ================= */
-const ACTS = [["开场", 0], ["筑沙堡", 16], ["浪来了", 36], ["AI", 52], ["同质化", 68], ["新入口", 94], ["反方", 120], ["收尾", 150]];
+const ACTS = [["开场", 0], ["筑沙堡", 16], ["浪来了", 36], ["AI", 52], ["同质化", 68], ["新入口", 94], ["反方", 120], ["收尾", 150]].map(([n, t]) => [tr(n), t]);
 const TOTAL = 176;
 
 // 字幕：原话 = 节目页摘录，一字不改，打「」；转述 = 曾鸣观点换了说法；补充 = 本片加的；反方 = 本片反驳曾鸣的观点
@@ -210,6 +233,45 @@ const FOOTS = [
   { at: 94, to: 120, v: ["需求连向多种能力的网，是本片的示意"] },
   { at: 150, to: 171, v: ["素材：张小珺商业访谈录第 153 期 · 嘉宾曾鸣 · 「」内原话均取自节目页摘录", "汉字笔画数据：Make Me a Hanzi（Arphic 公共许可）"], h: ["素材：张小珺商业访谈录第 153 期 · 嘉宾曾鸣 · 「」内原话均取自节目页摘录 · 汉字笔画：Make Me a Hanzi（Arphic 公共许可）"] },
 ];
+// 英文版：字幕与 CAPS 一一对应（时间、类别不变）。原话为本片翻译
+if (LANG === "en") {
+  const EN_CAPS = [
+    { v: ["I’ve always felt that no one", "is safe in the face of a giant wave.", "Whoever feels safe", "is the least safe of all."], h: ["I’ve always felt that no one is safe in the face of a giant wave.", "Whoever feels safe is the least safe of all."] },
+    { v: ["Stage one:", "the technology becomes", "social infrastructure"], h: ["Stage one: the technology becomes social infrastructure"] },
+    { v: ["Stage two:", "countless new applications", "grow on that infrastructure"], h: ["Stage two: countless new applications grow on that infrastructure"] },
+    { v: ["Stage three:", "the new world needs deeper", "ways to run"], h: ["Stage three: the new world needs deeper ways to run"] },
+    { v: ["Then the wave came"] },
+    { v: ["Companies of the first stage", "will find it hard to survive", "into the second; companies of", "the second, into the third."], h: ["Companies of the first stage will find it hard to survive into the second;", "companies of the second stage will find it hard to survive into the third."] },
+    { v: ["We have only just reached", "the browser stage, earlier", "even than Yahoo."], h: ["We have only just reached the browser stage, earlier even than Yahoo."] },
+    { v: ["Anthropic and OpenAI are most", "likely not the big players,", "the big winners, of the", "native-application stage."], h: ["Anthropic and OpenAI are most likely not the big players,", "the big winners, of the native-application stage."] },
+    { v: ["By a basic law of economics,", "as long as supply is homogeneous,", "you can’t earn high profits;", "you’re a company not worth much."], h: ["By a basic law of economics, as long as supply is homogeneous,", "you can’t earn high profits; you’re a company not worth much."] },
+    { v: ["Electricity, telecom, cloud:", "all reached the same end"], h: ["Electricity, telecom, cloud computing: all reached the same end"] },
+    { v: ["In public-infrastructure industries,", "only one business model works:", "oligopoly plus strong", "government regulation"], h: ["In public-infrastructure industries, only one business model works:", "oligopoly plus strong government regulation"] },
+    { v: ["To put it bluntly,", "model companies are the", "AI cloud companies of the future."], h: ["To put it bluntly, model companies are the AI cloud companies of the future."] },
+    { v: ["The next stage is about who becomes", "Netscape, who becomes Yahoo, who sets", "the standard for Agents, and who", "captures the Agent entry point."], h: ["The next stage is about who becomes Netscape, who becomes Yahoo:", "who sets the standard for Agents, and who captures their entry point."] },
+    { v: ["Within three years,", "Agent entry points may well", "start to appear."], h: ["Within the next three years, Agent entry points may well start to appear."] },
+    { v: ["New platforms will most likely", "not be born from old platforms."], h: ["New platforms will most likely not be born from old platforms."] },
+    { v: ["Because old platforms do simple", "information matching, while new ones", "must match capabilities to needs:", "far more complex."], h: ["Because old platforms do simple information matching,", "while new platforms must match capabilities to needs: far more complex."] },
+    { v: ["But this analogy has", "a gap worth watching"], h: ["But this analogy has a gap worth watching"] },
+    { v: ["AOL only sold access;", "model companies produce", "intelligence itself"], h: ["AOL only sold access; model companies produce intelligence itself"] },
+    { v: ["The key variable:", "can the strongest model", "stay ahead?"], h: ["The key variable: can the strongest model stay ahead?"] },
+    { v: ["If it’s caught up:", "the rock turns to sand,", "and Zeng Ming is right"], h: ["If it’s caught up: the rock turns to sand, and Zeng Ming is right"] },
+    { v: ["If it stays ahead:", "the rock remains, and the", "conclusion weakens"], h: ["If it stays ahead: the rock remains, and the conclusion weakens"] },
+    { v: ["This isn’t despairing at all.", "People are born, grow old, fall ill", "and die; so do companies.", "Nothing could be more normal.", "That’s how new companies get", "a chance, and young people get", "to dream. What a good thing!"],
+      h: ["This isn’t despairing at all. People are born, grow old, fall ill and die;", "so do companies. Nothing could be more normal. That’s how new companies", "get a chance, and young people get to dream. What a good thing that is!"] },
+    { v: ["The winner of the next stage", "may not have a name yet"], h: ["The winner of the next stage may not have a name yet"] },
+  ];
+  CAPS.forEach((c, i) => { c.v = EN_CAPS[i].v; c.h = EN_CAPS[i].h; });
+  const EN_FOOTS = [
+    { v: ["Castle heights scale with market value (US$) · Data: CNN, SEC filings, IPO reports", "Sorting companies into three stages is this film’s inference"], h: ["Castle heights scale with market value (US$) · Data: CNN, SEC filings, IPO reports · Sorting companies into stages is this film’s inference"] },
+    { v: ["OpenAI and Anthropic share AOL’s shape, after Zeng Ming’s comparison", "Heights are illustrative, not valuations"], h: ["OpenAI and Anthropic share AOL’s shape, after Zeng Ming’s comparison · Heights are illustrative, not valuations"] },
+    { v: ["Electricity, telecom and cloud are this film’s examples"] },
+    { v: ["The need-to-capability web is this film’s illustration"] },
+    { v: ["Source: Zhang Xiaojun Podcast Ep. 153 · guest Zeng Ming", "Quotes are from the episode page, translated by this film"], h: ["Source: Zhang Xiaojun Podcast Ep. 153 · guest Zeng Ming · quotes from the episode page, translated by this film"] },
+  ];
+  FOOTS.forEach((f, i) => { f.v = EN_FOOTS[i].v; f.h = EN_FOOTS[i].h; });
+  Object.assign(KIND, { quote: "Quote · Zeng Ming, translated", para: "Paraphrase · Zeng Ming", add: "Added · this film", counter: "Counterpoint · this film, not Zeng Ming" });
+}
 
 /* ================= 版式 ================= */
 const LAY = {
@@ -322,10 +384,10 @@ function drawSketch(t, inv) {
   ctx.restore();
 }
 const COS = [
-  { co: "AOL", v: 1630, yr: "2000", stage: 0, exit: { v: 44, yr: "2015 年卖掉", pct: "−97%" } },
-  { co: "YAHOO", v: 1200, yr: "2000", stage: 1, exit: { v: 48, yr: "2016 年卖掉", pct: "−96%" } },
+  { co: "AOL", v: 1630, yr: "2000", stage: 0, exit: { v: 44, yr: tr("2015 年卖掉"), pct: "−97%" } },
+  { co: "YAHOO", v: 1200, yr: "2000", stage: 1, exit: { v: 48, yr: tr("2016 年卖掉"), pct: "−96%" } },
   { co: "GOOGLE", v: 1870, yr: "2007", stage: 2 },
-  { co: "FACEBOOK", v: 1040, yr: "2012 上市", stage: 2 },
+  { co: "FACEBOOK", v: 1040, yr: tr("2012 上市"), stage: 2 },
 ];
 const STAGE_T = [16, 22, 28];
 
@@ -421,6 +483,7 @@ function build(ratio) {
 
 /* ================= 绘制 ================= */
 function text(s, x, y, o = {}) {
+  if (LANG === "en") s = s.replace(/[’‘]/g, "'").replace(/[“”]/g, '"');
   ctx.save();
   ctx.globalAlpha = o.a ?? 1;
   ctx.font = `${o.w || 400} ${o.size || 30}px ${o.serif ? SERIF : SANS}`;
@@ -529,7 +592,7 @@ function drawStone(t, inv) {
   }
   ctx.restore();
   const la = show * (1 - crumble) * (1 - prog(t, 150, 1));
-  text("智能", L.stone.x, G - L.stone.r * 1.3 - 40, { size: 34, w: 700, c: inv > 0.5 ? C.cream : C.ink, a: la, ls: 6 });
+  text(tr("智能"), L.stone.x, G - L.stone.r * 1.3 - 40, { size: 34, w: 700, c: inv > 0.5 ? C.cream : C.ink, a: la, ls: 6 });
 }
 function drawNet(t, inv) {
   const on = prog(t, 94.5, 1) * (1 - 0.88 * prog(t, 120, 1)) * (1 - prog(t, 151, 3));
@@ -542,14 +605,14 @@ function drawNet(t, inv) {
   for (const n of NET.nodes) { const p = easeOut(prog(t, n.t, 0.8)); if (p <= 0) continue; ctx.globalAlpha = on; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(lerp(hx, n.x, p), lerp(hy, n.y, p)); ctx.stroke(); }
   for (const n of NET.nodes) { const p = prog(t, n.t + 0.6, 0.4); if (p <= 0) continue; ctx.globalAlpha = on * p; ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(n.x, n.y, 8, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
-  for (const n of NET.nodes) if (n.label) text("能力", n.x, n.y - 18, { size: 24, c: ink, a: on * prog(t, n.t + 0.8, 0.5) });
+  for (const n of NET.nodes) if (n.label) text(tr("能力"), n.x, n.y - 18, { size: 24, c: ink, a: on * prog(t, n.t + 0.8, 0.5) });
   // 中心的「需求」
   ctx.save(); ctx.globalAlpha = on;
   const g = ctx.createRadialGradient(hx, hy, 0, hx, hy, 90); g.addColorStop(0, rgba(C.orange, 0.5)); g.addColorStop(1, rgba(C.orange, 0));
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(hx, hy, 90, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = C.orange; ctx.beginPath(); ctx.arc(hx, hy, 44, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
-  text("需求", hx, hy + 11, { size: 30, w: 700, c: C.paper, a: on });
+  text(tr("需求"), hx, hy + 11, { size: 30, w: 700, c: C.paper, a: on });
 }
 // logo 里的小人
 function drawFigure(t, inv) {
@@ -563,7 +626,7 @@ function drawFigure(t, inv) {
   for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.arc(x - 8 * s + (i % 3) * 8 * s, G - 98 * s + Math.floor(i / 3) * 8 * s, 1.6 * s, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
   const here = prog(t, 53, 0.8) * (1 - prog(t, 67.5, 0.8));
-  if (here > 0) { text("我们在这里", x - 30, G - 128 * s, { size: 30, w: 700, c: C.blue, a: here, ls: 2, align: "left" }); }
+  if (here > 0) { text(tr("我们在这里"), x - 30, G - 128 * s, { size: 30, w: 700, c: C.blue, a: here, ls: 2, align: "left" }); }
 }
 function drawLabels(t, inv) {
   const ink = inv > 0.5 ? C.cream : C.ink, v = R === "v";
@@ -577,7 +640,7 @@ function drawLabels(t, inv) {
     if (washed > 0) { top = G - c.exit.v * K * 1.8 - 22; val = c.exit.v; yr = c.exit.yr; }
     const aa = washed > 0 ? a * washed : a * (c.exit ? 1 - prog(t, c.grains[0].tw, 0.4) : 1);
     text(yr, c.cx, top, { size: v ? 22 : 22, c: rgba(ink, 0.6), a: aa });
-    text(fmt(val) + " 亿", c.cx, top - 30, { size: v ? 40 : 42, w: 300, c: ink, a: aa });
+    text(money(val), c.cx, top - 30, { size: v ? 40 : 42, w: 300, c: ink, a: aa });
     text(c.co, c.cx, top - 76, { size: v ? 24 : 24, w: 500, ls: 4, c: rgba(ink, 0.75), a: aa });
     if (c.exit && washed > 0) text(c.exit.pct, c.cx, G - c.h * 0.55, { size: v ? 64 : 72, w: 300, c: C.blue, a: a * washed });
   }
@@ -587,7 +650,7 @@ function drawLabels(t, inv) {
   // 堤的名字
   const wallA = prog(t, 85, 1) * (1 - prog(t, 150.5, 1.5)) * (1 - inv);
   if (wallA > 0) {
-    const lab = t < 89.5 ? "公共基础设施" : "AI 云";
+    const lab = tr(t < 89.5 ? "公共基础设施" : "AI 云");
     const sw = t < 89.5 ? 1 : prog(t, 89.5, 0.6);
     text(lab, (L.wall.x0 + L.wall.x1) / 2, G - L.wall.h - 22, { size: v ? 34 : 34, w: 700, ls: 6, c: ink, a: wallA * sw });
   }
@@ -600,7 +663,7 @@ function drawCaptions(t, inv) {
     const pa = easeOut(prog(t, c.at, 0.5)) * out;
     pill(c.k, W / 2, cp.pill + (1 - pa) * 10, pa, inv);
     let lines = [...(c[R] || c.v)];
-    if (c.k === "quote") { lines[0] = "「" + lines[0]; lines[lines.length - 1] += "」"; }
+    if (c.k === "quote") { const [o, e] = LANG === "en" ? ["“", "”"] : ["「", "」"]; lines[0] = o + lines[0]; lines[lines.length - 1] += e; }
     // 原话：楷体按笔顺；转述：蓝色楷体；补充：细笔；反方：粗笔
     const size = c.k === "quote" || c.k === "para" ? cp.size : cp.sizeAdd;
     const style = c.k === "quote" || c.k === "para" ? "ink" : c.k === "counter" ? "felt" : "pen";
@@ -624,23 +687,25 @@ let POSTER = false;   // 海报模式：标题常驻，不画图例和字幕
 function drawIntro(t) {
   const T = L.title, v = R === "v";
   if (POSTER) {
-    text("曾鸣的产业史观 · 张小珺商业访谈录第 153 期", W / 2, T.eyebrow, { size: v ? 28 : 26, ls: 4, c: C.blue, w: 500 });
-    drawHand("巨浪", W / 2, T.y, T.size, { style: "ink", c: C.ink, t0: 0, per: 0 }, 1);
+    text(tr("曾鸣的产业史观 · 张小珺商业访谈录第 153 期"), W / 2, T.eyebrow, { size: v ? 28 : 26, ls: 4, c: C.blue, w: 500 });
+    drawHand(tr("巨浪"), W / 2, T.y, LANG === "en" ? T.size * 0.85 : T.size, { style: "ink", c: C.ink, t0: 0, per: 0 }, 1);
     return;
   }
   const out = 1 - prog(t, 8, 0.8);
   if (out <= 0) return;
   const a1 = easeOut(prog(t, 0.2, 0.9)) * out, a2 = easeOut(prog(t, 0.5, 1.2)) * out;
-  text("曾鸣的产业史观 · 张小珺商业访谈录第 153 期", W / 2, T.eyebrow, { size: v ? 28 : 26, ls: 4, c: C.blue, a: a1, w: 500 });
+  text(tr("曾鸣的产业史观 · 张小珺商业访谈录第 153 期"), W / 2, T.eyebrow, { size: v ? 28 : 26, ls: 4, c: C.blue, a: a1, w: 500 });
   ctx.save(); ctx.translate(0, (1 - a2) * 30);
-  drawHand("巨浪", W / 2, T.y, T.size, { style: "ink", c: C.ink, a: a2, t0: 0, per: 0 }, 1);
+  drawHand(tr("巨浪"), W / 2, T.y, LANG === "en" ? T.size * 0.85 : T.size, { style: "ink", c: C.ink, a: a2, t0: 0, per: 0 }, 1);
   ctx.restore();
   const rows = [["quote", "节目页摘录的曾鸣原话，一字未改"], ["para", "曾鸣的观点，本片换了说法"], ["add", "本片加的数据、例子和推断"], ["counter", "本片反驳曾鸣的观点", "反方 · 本片观点"]];
+  const en = LANG === "en", stack = en && v;
   rows.forEach(([k, d, lab], i) => {
-    const p = easeOut(prog(t, 2 + i * 0.6, 0.7)) * out, y = T.legend + i * T.step;
-    const px = v ? 250 : 760;
-    pill(k, px, y, p, 0, lab);
-    drawHand(d, px + 150, y + 12, v ? 34 : 30, { style: k === "quote" || k === "para" ? "ink" : k === "counter" ? "felt" : "pen", c: k === "para" ? C.blue : C.ink, a: p, t0: 0, per: 0, align: "left", bold: k === "counter" }, 1);
+    const p = easeOut(prog(t, 2 + i * 0.6, 0.7)) * out, y = T.legend + i * (stack ? 130 : T.step);
+    const px = stack ? W / 2 : en ? 620 : v ? 250 : 760;
+    pill(k, px, y, p, 0, lab && tr(lab));
+    if (stack) { drawHand(tr(d), W / 2, y + 58, 34, { style: "pen", c: k === "para" ? C.blue : C.ink, a: p, t0: 0, per: 0, align: "center", bold: k === "counter" }, 1); return; }
+    drawHand(tr(d), px + (en ? 290 : 150), y + 12, v ? 34 : 30, { style: k === "quote" || k === "para" ? "ink" : k === "counter" ? "felt" : "pen", c: k === "para" ? C.blue : C.ink, a: p, t0: 0, per: 0, align: "left", bold: k === "counter" }, 1);
   });
 }
 function drawCounterChrome(t, inv) {
@@ -648,14 +713,14 @@ function drawCounterChrome(t, inv) {
   const v = R === "v", inset = v ? 22 : 18;
   ctx.save(); ctx.globalAlpha = inv; ctx.strokeStyle = C.cream; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.roundRect(inset, inset, W - inset * 2, H - inset * 2, 28); ctx.stroke(); ctx.restore();
-  const lab = "反方 · 本片观点", w = measure(lab, v ? 24 : 22, 500, 3) + 44;
+  const lab = tr("反方 · 本片观点"), w = measure(lab, v ? 24 : 22, 500, 3) + 44;
   pill("counter", 46 + w / 2, v ? 72 : 56, inv, 1, lab);
   // 开场卡
   const card = easeOut(prog(t, 120.3, 0.8)) * (1 - prog(t, 123.4, 0.6));
   if (card > 0) {
-    text("反方", W / 2, H * 0.4, { size: v ? 220 : 200, w: 900, serif: true, c: C.cream, a: card, dy: (1 - card) * 24 });
+    text(LANG === "en" ? "Counterpoint" : "反方", W / 2, H * 0.4, { size: LANG === "en" ? (v ? 120 : 150) : v ? 220 : 200, w: 900, serif: true, c: C.cream, a: card, dy: (1 - card) * 24 });
     (v ? ["以下是本片自己的观点，", "不是曾鸣说的"] : ["以下是本片自己的观点，不是曾鸣说的"]).forEach((s, i) =>
-      text(s, W / 2, H * 0.4 + 120 + i * 62, { size: 44, w: 500, c: C.cream, a: card }));
+      text(tr(s), W / 2, H * 0.4 + 120 + i * 62, { size: 44, w: 500, c: C.cream, a: card }));
   }
 }
 function drawSign(t) {
@@ -673,8 +738,9 @@ function drawSign(t) {
   ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H); ctx.drawImage(PAPER, 0, 0); ctx.restore();
   const v = R === "v", size = v ? 260 : 220, cy = H / 2 - (v ? 120 : 80);
   if (LOGO) { ctx.save(); ctx.globalAlpha = a; ctx.beginPath(); ctx.roundRect(W / 2 - size / 2, cy - size / 2, size, size, size * 0.22); ctx.clip(); ctx.drawImage(LOGO, W / 2 - size / 2, cy - size / 2, size, size); ctx.restore(); }
-  text("Dylan He", W / 2, cy + size / 2 + (v ? 110 : 90), { size: v ? 72 : 64, w: 700, serif: true, a });
-  text("制 作", W / 2, cy + size / 2 + (v ? 170 : 140), { size: 28, ls: 10, c: rgba(C.ink, 0.6), a });
+  const en = LANG === "en";
+  text("Dylan He", W / 2, cy + size / 2 + (v ? 110 : 90) + (en ? 30 : 0), { size: v ? 72 : 64, w: 700, serif: true, a });
+  text(tr("制 作"), W / 2, cy + size / 2 + (en ? (v ? 60 : 55) : v ? 170 : 140), { size: 28, ls: 10, c: rgba(C.ink, 0.6), a });
 }
 function drawWatermark(t, inv) {
   const v = R === "v", x = W - 40, y = v ? 72 : 52, s = v ? 52 : 44, a = 0.85 * (1 - prog(t, 170.5, 0.6));
@@ -877,7 +943,7 @@ function audioTick(ft) {
 }
 function enableSound() {
   if (!soundOn) startSound(); else { soundOn = false; AC.suspend(); }
-  document.getElementById("snd").textContent = soundOn ? "关闭声音" : "开启声音";
+  document.getElementById("snd").textContent = tr(soundOn ? "关闭声音" : "开启声音");
   document.getElementById("hint").classList.toggle("off", soundOn);
 }
 
@@ -889,7 +955,7 @@ build(params.get("ar") === "h" || (!params.get("ar") && innerWidth > innerHeight
 window.__wave = { TOTAL, ACTS };
 const logoImg = new Image(); logoImg.onload = () => { LOGO = logoImg; }; logoImg.src = "logo.png";
 const actsEl = document.getElementById("acts");
-ACTS.forEach(([n, at], i) => { const b = document.createElement("button"); b.textContent = `${i}·${n}`; b.onclick = () => { offset = at; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; }; actsEl.appendChild(b); });
+ACTS.forEach(([n, at], i) => { const b = document.createElement("button"); b.textContent = `${i}·${n}`; b.onclick = () => { offset = at; startAt = performance.now(); playing = true; document.getElementById("play").textContent = tr("暂停"); }; actsEl.appendChild(b); });
 let playing = !params.has("t"), startAt = performance.now();
 let offset = params.has("t") ? parseFloat(params.get("t")) : params.has("act") ? (ACTS[+params.get("act")] || [0, 0])[1] : 0;
 let speed = [1, 1.5, 2, 3].includes(+params.get("speed")) ? +params.get("speed") : 1;
@@ -901,10 +967,10 @@ function frame() {
   const t = now();
   render(Math.min(t, TOTAL));
   audioTick(t);
-  if (t >= TOTAL && playing) { offset = TOTAL; playing = false; document.getElementById("play").textContent = "播放"; }
+  if (t >= TOTAL && playing) { offset = TOTAL; playing = false; document.getElementById("play").textContent = tr("播放"); }
   requestAnimationFrame(frame);
 }
-document.getElementById("play").onclick = e => { if (playing) { offset = now(); playing = false; } else { if (offset >= TOTAL) offset = 0; startAt = performance.now(); playing = true; } e.target.textContent = playing ? "暂停" : "播放"; };
+document.getElementById("play").onclick = e => { if (playing) { offset = now(); playing = false; } else { if (offset >= TOTAL) offset = 0; startAt = performance.now(); playing = true; } e.target.textContent = tr(playing ? "暂停" : "播放"); };
 document.getElementById("snd").onclick = enableSound;
 document.getElementById("hint").onclick = enableSound;
 let uiTimer = 0;
@@ -913,7 +979,7 @@ cv.addEventListener("click", () => {
   clearTimeout(uiTimer); uiTimer = setTimeout(() => document.body.classList.remove("ui"), 4000);
 });
 document.getElementById("controls").addEventListener("click", () => { clearTimeout(uiTimer); uiTimer = setTimeout(() => document.body.classList.remove("ui"), 4000); });
-document.getElementById("restart").onclick = () => { offset = 0; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; };
+document.getElementById("restart").onclick = () => { offset = 0; startAt = performance.now(); playing = true; document.getElementById("play").textContent = tr("暂停"); };
 document.getElementById("ratio").onclick = () => { const t = now(); build(R === "v" ? "h" : "v"); buildSound(); offset = t; startAt = performance.now(); lastFt = null; };
 document.getElementById("fs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
 document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("play").click(); } });
