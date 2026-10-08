@@ -26,13 +26,15 @@
   .serif { font-family: var(--serif); }
   #controls { position: fixed; left: 16px; bottom: 12px; display: flex; gap: 8px; align-items: center; color: var(--ivory-3); font-size: 13px; opacity: 0; transition: opacity .3s; }
   body:hover #controls { opacity: 1; }
+  #speeds { display: flex; gap: 4px; }
+  #speeds button.on { color: var(--accent); border-color: var(--accent); }
   #controls button { background: #1a1917; color: var(--ivory-2); border: 1px solid var(--hair); border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
 </style>
 </head>
 <body>
 <div id="stage"><svg id="svg" role="img" aria-label="AOL、Yahoo、Google、Facebook 市值对比，以及 AOL、Yahoo 后来的出售价格（亿美元）"></svg></div>
 <div id="controls">
-  <button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button><span id="clock">0.0s</span>
+  <button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button><span id="speeds"><button data-s="1">1×</button><button data-s="1.5">1.5×</button><button data-s="2">2×</button><button data-s="3">3×</button></span><span id="clock">0.0s</span>
 </div>
 <script>
 const NS = "http://www.w3.org/2000/svg";
@@ -247,7 +249,15 @@ function render(t) {
 const params = new URLSearchParams(location.search);
 build(params.get("ar") === "h" ? "h" : "v");
 let playing = !params.has("t"), offset = parseFloat(params.get("t") || 0), startAt = performance.now();
-function now() { return playing ? offset + (performance.now() - startAt) / 1000 : offset; }
+let speed = [1, 1.5, 2, 3].includes(+params.get("speed")) ? +params.get("speed") : 1;
+function now() { return playing ? offset + (performance.now() - startAt) / 1000 * speed : offset; }
+// 换速度时把已播放的进度记下来，从当前帧接着播
+function setSpeed(s) {
+  offset = now(); startAt = performance.now(); speed = s;
+  document.querySelectorAll("#speeds button").forEach(b => b.classList.toggle("on", +b.dataset.s === s));
+}
+document.querySelectorAll("#speeds button").forEach(b => b.onclick = () => setSpeed(+b.dataset.s));
+setSpeed(speed);
 function frame() {
   const t = now();
   render(Math.min(t, T.end));
