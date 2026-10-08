@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>百分之二</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0d0c0b; --ui:#efe7d6; --ui-dim:rgba(239,231,214,.55); }
+  html,body { margin:0; height:100%; background:var(--bg); overflow:hidden; }
+  body { display:flex; align-items:center; justify-content:center; font-family:"IBM Plex Mono",monospace; }
+  #stage { position:relative; }
+  canvas { display:block; width:100%; height:100%; }
+  #bar { position:absolute; left:0; right:0; bottom:0; padding:14px 18px; display:flex; gap:14px; align-items:center;
+         background:linear-gradient(transparent, rgba(0,0,0,.55)); color:var(--ui); font-size:13px;
+         opacity:0; transition:opacity .3s; }
+  #stage.ui #bar, #stage.paused #bar { opacity:1; }
+  #bar button { background:none; border:1px solid var(--ui-dim); color:var(--ui); font:inherit; padding:5px 10px; cursor:pointer; border-radius:3px; }
+  #bar button:hover { border-color:var(--ui); }
+  #seek { flex:1; position:relative; height:22px; cursor:pointer; }
+  #seek .track { position:absolute; left:0; right:0; top:10px; height:2px; background:var(--ui-dim); }
+  #seek .fill { position:absolute; left:0; top:10px; height:2px; background:var(--ui); }
+  #seek .mark { position:absolute; top:6px; width:1px; height:10px; background:var(--ui); }
+  #time { min-width:96px; text-align:right; font-variant-numeric:tabular-nums; }
+  #start { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #start span { color:#25231f; border:1.5px solid #25231f; padding:10px 22px; font-size:15px; letter-spacing:.2em; background:rgba(239,231,214,.85); margin-top:38%; }
+  #start.hidden { display:none; }
+</style>
+</head>
+<body>
+<div id="stage" class="paused">
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <div id="start"><span>▶ 播放（含声音）</span></div>
+  <div id="bar">
+    <button id="play">播放</button>
+    <div id="seek"><div class="track"></div><div class="fill"></div></div>
+    <span id="time">0:00 / 0:00</span>
+    <button id="subs">字幕 开</button>
+    <button id="fs">全屏</button>
+  </div>
+</div>
+<script>
+'use strict';
+/* =====================================================================
+   《百分之二》 Two Percent — 纯代码短片
+   全部画面由 Canvas 2D 按时间 t 确定性绘制（可任意拖动 / 逐帧导出）。
+   旁白时长目前按语速估算；配音回来后，改 RATE 或给单句写死 dur 即可重新对位。
+   ===================================================================== */
+
+const W = 1920, H = 1080;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+
+const C = {
+  paper: '#efe7d6', ink: '#25231f', ink2: '#6f665a', red: '#a33a28',
+  grid: 'rgba(120,100,60,0.10)', gridMajor: 'rgba(120,100,60,0.22)',
+};
+const SERIF = '"Noto Serif SC","Songti SC","STSong","WenQuanYi Zen Hei",serif';
+const MONO = '"IBM Plex Mono","Courier New",monospace';
+
+/* ---------------- 旁白 / 时间轴 ----------------
+   每句：[文字, 句后额外停顿秒数, 选项]
+   选项 noSub：该句由画面上的字承担，不出底部字幕。                     */
+const RATE = 4.3;   // 估算语速：字/秒
+const GAP = 0.55;   // 句间默认停顿
+
+const CHAPTERS = [
+  { key: 'title', name: '', lead: 0.6, tail: 4.2, lines: [] },
+  { key: 'ask', name: '一 · 你被问过吗', lead: 1.0, tail: 1.2, lines: [
+    ['这个问题你大概被问过，或者问过别人：', 0],
+    ['你学这个专业，以后会不会被 AI 取代？', 0.8, { noSub: true }],
+    ['今年，Anthropic 的首席经济学家在哈佛被问了一个小时。', 0.2],
+    ['他的回答，不太像你想的那样。', 0],
+  ]},
+  { key: 'half', name: '二 · 对了一半', lead: 1.2, tail: 1.6, lines: [
+    ['几年前，一些人在图上画了一条线，说：到 2026 年，AI 会聪明到这种程度。', 0.6],
+    ['他们说对了，甚至说保守了。', 0.6],
+    ['他们还说，到那时，很多工作会消失。', 0.4],
+    ['这一半没发生。美国的失业率是 4.1%，接近有记录以来的最低。', 0.6],
+    ['同一批人，一半说对了，一半没对。为什么？', 0.8],
+  ]},
+  { key: 'chain', name: '三 · 工作是一串事', lead: 1.0, tail: 1.8, lines: [
+    ['他的解释是：工作不是一件事，是一串事。', 0.8],
+    ['AI 能让“想”和“写”快一百倍，但有些事快不了——它们要等现实世界给答案。', 0.8],
+    ['打个比方，做一款新药。AI 一天能设计出成千上万种候选分子。', 0.4],
+    ['但每一种都要先在动物身上试，再在人身上试，一期、二期、三期，几年起步。', 0.4],
+    ['前面快了一百倍，新药上市只快了一点点。', 1.0],
+    ['就像一场接力赛：前三棒跑得再快，第四棒还是原来的速度，全队的成绩就被它卡住。', 1.4],
+    ['他给了一个真实的数字：编程 AI 普及以后，代码多了二十倍，', 0.2],
+    ['真正发布的软件，只多了三成。', 0.8],
+    ['中间差的那一大截，就是链条上快不了的那几环。', 0.6],
+  ]},
+  { key: 'line', name: '四 · 那条线', lead: 1.0, tail: 1.6, lines: [
+    ['这是美国经济从 1870 年到 2010 年的样子。', 1.2],
+    ['中间出现了电、汽车、电脑、互联网，每一次都有人说这次不一样。', 1.6],
+    ['但平均下来，一百四十年，每年增长大约 2%。经济学家管它叫“经济的标度律”。', 1.4],
+    ['这次会弯吗？他没有给答案。', 1.0],
+    ['也许 AI 只是又一批让它保持在 2% 的发明。也许不是。', 1.0],
+  ]},
+  { key: 'swap', name: '五 · 不是消失，是换人', lead: 1.0, tail: 1.8, lines: [
+    ['但有一件事，他承认得很直接。', 0.3],
+    ['主持人问他：我现在用 AI 做研究，那我以前的研究助理呢？', 0.6],
+    ['他说：你变强了，他的位子没了。两件事同时发生。', 1.2],
+    ['这件事正在很多办公室里发生。', 0.2],
+    ['同样的活，一个人六点就交了三份，另一个人九点才交一份。转正只有一个名额。', 1.2],
+    ['工作没有消失。它只是换了人做。', 1.2],
+    ['所以比起你的专业叫什么，更要紧的是：你是这两个人里的哪一个。', 1.0],
+  ]},
+  { key: 'end', name: '', lead: 2.4, tail: 8.0, lines: [
+    ['这段影像是 AI 做的。', 1.0, { noSub: true }],
+    ['它也不知道，那条线会不会弯。', 0, { noSub: true }],
+  ]},
+];
+
+function lineDur(s) { return 0.45 + s.replace(/\s/g, '').length / RATE; }
+
+let TOTAL = 0;
+const CUES = [];
+(function buildTimeline() {
+  let t = 0;
+  for (const ch of CHAPTERS) {
+    ch.s = t; t += ch.lead; ch.cues = [];
+    for (const [text, after, opt] of ch.lines) {
+      const d = lineDur(text);
+      const cue = { text, s: t, e: t + d, noSub: !!(opt && opt.noSub) };
+      ch.cues.push(cue); CUES.push(cue);
+      t += d + GAP + (after || 0);
+    }
+    t += ch.tail; ch.e = t;
+  }
+  TOTAL = t;
+})();
+
+/* ---------------- 小工具 ---------------- */
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const prog = (t, a, b) => clamp((t - a) / (b - a));       // 线性 0..1
+const eprog = (t, a, b) => ease(prog(t, a, b));
+const fin = (t, a, d = .6) => clamp((t - a) / d);           // 淡入
+const vis = (t, a, b, d = .5) => fin(t, a, d) * (1 - fin(t, b - d, d));
+function hash(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+// 每帧收集：笔是否在画、打字机打了几个字（供声音使用）
+const FX = { pen: 0, typed: 0 };
+
+function setFont(size, family = SERIF, weight = 400) { ctx.font = `${weight} ${size}px ${family}`; }
+function text(s, x, y, o = {}) {
+  ctx.save();
+  ctx.globalAlpha *= (o.alpha == null ? 1 : o.alpha);
+  setFont(o.size || 32, o.font || SERIF, o.weight || 400);
+  ctx.fillStyle = o.color || C.ink;
+  ctx.textAlign = o.align || 'left';
+  ctx.textBaseline = o.base || 'alphabetic';
+  if (o.rot) { ctx.translate(x, y); ctx.rotate(o.rot); ctx.fillText(s, 0, 0); }
+  else ctx.fillText(s, x, y);
+  ctx.restore();
+}
+// 打字机：返回已出现的部分，并登记打字数
+function typed(s, p) {
+  const chars = Array.from(s);
+  const n = Math.floor(chars.length * clamp(p));
+  if (p > 0 && p < 1) FX.typed += n;
+  return chars.slice(0, n).join('');
+}
+
+// 路径：点列 + 累计长度，可按进度画出（笔尖跟随）
+function mkPath(pts) {
+  const L = [0];
+  for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  return { pts, L, len: L[L.length - 1] };
+}
+function sample(fn, a, b, n) { const out = []; for (let i = 0; i <= n; i++) { const u = a + (b - a) * i / n; out.push(fn(u)); } return out; }
+function drawPath(P, p, o = {}) {
+  if (p <= 0) return null;
+  p = clamp(p);
+  const target = P.len * p, pts = P.pts;
+  ctx.save();
+  ctx.globalAlpha *= (o.alpha == null ? 1 : o.alpha);
+  ctx.strokeStyle = o.color || C.ink; ctx.lineWidth = o.w || 3;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (o.dash) ctx.setLineDash(o.dash);
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  let tip = pts[0];
+  for (let i = 1; i < pts.length; i++) {
+    if (P.L[i] <= target) { ctx.lineTo(pts[i][0], pts[i][1]); tip = pts[i]; }
+    else {
+      const k = (target - P.L[i - 1]) / (P.L[i] - P.L[i - 1] || 1);
+      tip = [lerp(pts[i - 1][0], pts[i][0], k), lerp(pts[i - 1][1], pts[i][1], k)];
+      ctx.lineTo(tip[0], tip[1]); break;
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+  if (p < 1 && !o.noNib) { nib(tip[0], tip[1], o.alpha); FX.pen++; }
+  return tip;
+}
+function nib(x, y, a = 1) {
+  ctx.save(); ctx.globalAlpha *= (a == null ? 1 : a);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function line(x1, y1, x2, y2, p = 1, o) { return drawPath(mkPath([[x1, y1], [x2, y2]]), p, o); }
+function rectPath(x, y, w, h) { return mkPath([[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]); }
+function circlePath(cx, cy, r, a0 = -Math.PI / 2) { return mkPath(sample(u => [cx + r * Math.cos(a0 + u), cy + r * Math.sin(a0 + u)], 0, Math.PI * 2, 48)); }
+
+/* ---------------- 纸 ---------------- */
+const grain = document.createElement('canvas');
+(function makeGrain() {
+  grain.width = 480; grain.height = 270;
+  const g = grain.getContext('2d'), img = g.createImageData(480, 270);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = hash(i * .37) * 255;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 14;
+  }
+  g.putImageData(img, 0, 0);
+})();
+function paper(t, gridAlpha = 1) {
+  ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H);
+  const breathe = (0.85 + 0.15 * Math.sin(t * 0.45)) * gridAlpha;
+  ctx.save(); ctx.globalAlpha = breathe; ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 24) { ctx.strokeStyle = x % 120 === 0 ? C.gridMajor : C.grid; ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 24) { ctx.strokeStyle = y % 120 === 0 ? C.gridMajor : C.grid; ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke(); }
+  ctx.restore();
+  ctx.drawImage(grain, 0, 0, W, H);
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * .45, W / 2, H / 2, H * 1.05);
+  v.addColorStop(0, 'rgba(60,40,10,0)'); v.addColorStop(1, 'rgba(60,40,10,0.22)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+}
+
+/* ---------------- 共用小画件 ---------------- */
+function hourglass(x, y, s, a = 1) {
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = C.ink; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y - s); ctx.lineTo(x - s, y + s); ctx.lineTo(x + s, y + s); ctx.closePath();
+  ctx.stroke(); ctx.restore();
+}
+function stamp(s, x, y, k, o = {}) {
+  if (k <= 0) return;
+  const sc = lerp(1.6, 1, ease(clamp(k * 3)));
+  ctx.save(); ctx.translate(x, y); ctx.rotate(o.rot || -0.07); ctx.scale(sc, sc);
+  ctx.globalAlpha *= clamp(k * 3) * 0.92;
+  setFont(o.size || 60, SERIF, 600);
+  const w = ctx.measureText(s).width + 56, h = (o.size || 60) + 34;
+  ctx.fillStyle = 'rgba(239,231,214,0.9)'; ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeStyle = C.red; ctx.lineWidth = 5; ctx.strokeRect(-w / 2, -h / 2, w, h);
+  ctx.lineWidth = 1.5; ctx.strokeRect(-w / 2 + 8, -h / 2 + 8, w - 16, h - 16);
+  ctx.fillStyle = C.red; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s, 0, 4);
+  ctx.restore();
+}
+// 线描小人（坐姿，面朝 dir），p 为画出进度
+function figure(x, y, p, o = {}) {
+  const d = o.dir || 1, a = o.alpha == null ? 1 : o.alpha, dash = o.dash;
+  const parts = [
+    circlePath(x, y - 150, 30),
+    mkPath([[x, y - 120], [x - 6 * d, y - 30]]),                         // 躯干
+    mkPath([[x - 2 * d, y - 100], [x + 50 * d, y - 70], [x + 95 * d, y - 72]]), // 手臂伸向桌面
+    mkPath([[x - 6 * d, y - 30], [x + 55 * d, y - 30], [x + 55 * d, y + 50]]), // 腿
+    mkPath([[x - 40 * d, y - 30], [x + 30 * d, y - 30]]),                 // 椅面
+    mkPath([[x - 40 * d, y - 30], [x - 40 * d, y - 110]]),                // 椅背
+    mkPath([[x - 32 * d, y - 30], [x - 32 * d, y + 50]]),                 // 椅腿
+  ];
+  const n = parts.length;
+  parts.forEach((P, i) => {
+    const k = clamp(p * n - i);
+    const isChair = i >= 4;
+    drawPath(P, k, { alpha: isChair ? (o.chairAlpha == null ? 1 : o.chairAlpha) : a, w: 3, dash: isChair ? null : dash, noNib: !(k > 0 && k < 1) });
+  });
+}
+function desk(x1, x2, y, p) { line(x1, y, x2, y, p); line(x1 + 20, y, x1 + 20, y + 130, clamp(p * 2 - 1)); line(x2 - 20, y, x2 - 20, y + 130, clamp(p * 2 - 1)); }
+function laptop(x, y, d, p, glow = 0) {
+  drawPath(mkPath([[x - 40 * d, y], [x + 30 * d, y], [x + 50 * d, y - 60]]), p, { w: 3 });
+  if (glow > 0) {
+    ctx.save(); ctx.globalAlpha = glow * 0.8; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 5; i++) {
+      const ang = -Math.PI / 2 - d * (0.2 + i * 0.28);
+      const r1 = 70, r2 = 70 + 26 + 10 * Math.sin(i * 2.1);
+      ctx.beginPath(); ctx.moveTo(x + 40 * d + Math.cos(ang) * r1 * .5, y - 40 + Math.sin(ang) * r1 * .5);
+      ctx.lineTo(x + 40 * d + Math.cos(ang) * r2 * .8, y - 40 + Math.sin(ang) * r2 * .8); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+function sheets(x, y, n, a = 1) {
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = C.ink; ctx.fillStyle = C.paper; ctx.lineWidth = 2;
+  for (let i = 0; i < n; i++) { const yy = y - i * 10, xx = x + (hash(i + 3) - .5) * 8; ctx.fillRect(xx - 40, yy - 8, 80, 8); ctx.strokeRect(xx - 40, yy - 8, 80, 8); }
+  ctx.restore();
+}
+function clock(x, y, r, hours, p, a = 1) {
+  drawPath(circlePath(x, y, r), p, { alpha: a, w: 2.5 });
+  if (p < 1) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = C.ink;
+  for (let i = 0; i < 12; i++) { const an = i / 12 * Math.PI * 2; ctx.lineWidth = i % 3 ? 1 : 2.5; ctx.beginPath(); ctx.moveTo(x + Math.cos(an) * r * .82, y + Math.sin(an) * r * .82); ctx.lineTo(x + Math.cos(an) * r * .95, y + Math.sin(an) * r * .95); ctx.stroke(); }
+  const hA = (hours % 12) / 12 * Math.PI * 2 - Math.PI / 2, mA = (hours % 1) * Math.PI * 2 - Math.PI / 2;
+  ctx.lineCap = 'round'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(hA) * r * .5, y + Math.sin(hA) * r * .5); ctx.stroke();
+  ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(mA) * r * .78, y + Math.sin(mA) * r * .78); ctx.stroke();
+  ctx.restore();
+}
+
+/* ---------------- 第四章那条线（第六章复用） ---------------- */
+const GDP = (() => {
+  const x0 = 220, x1 = 1440, x2 = 1700, yb = 850, yt = 290;
+  const X = yr => x0 + (yr - 1870) / 140 * (x1 - x0);
+  const rise = 2.8;                                   // 140 年 × 2% ≈ 对数 2.8
+  const Y = v => yb - v / (rise + .25) * (yb - yt);
+  function logv(yr) {
+    let v = (yr - 1870) * 0.02;
+    const dep = yr > 1929 && yr < 1945 ? Math.sin(prog(yr, 1929, 1941) * Math.PI) * -0.30 : 0;   // 大萧条
+    const war = yr > 1939 && yr < 1950 ? Math.sin(prog(yr, 1939, 1950) * Math.PI) * 0.10 : 0;    // 二战
+    const wob = Math.sin(yr * 0.9) * 0.018 + Math.sin(yr * 2.3 + 1) * 0.012;
+    return v + dep + war + wob;
+  }
+  const main = mkPath(sample(yr => [X(yr), Y(logv(yr))], 1870, 2010, 280));
+  const end = [X(2010), Y(logv(2010))];
+  const straight = mkPath(sample(yr => [X(yr), Y(logv(2010) + (yr - 2010) * .02)], 2010, 2030, 40));
+  const bend = mkPath(sample(yr => [X(yr), Y(logv(2010) + (yr - 2010) * .02 + Math.pow((yr - 2010) / 20, 3) * 0.55)], 2010, 2030, 40));
+  const marks = [[1882, '电'], [1908, '汽车'], [1946, '电脑'], [1991, '互联网']];
+  return { x0, x1, x2, yb, yt, X, Y, logv, main, end, straight, bend, marks };
+})();
+function drawGDP(lt, cfg) {
+  const g = GDP;
+  line(g.x0, g.yb + 40, g.x2, g.yb + 40, cfg.axis, { w: 2, noNib: true });
+  line(g.x0 - 30, g.yb + 40, g.x0 - 30, g.yt - 60, cfg.axis, { w: 2, noNib: true });
+  const ax = fin(cfg.axis, .9, .1);
+  for (let yr = 1870; yr <= 2010; yr += 20) {
+    ctx.save(); ctx.globalAlpha = ax; ctx.strokeStyle = C.ink; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(g.X(yr), g.yb + 40); ctx.lineTo(g.X(yr), g.yb + 52); ctx.stroke(); ctx.restore();
+    text(String(yr), g.X(yr), g.yb + 82, { font: MONO, size: 22, align: 'center', color: C.ink2, alpha: ax });
+  }
+  text('人均 GDP · 对数刻度 · 示意', g.x0 - 20, g.yt - 80, { size: 24, color: C.ink2, alpha: ax });
+  // 未来区域
+  if (cfg.future > 0) {
+    ctx.save(); ctx.globalAlpha = cfg.future * .5; ctx.strokeStyle = C.ink2; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(g.x1, g.yt - 60, g.x2 - g.x1, g.yb + 40 - (g.yt - 60)); ctx.clip();
+    for (let k = -800; k < 800; k += 18) { ctx.beginPath(); ctx.moveTo(g.x1 + k, g.yt - 60); ctx.lineTo(g.x1 + k + 600, g.yb + 40); ctx.stroke(); }
+    ctx.restore();
+    text('2030', g.x2, g.yb + 82, { font: MONO, size: 22, align: 'center', color: C.ink2, alpha: cfg.future });
+  }
+  // 主线
+  const tip = drawPath(g.main, cfg.main, { w: 4, noNib: cfg.main >= 1 });
+  // 历史标注（笔经过时出现）
+  for (const [yr, label] of g.marks) {
+    const passed = tip ? tip[0] >= g.X(yr) : false;
+    if (!passed && cfg.main < 1) continue;
+    const k = cfg.markAlpha == null ? 1 : cfg.markAlpha;
+    const x = g.X(yr), y = g.Y(g.logv(yr));
+    ctx.save(); ctx.globalAlpha = k * .7; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5; ctx.setLineDash([4, 5]);
+    ctx.beginPath(); ctx.moveTo(x, y - 18); ctx.lineTo(x, y - 110); ctx.stroke(); ctx.restore();
+    text(label, x, y - 124, { size: 34, align: 'center', alpha: k });
+    text(String(yr), x, y - 162, { font: MONO, size: 20, align: 'center', color: C.ink2, alpha: k });
+  }
+  if (cfg.pct > 0) {
+    text('≈ 2%', 300, 360, { font: MONO, size: 150, weight: 500, alpha: cfg.pct });
+    text('每年 · 持续 140 年', 312, 430, { size: 36, color: C.ink2, alpha: cfg.pct });
+  }
+}
+
+/* ---------------- 各章画面 ---------------- */
+const SCENES = {
+  title(lt, ch) {
+    const k = vis(lt, .3, ch.e - ch.s, .9);
+    text(typed('百分之二', prog(lt, .5, 1.6)), W / 2, H / 2 - 10, { size: 150, weight: 600, align: 'center', alpha: k });
+    text('TWO PERCENT', W / 2, H / 2 + 70, { font: MONO, size: 30, align: 'center', color: C.ink2, alpha: k * fin(lt, 1.8) });
+    line(W / 2 - 260, H / 2 + 110, W / 2 + 260, H / 2 + 110, eprog(lt, 1.8, 3.0), { w: 2, alpha: k });
+    text('一场关于 AI 与工作的对话', W / 2, H / 2 + 160, { size: 30, align: 'center', color: C.ink2, alpha: k * fin(lt, 2.6) });
+  },
+
+  ask(lt, ch) {
+    const c = ch.cues.map(q => q.s - ch.s), D = ch.e - ch.s;
+    const up = eprog(lt, c[2] - .2, c[2] + 1.0);
+    const q = typed('你学这个专业，以后会不会被 AI 取代？', prog(lt, c[1], c[1] + 2.4));
+    text(q, W / 2, lerp(H / 2, 300, up), { size: lerp(72, 52, up), align: 'center', weight: 600 });
+    // 名片
+    const card = eprog(lt, c[2] + .3, c[2] + 2.3);
+    if (card > 0) {
+      drawPath(rectPath(560, 430, 800, 300), card, { w: 2 });
+      const ka = fin(lt, c[2] + 1.6);
+      text('Peter McCrory', 620, 520, { font: MONO, size: 44, alpha: ka });
+      text('Anthropic 首席经济学家', 620, 575, { size: 32, alpha: ka });
+      line(620, 610, 1300, 610, eprog(lt, c[2] + 2, c[2] + 3), { w: 1, noNib: true });
+      text('主持：Jason Furman（前白宫经济顾问委员会主席）', 620, 660, { size: 26, color: C.ink2, alpha: fin(lt, c[2] + 2.4) });
+      text('哈佛大学政治研究所 · JFK Jr. 论坛', 620, 702, { size: 26, color: C.ink2, alpha: fin(lt, c[2] + 2.8) });
+    }
+    // “不太像你想的那样”——在问题下画一道波浪线
+    const wv = eprog(lt, c[3] + .4, c[3] + 1.8);
+    drawPath(mkPath(sample(u => [lerp(620, 1300, u), 340 + Math.sin(u * 40) * 5], 0, 1, 120)), wv, { w: 2, color: C.red, alpha: 1 - fin(lt, D - .8, .8) });
+  },
+
+  half(lt, ch) {
+    const c = ch.cues.map(q => q.s - ch.s);
+    // 面板 A：能力
+    const A = { x0: 170, x1: 870, y0: 250, y1: 770 };
+    const B = { x0: 1050, x1: 1750, y0: 250, y1: 770 };
+    const axA = eprog(lt, 0, 1.4);
+    drawPath(mkPath([[A.x0, A.y0], [A.x0, A.y1], [A.x1, A.y1]]), axA, { w: 2 });
+    text('AI 能独立完成的任务长度', A.x0, A.y0 - 40, { size: 32, weight: 600, alpha: fin(lt, .6) });
+    text('每 4–7 个月翻一倍', A.x0, A.y0 - 4, { size: 24, color: C.ink2, alpha: fin(lt, 1) });
+    for (let yr = 2019; yr <= 2026; yr++) {
+      const x = lerp(A.x0, A.x1, (yr - 2019) / 7);
+      text(String(yr), x, A.y1 + 40, { font: MONO, size: 20, align: 'center', color: C.ink2, alpha: fin(lt, .8 + (yr - 2019) * .08) });
+    }
+    const expo = (a, s) => u => [lerp(A.x0, A.x1, u), A.y1 - (Math.exp(a * u) - 1) / (Math.exp(a) - 1) * (A.y1 - A.y0) * s];
+    const fc = mkPath(sample(expo(3.4, .78), 0, 1, 120));
+    const ac = mkPath(sample(expo(4.2, .98), 0, 1, 120));
+    drawPath(fc, eprog(lt, c[0] + 1.2, c[0] + 5.5), { w: 3, dash: [10, 10], color: C.ink2 });
+    text('当年的预测', A.x1 - 10, A.y0 + 175, { size: 24, color: C.ink2, align: 'right', alpha: fin(lt, c[0] + 5.5) });
+    drawPath(ac, eprog(lt, c[1], c[1] + 3.2), { w: 4 });
+    text('实际', A.x1 + 12, A.y0 + 20, { size: 28, weight: 600, alpha: fin(lt, c[1] + 3) });
+
+    // 面板 B：失业率
+    const axB = eprog(lt, c[2] - .2, c[2] + 1.2);
+    drawPath(mkPath([[B.x0, B.y0], [B.x0, B.y1], [B.x1, B.y1]]), axB, { w: 2 });
+    text('美国失业率', B.x0, B.y0 - 40, { size: 32, weight: 600, alpha: fin(lt, c[2]) });
+    text('示意 · 末点为访谈所引数据', B.x0, B.y0 - 4, { size: 24, color: C.ink2, alpha: fin(lt, c[2] + .4) });
+    const yU = v => B.y1 - v / 15 * (B.y1 - B.y0);
+    const xU = yr => lerp(B.x0, B.x1, (yr - 2022) / 4);
+    for (const v of [0, 5, 10, 15]) text(v + '%', B.x0 - 14, yU(v) + 7, { font: MONO, size: 20, align: 'right', color: C.ink2, alpha: fin(lt, c[2] + .5) });
+    for (let yr = 2022; yr <= 2026; yr++) text(String(yr), xU(yr), B.y1 + 40, { font: MONO, size: 20, align: 'center', color: C.ink2, alpha: fin(lt, c[2] + .6) });
+    const pred = mkPath(sample(u => [xU(2023 + u * 3), yU(3.7 + Math.pow(u, 2.2) * 9.5)], 0, 1, 60));
+    drawPath(pred, eprog(lt, c[2] + .8, c[2] + 3.2), { w: 3, dash: [10, 10], color: C.ink2 });
+    text('当年的预测', xU(2026) - 10, yU(13.2) - 14, { size: 24, color: C.ink2, align: 'right', alpha: fin(lt, c[2] + 3) });
+    const pts = [[2022, 3.7], [2022.5, 3.6], [2023, 3.5], [2023.5, 3.6], [2024, 3.9], [2024.5, 4.1], [2025, 4.0], [2025.5, 4.2], [2026, 4.1]];
+    const act = mkPath(sample(u => {
+      const f = u * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), k = ease(f - i);
+      return [xU(lerp(pts[i][0], pts[i + 1][0], k)), yU(lerp(pts[i][1], pts[i + 1][1], k))];
+    }, 0, 1, 120));
+    drawPath(act, eprog(lt, c[3], c[3] + 2.6), { w: 4 });
+    const endK = fin(lt, c[3] + 2.6, .4);
+    if (endK > 0) {
+      ctx.save(); ctx.globalAlpha = endK; ctx.fillStyle = C.red; ctx.beginPath(); ctx.arc(xU(2026), yU(4.1), 9, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      text('4.1%', xU(2026) - 20, yU(4.1) - 40, { font: MONO, size: 64, weight: 500, color: C.red, align: 'right', alpha: endK });
+    }
+    // 印章
+    const sk = prog(lt, c[4] + 1.2, c[4] + 2.4);
+    stamp('对了一半', 960, 520, sk, { size: 56 });
+    if (sk > 0 && sk < .1) FX.stamp = 1;
+  },
+
+  chain(lt, ch) {
+    const c = ch.cues.map(q => q.s - ch.s), D = ch.e - ch.s;
+
+    // A：一串事
+    const a = vis(lt, 0, c[2], .6);
+    if (a > 0) {
+      ctx.save(); ctx.globalAlpha = a;
+      const labels = ['构思', '写作', '计算', '检索', '试验', '等结果', '审批', '落地'];
+      const x0 = 190, step = 196, y = 440, w = 150, h = 84;
+      labels.forEach((lab, i) => {
+        const p = eprog(lt, .3 + i * .45, .3 + i * .45 + .7);
+        drawPath(rectPath(x0 + i * step, y, w, h), p, { w: 3 });
+        if (i > 0) line(x0 + i * step - 46, y + h / 2, x0 + i * step, y + h / 2, p, { w: 3, noNib: true });
+        // 前四环被 AI 加速：涂黑
+        const fill = i < 4 ? eprog(lt, c[1] + .3 + i * .18, c[1] + .9 + i * .18) : 0;
+        if (fill > 0) { ctx.save(); ctx.globalAlpha *= fill; ctx.fillStyle = C.ink; ctx.fillRect(x0 + i * step, y, w, h); ctx.restore(); }
+        text(lab, x0 + i * step + w / 2, y + h / 2 + 12, { size: 34, align: 'center', color: fill > .5 ? C.paper : C.ink, alpha: fin(lt, .3 + i * .45 + .5) });
+        if (i >= 4) hourglass(x0 + i * step + w / 2, y + h + 50, 14, fin(lt, c[1] + 3.2 + (i - 4) * .2));
+      });
+      const br = eprog(lt, c[1] + 1.2, c[1] + 2.4);
+      line(x0, y - 40, x0 + 3 * step + w, y - 40, br, { w: 2 });
+      text('×100', x0 + (3 * step + w) / 2, y - 62, { font: MONO, size: 44, weight: 500, align: 'center', alpha: fin(lt, c[1] + 2.2) });
+      const br2 = eprog(lt, c[1] + 3.0, c[1] + 4.2);
+      line(x0 + 4 * step, y + h + 100, x0 + 7 * step + w, y + h + 100, br2, { w: 2 });
+      text('要等现实世界给答案', x0 + 4 * step + (3 * step + w) / 2, y + h + 150, { size: 32, align: 'center', alpha: fin(lt, c[1] + 4) });
+      ctx.restore();
+    }
+
+    // B：新药
+    const b = vis(lt, c[2], c[5], .6);
+    if (b > 0) {
+      ctx.save(); ctx.globalAlpha = b;
+      const x0 = 260, x1 = 1660, yr = x => x0 + x / 10 * (x1 - x0);
+      const segs = [['设计分子', 1], ['动物实验', 1.5], ['一期', 1.5], ['二期', 2], ['三期', 3], ['审批', 1]];
+      // 候选分子云
+      const cloud = vis(lt, c[2] + 1.2, c[3] + .8, .5);
+      const n = Math.floor(eprog(lt, c[2] + 1.4, c[3]) * 900);
+      if (cloud > 0) {
+        ctx.save(); ctx.globalAlpha *= cloud; ctx.fillStyle = C.ink;
+        for (let i = 0; i < n; i++) { const px = 270 + hash(i) * 520, py = 190 + hash(i + 999) * 140; ctx.fillRect(px, py, 3, 3); }
+        ctx.restore();
+        text('候选分子 ' + Math.floor(n / 900 * 12000).toLocaleString('en-US'), 830, 270, { font: MONO, size: 36, alpha: cloud });
+      }
+      const row = (y, label, scaleFirst, p0, p1, total) => {
+        text(label, x0, y - 22, { size: 30, weight: 600, alpha: fin(lt, p0) });
+        let acc = 0;
+        segs.forEach(([name, len], i) => {
+          const L = i === 0 ? len * scaleFirst : len;
+          const st = i === 0 ? p0 : lerp(p0 + .6, p1, (i - 1) / 5), en = st + (i === 0 ? .6 : (p1 - p0 - .6) / 5);
+          const p = eprog(lt, st, en);
+          drawPath(rectPath(yr(acc), y, Math.max(3, yr(acc + L) - yr(acc)), 70), p, { w: 2.5 });
+          if (i === 0 && scaleFirst < 1) { ctx.save(); ctx.globalAlpha *= p; ctx.fillStyle = C.ink; ctx.fillRect(yr(acc), y, 4, 70); ctx.restore(); }
+          if (L > .5) text(name, yr(acc + L / 2), y + 46, { size: 26, align: 'center', alpha: fin(lt, en - .2) });
+          acc += L;
+        });
+        text(total, yr(acc) + 24, y + 48, { font: MONO, size: 34, weight: 500, alpha: fin(lt, p1) });
+      };
+      row(430, '用 AI 之前', 1, c[2] + .2, c[3] + 2.8, '10 年');
+      row(640, '用 AI 之后', 0.01, c[4], c[4] + 2.2, '≈ 9 年');
+      // 标注
+      const ar = fin(lt, c[4] + 1.0);
+      if (ar > 0) {
+        text('设计快了 100 倍', x0, 800, { size: 28, color: C.red, alpha: ar });
+        line(x0 + 10, 770, x0 + 3, 716, eprog(lt, c[4] + 1, c[4] + 1.6), { w: 2, color: C.red, noNib: true });
+      }
+      text('示意：各阶段时长为大致量级', x1, 860, { size: 22, color: C.ink2, align: 'right', alpha: fin(lt, c[3]) });
+      ctx.restore();
+    }
+
+    // C：接力赛
+    const cc = vis(lt, c[5], c[6], .6);
+    if (cc > 0) {
+      ctx.save(); ctx.globalAlpha = cc;
+      const x0 = 300, x1 = 1580, leg = (x1 - x0) / 4;
+      const lanes = [{ y: 420, label: '原来', legs: [10, 10, 10, 10] }, { y: 640, label: '前三棒快 100 倍', legs: [.1, .1, .1, 10] }];
+      const T0 = c[5] + .6, simT = Math.max(0, (lt - T0) / (c[6] - .6 - T0) * 44);
+      lanes.forEach((ln, li) => {
+        text(ln.label, x0, ln.y - 40, { size: 30, weight: 600, alpha: fin(lt, c[5] + li * .3) });
+        line(x0, ln.y, x1, ln.y, eprog(lt, c[5], c[5] + 1), { w: 2, noNib: true });
+        for (let i = 0; i <= 4; i++) line(x0 + i * leg, ln.y - 12, x0 + i * leg, ln.y + 12, fin(lt, c[5] + .8), { w: 2, noNib: true });
+        if (li === 0) for (let i = 0; i < 4; i++) text(['第一棒', '第二棒', '第三棒', '第四棒'][i], x0 + (i + .5) * leg, ln.y + 52, { size: 24, align: 'center', color: C.ink2, alpha: fin(lt, c[5] + .8) });
+        // 跑者位置
+        let s = simT, pos = 0, total = ln.legs.reduce((a, b) => a + b, 0);
+        for (let i = 0; i < 4; i++) { const f = clamp(s / ln.legs[i]); pos += f * leg; s -= ln.legs[i]; if (f < 1) break; }
+        ctx.save(); ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(x0 + pos, ln.y, 11, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        if (simT > 0 && simT < total) FX.pen++;
+        const shown = Math.min(simT, total);
+        text(shown.toFixed(1) + ' 秒', x1 + 40, ln.y + 12, { font: MONO, size: 36, weight: 500, alpha: fin(lt, c[5] + .6), color: li === 1 && simT >= total ? C.red : C.ink });
+      });
+      const fl = fin(lt, c[5] + 3.8);
+      if (fl > 0) {
+        ctx.save(); ctx.globalAlpha *= fl; ctx.fillStyle = 'rgba(163,58,40,0.10)'; ctx.fillRect(x0 + 3 * leg, 590, leg, 100); ctx.restore();
+        text('再快，也快不过第四棒', x0 + 3.5 * leg, 740, { size: 28, color: C.red, align: 'center', alpha: fl });
+      }
+      ctx.restore();
+    }
+
+    // D：二十倍 vs 三成
+    const dd = vis(lt, c[6], D + 1, .6);
+    if (dd > 0) {
+      ctx.save(); ctx.globalAlpha = dd;
+      const x0 = 260, unit = 64;
+      text('代码行数', x0, 360, { size: 32, weight: 600, alpha: fin(lt, c[6]) });
+      const codeP = eprog(lt, c[6] + .8, c[6] + 4.2);
+      ctx.fillStyle = C.ink; ctx.fillRect(x0, 390, unit * lerp(1, 20, codeP), 54);
+      if (codeP > 0 && codeP < 1) FX.pen++;
+      text('×' + Math.max(1, Math.round(lerp(1, 20, codeP))), x0 + unit * lerp(1, 20, codeP) + 22, 435, { font: MONO, size: 46, weight: 500 });
+      text('软件发布', x0, 580, { size: 32, weight: 600, alpha: fin(lt, c[7]) });
+      const relP = eprog(lt, c[7] + .4, c[7] + 2.2);
+      if (relP > 0) {
+        ctx.fillStyle = C.ink; ctx.fillRect(x0, 610, unit * lerp(1, 1.3, relP), 54);
+        text('+' + Math.round(lerp(0, 30, relP)) + '%', x0 + unit * lerp(1, 1.3, relP) + 22, 655, { font: MONO, size: 46, weight: 500 });
+      }
+      const gp = eprog(lt, c[8], c[8] + 1.6);
+      if (gp > 0) {
+        const gx0 = x0 + unit * 1.3 + 160, gx1 = x0 + unit * 20;
+        drawPath(mkPath([[gx0, 700], [gx0, 720], [gx1, 720], [gx1, 700]]), gp, { w: 2, color: C.red });
+        text('快不了的那几环', (gx0 + gx1) / 2, 770, { size: 32, color: C.red, align: 'center', alpha: fin(lt, c[8] + 1.2) });
+      }
+      text('数据：McCrory 在访谈中引用的研究（编程智能体引入前后）', 1660, 880, { size: 22, color: C.ink2, align: 'right', alpha: fin(lt, c[6] + 1) });
+      ctx.restore();
+    }
+  },
+
+  line(lt, ch) {
+    const c = ch.cues.map(q => q.s - ch.s);
+    drawGDP(lt, {
+      axis: eprog(lt, 0, 1.4),
+      main: prog(lt, c[0] + .4, c[2] - .2),
+      pct: fin(lt, c[2] + .6, 1.0),
+      future: fin(lt, c[3] + .2, 1.2),
+    });
+    const g = GDP;
+    if (lt > c[3] + .6) {
+      const blink = .5 + .5 * Math.sin(lt * 5);
+      nib(g.end[0], g.end[1], blink);
+      text('?', (g.x1 + g.x2) / 2, g.yt + 40, { font: MONO, size: 110, align: 'center', color: C.ink2, alpha: fin(lt, c[3] + .8) * .7 });
+    }
+    const alt = fin(lt, c[4] + .2, 1.0);
+    if (alt > 0) {
+      const sw = .5 + .5 * Math.sin((lt - c[4]) * 1.6);
+      drawPath(g.straight, 1, { w: 3, dash: [8, 10], alpha: alt * lerp(.25, .9, sw), noNib: true });
+      drawPath(g.bend, 1, { w: 3, dash: [8, 10], alpha: alt * lerp(.9, .25, sw), noNib: true });
+    }
+  },
+
+  swap(lt, ch) {
+    const c = ch.cues.map(q => q.s - ch.s), D = ch.e - ch.s;
+    // A：教授与研究助理
+    const a = vis(lt, 0, c[3], .7);
+    if (a > 0) {
+      ctx.save(); ctx.globalAlpha = a;
+      const deskY = 720;
+      desk(420, 1500, deskY, eprog(lt, .2, 1.4));
+      figure(620, deskY + 30, eprog(lt, .6, 2.6));
+      laptop(780, deskY, 1, eprog(lt, 2.0, 2.6), fin(lt, c[2] + .6) * (.6 + .4 * Math.sin(lt * 4)));
+      const raFade = 1 - .85 * eprog(lt, c[2] + 1.2, c[2] + 3.4);
+      figure(1300, deskY + 30, eprog(lt, 1.0, 3.0), { dir: -1, alpha: raFade, dash: raFade < .9 ? [6, 8] : null });
+      sheets(1150, deskY - 2, 2, raFade * fin(lt, 2.6));
+      sheets(960, deskY - 2, Math.round(lerp(1, 7, eprog(lt, c[2] + .8, c[2] + 3))), fin(lt, 2.6));
+      text('教授', 620, deskY + 190, { size: 28, align: 'center', color: C.ink2, alpha: fin(lt, 2.4) });
+      text('研究助理', 1300, deskY + 190, { size: 28, align: 'center', color: C.ink2, alpha: fin(lt, 2.8) * raFade });
+      // 引语
+      text(typed('“这算增强了我，还是取代了我的研究助理？”', prog(lt, c[1] + .2, c[1] + 3.2)), W / 2, 230, { size: 44, align: 'center' });
+      text('—— Jason Furman', W / 2 + 560, 280, { font: MONO, size: 22, align: 'right', color: C.ink2, alpha: fin(lt, c[1] + 3.2) });
+      text(typed('“它增强了你，也替代了他。”', prog(lt, c[2] + .1, c[2] + 1.8)), W / 2, 370, { size: 52, align: 'center', weight: 600, color: C.red });
+      text('—— Peter McCrory', W / 2 + 330, 420, { font: MONO, size: 22, align: 'right', color: C.ink2, alpha: fin(lt, c[2] + 1.8) });
+      ctx.restore();
+    }
+    // B：两个实习生
+    const b = vis(lt, c[3], D + 1, .7);
+    if (b > 0) {
+      ctx.save(); ctx.globalAlpha = b;
+      const deskY = 760, people = [{ x: 560, end: 18, n: 3, ai: true, name: '实习生 A' }, { x: 1240, end: 21, n: 1, ai: false, name: '实习生 B' }];
+      const run = eprog(lt, c[4] - .2, c[4] + 4.5);
+      const lose = eprog(lt, c[5] + .2, c[5] + 1.8);
+      const back = eprog(lt, c[6] + .2, c[6] + 1.4);
+      people.forEach((pp, i) => {
+        const fade = i === 1 ? 1 - .8 * lose * (1 - back) : 1;
+        desk(pp.x - 120, pp.x + 300, deskY, eprog(lt, c[3] + i * .3, c[3] + 1.2 + i * .3));
+        figure(pp.x, deskY + 30, eprog(lt, c[3] + .4 + i * .3, c[3] + 2.2 + i * .3), { alpha: fade, dash: fade < .9 ? [6, 8] : null });
+        laptop(pp.x + 150, deskY, 1, eprog(lt, c[3] + 1.6, c[3] + 2.2), pp.ai ? fin(lt, c[4]) * (.5 + .5 * Math.sin(lt * 4)) : 0);
+        const hrs = lerp(9, pp.end, clamp(run * (21 - 9) / (pp.end - 9)));
+        clock(pp.x + 90, 330, 70, hrs, eprog(lt, c[3] + .6, c[3] + 1.6));
+        text(String(Math.floor(hrs)).padStart(2, '0') + ':' + String(Math.floor((hrs % 1) * 60)).padStart(2, '0'), pp.x + 90, 450, { font: MONO, size: 30, align: 'center', alpha: fin(lt, c[4] - .2) });
+        const done = Math.floor(clamp(run * (21 - 9) / (pp.end - 9)) * pp.n + 1e-6);
+        sheets(pp.x + 250, deskY - 2, done, fin(lt, c[4]));
+        text(pp.name, pp.x, deskY + 190, { size: 28, align: 'center', color: C.ink2, alpha: fin(lt, c[3] + 1.8) * fade });
+        text('?', pp.x, deskY - 230, { font: MONO, size: 80, align: 'center', color: C.red, alpha: back });
+      });
+      // 名额
+      const slot = fin(lt, c[4] + 3.4);
+      text('转正名额', 960, 200, { size: 30, align: 'center', alpha: slot });
+      drawPath(rectPath(935, 222, 50, 50), slot, { w: 3, noNib: true });
+      const filled = lose * (1 - back);
+      if (filled > 0) { ctx.save(); ctx.globalAlpha *= filled; ctx.fillStyle = C.ink; ctx.fillRect(943, 230, 34, 34); ctx.restore(); }
+      ctx.restore();
+    }
+  },
+
+  end(lt, ch) {
+    const c = ch.cues.map(q => q.s - ch.s), D = ch.e - ch.s;
+    const g = GDP;
+    ctx.save(); ctx.globalAlpha = fin(lt, 0, 1.6) * .55;
+    drawGDP(lt, { axis: 1, main: 1, pct: 0, future: 1, markAlpha: .6 });
+    ctx.restore();
+    // 笔继续往前画，很慢
+    const fut = mkPath(sample(yr => [g.X(yr), g.Y(g.logv(2010) + (yr - 2010) * .02)], 2010, 2026, 30));
+    drawPath(fut, prog(lt, 1.2, c[1] + 4) * .999, { w: 4, dash: [2, 12] });
+    text(typed('这段影像是 AI 做的。', prog(lt, c[0], c[0] + 1.6)), 240, 240, { size: 54, weight: 600 });
+    text(typed('它也不知道，那条线会不会弯。', prog(lt, c[1], c[1] + 2.6)), 240, 320, { size: 54, weight: 600 });
+  },
+};
+
+/* ---------------- 字幕 ---------------- */
+let showSubs = true;
+function subtitle(t) {
+  if (!showSubs) return;
+  const q = CUES.find(q => t >= q.s - .1 && t <= q.e + .25);
+  if (!q || q.noSub) return;
+  const a = Math.min(fin(t, q.s - .1, .25), 1 - fin(t, q.e, .25));
+  setFont(38, SERIF, 400);
+  const w = ctx.measureText(q.text).width;
+  ctx.save(); ctx.globalAlpha = a * .86; ctx.fillStyle = C.paper;
+  ctx.fillRect(W / 2 - w / 2 - 28, 968, w + 56, 64); ctx.restore();
+  text(q.text, W / 2, 1012, { size: 38, align: 'center', alpha: a });
+}
+
+/* ---------------- 合成一帧 ---------------- */
+function render(t) {
+  FX.pen = 0; FX.typed = 0; FX.stamp = 0;
+  t = clamp(t, 0, TOTAL);
+  const ch = CHAPTERS.find(c => t >= c.s && t < c.e) || CHAPTERS[CHAPTERS.length - 1];
+  paper(t, ch.key === 'title' ? .6 : 1);
+  const lt = t - ch.s;
+  // 章与章之间：上一章淡出由各自场景处理，这里加一层纸色转场
+  SCENES[ch.key](lt, ch);
+  if (ch.name) text(ch.name, 70, 92, { font: SERIF, size: 26, color: C.ink2, alpha: vis(lt, .2, ch.e - ch.s, .6) });
+  subtitle(t);
+  const toNext = ch.e - t, sinceStart = lt;
+  const wash = Math.max(1 - clamp(sinceStart / .5), 1 - clamp(toNext / .5));
+  if (wash > 0 && ch.key !== 'title' && ch.key !== 'end') { ctx.save(); ctx.globalAlpha = wash * .9; ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  if (ch.key === 'end') {
+    const D = ch.e - ch.s, blk = eprog(lt, D - 6.2, D - 3.8);
+    if (blk > 0) { ctx.save(); ctx.globalAlpha = blk; ctx.fillStyle = '#0d0c0b'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+    const cr = vis(lt, D - 3.4, D - .2, .8);
+    text('对话来源：哈佛大学政治研究所 JFK Jr. 论坛 · Peter McCrory × Jason Furman', W / 2, H / 2, { size: 26, align: 'center', color: '#bfb6a4', alpha: cr });
+    text('画面、声音与字幕全部由代码生成', W / 2, H / 2 + 48, { size: 22, align: 'center', color: '#8a8273', alpha: cr });
+  }
+}
+
+/* ---------------- 声音：绘图仪步进 + 打字 + 盖章 + 纸面底噪 ---------------- */
+const AU = { ctx: null, master: null, noise: null, nextTick: 0, lastTyped: 0, room: null };
+function initAudio() {
+  if (AU.ctx) return;
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  AU.ctx = ac; AU.master = ac.createGain(); AU.master.gain.value = .9; AU.master.connect(ac.destination);
+  const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+  let last = 0; for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + .02 * w) / 1.02; d[i] = w; }
+  AU.noise = buf;
+  // 底噪：低通的棕噪
+  const brown = ac.createBuffer(1, len, ac.sampleRate), bd = brown.getChannelData(0); last = 0;
+  for (let i = 0; i < len; i++) { last = (last + .02 * (Math.random() * 2 - 1)) / 1.02; bd[i] = last * 3.5; }
+  const src = ac.createBufferSource(); src.buffer = brown; src.loop = true;
+  const g = ac.createGain(); g.gain.value = 0; src.connect(g); g.connect(AU.master); src.start();
+  AU.room = g;
+}
+function click(when, freq, q, gain, dur) {
+  const ac = AU.ctx, s = ac.createBufferSource(); s.buffer = AU.noise;
+  const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  const g = ac.createGain(); g.gain.setValueAtTime(gain, when); g.gain.exponentialRampToValueAtTime(.0001, when + dur);
+  s.connect(f); f.connect(g); g.connect(AU.master); s.start(when, Math.random() * 1.5, dur + .02);
+}
+function thump(when) {
+  const ac = AU.ctx, o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.setValueAtTime(120, when); o.frequency.exponentialRampToValueAtTime(45, when + .18);
+  g.gain.setValueAtTime(.5, when); g.gain.exponentialRampToValueAtTime(.0001, when + .25);
+  o.connect(g); g.connect(AU.master); o.start(when); o.stop(when + .3);
+  click(when, 900, .8, .25, .08);
+}
+let stampDone = false;
+function audioFrame(t, playing) {
+  if (!AU.ctx) return;
+  const now = AU.ctx.currentTime;
+  const endFade = 1 - fin(t, TOTAL - 7, 2.5);
+  AU.room.gain.setTargetAtTime(playing ? .05 * endFade : 0, now, .2);
+  if (!playing) { AU.lastTyped = FX.typed; return; }
+  if (FX.pen > 0) {
+    if (AU.nextTick < now) AU.nextTick = now;
+    while (AU.nextTick < now + .1) { click(AU.nextTick, 2400 + Math.random() * 600, 6, .07, .012); AU.nextTick += 1 / 14; }
+  }
+  if (FX.typed > AU.lastTyped) { const n = Math.min(3, FX.typed - AU.lastTyped); for (let i = 0; i < n; i++) click(now + i * .03, 3800, 3, .16, .03); }
+  AU.lastTyped = FX.typed;
+  if (FX.stamp && !stampDone) { thump(now); stampDone = true; }
+  if (!FX.stamp && t < CHAPTERS[2].s) stampDone = false;
+}
+
+/* ---------------- 播放控制 ---------------- */
+const stage = document.getElementById('stage');
+const bar = { play: document.getElementById('play'), seek: document.getElementById('seek'), time: document.getElementById('time'), subs: document.getElementById('subs'), fs: document.getElementById('fs') };
+const fill = bar.seek.querySelector('.fill');
+for (const ch of CHAPTERS.slice(1)) { const m = document.createElement('div'); m.className = 'mark'; m.style.left = (ch.s / TOTAL * 100) + '%'; bar.seek.appendChild(m); }
+let T = 0, playing = false, lastNow = 0;
+const params = new URLSearchParams(location.search);
+if (params.has('t')) T = parseFloat(params.get('t')) || 0;
+const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+
+function fit() {
+  const k = Math.min(innerWidth / W, innerHeight / H);
+  stage.style.width = W * k + 'px'; stage.style.height = H * k + 'px';
+}
+addEventListener('resize', fit); fit();
+
+function setPlaying(p) {
+  playing = p; initAudio(); if (AU.ctx.state === 'suspended') AU.ctx.resume();
+  if (p && T >= TOTAL) T = 0;
+  bar.play.textContent = p ? '暂停' : '播放';
+  stage.classList.toggle('paused', !p);
+  document.getElementById('start').classList.add('hidden');
+  lastNow = performance.now();
+}
+function loop(now) {
+  if (playing) { T += (now - lastNow) / 1000; if (T >= TOTAL) { T = TOTAL; playing = false; setPlaying(false); } }
+  lastNow = now;
+  if (window.__frozen) return requestAnimationFrame(loop);
+  render(T);
+  audioFrame(T, playing);
+  fill.style.width = (T / TOTAL * 100) + '%';
+  bar.time.textContent = fmt(T) + ' / ' + fmt(TOTAL);
+  requestAnimationFrame(loop);
+}
+document.getElementById('start').onclick = () => setPlaying(true);
+bar.play.onclick = () => setPlaying(!playing);
+bar.subs.onclick = () => { showSubs = !showSubs; bar.subs.textContent = '字幕 ' + (showSubs ? '开' : '关'); };
+bar.fs.onclick = () => document.fullscreenElement ? document.exitFullscreen() : stage.requestFullscreen();
+function seekTo(e) { const r = bar.seek.getBoundingClientRect(); T = clamp((e.clientX - r.left) / r.width) * TOTAL; AU.lastTyped = 1e9; }
+bar.seek.addEventListener('pointerdown', e => { seekTo(e); const mv = ev => seekTo(ev); addEventListener('pointermove', mv); addEventListener('pointerup', () => removeEventListener('pointermove', mv), { once: true }); });
+let uiTimer; stage.addEventListener('pointermove', () => { stage.classList.add('ui'); clearTimeout(uiTimer); uiTimer = setTimeout(() => stage.classList.remove('ui'), 1800); });
+cv.addEventListener('click', () => setPlaying(!playing));
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); }
+  if (e.code === 'ArrowRight') { T = Math.min(TOTAL, T + 5); AU.lastTyped = 1e9; }
+  if (e.code === 'ArrowLeft') { T = Math.max(0, T - 5); AU.lastTyped = 1e9; }
+  if (e.code === 'KeyF') bar.fs.onclick();
+  if (e.code === 'KeyC') bar.subs.onclick();
+});
+// 供逐帧导出 / 检查使用
+window.__twoPercent = { render, TOTAL, CHAPTERS, CUES };
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => requestAnimationFrame(loop));
+</script>
+</body>
+</html>
