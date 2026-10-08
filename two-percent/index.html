@@ -36,6 +36,7 @@
     <button id="play">播放</button>
     <div id="seek"><div class="track"></div><div class="fill"></div></div>
     <span id="time">0:00 / 0:00</span>
+    <button id="speed">1×</button>
     <button id="subs">字幕 开</button>
     <button id="fs">全屏</button>
   </div>
@@ -728,7 +729,7 @@ function audioFrame(t, playing) {
   if (!playing) { AU.lastTyped = FX.typed; return; }
   if (FX.pen > 0) {
     if (AU.nextTick < now) AU.nextTick = now;
-    while (AU.nextTick < now + .1) { click(AU.nextTick, 2400 + Math.random() * 600, 6, .07, .012); AU.nextTick += 1 / 14; }
+    while (AU.nextTick < now + .1) { click(AU.nextTick, 2400 + Math.random() * 600, 6, .07, .012); AU.nextTick += 1 / (14 * speed); }
   }
   if (FX.typed > AU.lastTyped) { const n = Math.min(3, FX.typed - AU.lastTyped); for (let i = 0; i < n; i++) click(now + i * .03, 3800, 3, .16, .03); }
   AU.lastTyped = FX.typed;
@@ -741,7 +742,8 @@ const stage = document.getElementById('stage');
 const bar = { play: document.getElementById('play'), seek: document.getElementById('seek'), time: document.getElementById('time'), subs: document.getElementById('subs'), fs: document.getElementById('fs') };
 const fill = bar.seek.querySelector('.fill');
 for (const ch of CHAPTERS.slice(1)) { const m = document.createElement('div'); m.className = 'mark'; m.style.left = (ch.s / TOTAL * 100) + '%'; bar.seek.appendChild(m); }
-let T = 0, playing = false, lastNow = 0;
+let T = 0, playing = false, lastNow = 0, speed = 1;
+const SPEEDS = [1, 1.5, 2, 3];
 const params = new URLSearchParams(location.search);
 if (params.has('t')) T = parseFloat(params.get('t')) || 0;
 const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
@@ -761,7 +763,7 @@ function setPlaying(p) {
   lastNow = performance.now();
 }
 function loop(now) {
-  if (playing) { T += (now - lastNow) / 1000; if (T >= TOTAL) { T = TOTAL; playing = false; setPlaying(false); } }
+  if (playing) { T += (now - lastNow) / 1000 * speed; if (T >= TOTAL) { T = TOTAL; playing = false; setPlaying(false); } }
   lastNow = now;
   if (window.__frozen) return requestAnimationFrame(loop);
   render(T);
@@ -772,6 +774,10 @@ function loop(now) {
 }
 document.getElementById('start').onclick = () => setPlaying(true);
 bar.play.onclick = () => setPlaying(!playing);
+const speedBtn = document.getElementById('speed');
+function setSpeed(v) { speed = v; speedBtn.textContent = v + '×'; }
+speedBtn.onclick = () => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]);
+if (params.has('speed') && SPEEDS.includes(+params.get('speed'))) setSpeed(+params.get('speed'));
 bar.subs.onclick = () => { showSubs = !showSubs; bar.subs.textContent = '字幕 ' + (showSubs ? '开' : '关'); };
 bar.fs.onclick = () => document.fullscreenElement ? document.exitFullscreen() : stage.requestFullscreen();
 function seekTo(e) { const r = bar.seek.getBoundingClientRect(); T = clamp((e.clientX - r.left) / r.width) * TOTAL; AU.lastTyped = 1e9; }
@@ -784,6 +790,8 @@ addEventListener('keydown', e => {
   if (e.code === 'ArrowLeft') { T = Math.max(0, T - 5); AU.lastTyped = 1e9; }
   if (e.code === 'KeyF') bar.fs.onclick();
   if (e.code === 'KeyC') bar.subs.onclick();
+  if (e.code === 'KeyS') speedBtn.onclick();
+  if (/^Digit[1-4]$/.test(e.code)) setSpeed(SPEEDS[+e.code.slice(5) - 1]);
 });
 // 供逐帧导出 / 检查使用
 window.__twoPercent = { render, TOTAL, CHAPTERS, CUES };
