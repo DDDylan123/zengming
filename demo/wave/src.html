@@ -605,10 +605,14 @@ function drawCaptions(t, inv) {
     const size = c.k === "quote" || c.k === "para" ? cp.size : cp.sizeAdd;
     const style = c.k === "quote" || c.k === "para" ? "ink" : c.k === "counter" ? "felt" : "pen";
     const color = c.k === "para" ? C.blue : ink;
-    const n = lines.reduce((a, l) => a + handLen(l, size, c.k === "counter"), 0);
-    const per = Math.min(0.11, (c.to - c.at - 2.2) / n);
-    let tt = c.at + 0.35;
-    lines.forEach((l, j) => { tt = drawHand(l, W / 2, cp.y0 + j * cp.lh, size, { style, c: color, a: out, t0: tt, per, bold: c.k === "counter" }, t) + 0.08; });
+    // 整行一起出现：淡入并略微上浮，每行错开一点
+    lines.forEach((l, j) => {
+      const p = easeOut(prog(t, c.at + 0.2 + j * 0.15, 0.6)) * out;
+      if (p <= 0) return;
+      ctx.save(); ctx.translate(0, (1 - p) * 16);
+      drawHand(l, W / 2, cp.y0 + j * cp.lh, size, { style, c: color, a: p, t0: 0, per: 0, bold: c.k === "counter" }, 1);
+      ctx.restore();
+    });
   }
   for (const f of FOOTS) {
     if (t < f.at || t >= f.to) continue;
@@ -628,13 +632,15 @@ function drawIntro(t) {
   if (out <= 0) return;
   const a1 = easeOut(prog(t, 0.2, 0.9)) * out, a2 = easeOut(prog(t, 0.5, 1.2)) * out;
   text("曾鸣的产业史观 · 张小珺商业访谈录第 153 期", W / 2, T.eyebrow, { size: v ? 28 : 26, ls: 4, c: C.blue, a: a1, w: 500 });
-  drawHand("巨浪", W / 2, T.y, T.size, { style: "ink", c: C.ink, a: out, t0: 0.5, per: 0.9 }, t);
+  ctx.save(); ctx.translate(0, (1 - a2) * 30);
+  drawHand("巨浪", W / 2, T.y, T.size, { style: "ink", c: C.ink, a: a2, t0: 0, per: 0 }, 1);
+  ctx.restore();
   const rows = [["quote", "节目页摘录的曾鸣原话，一字未改"], ["para", "曾鸣的观点，本片换了说法"], ["add", "本片加的数据、例子和推断"], ["counter", "本片反驳曾鸣的观点", "反方 · 本片观点"]];
   rows.forEach(([k, d, lab], i) => {
     const p = easeOut(prog(t, 2 + i * 0.6, 0.7)) * out, y = T.legend + i * T.step;
     const px = v ? 250 : 760;
     pill(k, px, y, p, 0, lab);
-    drawHand(d, px + 150, y + 12, v ? 34 : 30, { style: k === "quote" || k === "para" ? "ink" : k === "counter" ? "felt" : "pen", c: k === "para" ? C.blue : C.ink, a: out, t0: 2.4 + i * 1.2, per: 0.06, align: "left", bold: k === "counter" }, t);
+    drawHand(d, px + 150, y + 12, v ? 34 : 30, { style: k === "quote" || k === "para" ? "ink" : k === "counter" ? "felt" : "pen", c: k === "para" ? C.blue : C.ink, a: p, t0: 0, per: 0, align: "left", bold: k === "counter" }, 1);
   });
 }
 function drawCounterChrome(t, inv) {
@@ -818,17 +824,9 @@ function buildSound() {
   // 收尾：新光点一声钟，署名时一个上行琶音
   ev(165.2, 5, bell(86, 0.09, 5)); ev(165.6, 5, bell(93, 0.05, 5));
   [62, 66, 69, 74].forEach((m, j) => ev(171.2 + j * 0.18, 3, pluck(m, 0.08, 3)));
-  // 字幕：每条开始轻轻一个音；写字时细小的笔尖声
+  // 字幕：每条出现时轻轻一个音
   const CAPNOTE = [62, 66, 69, 71, 74];
-  CAPS.forEach((c, ci) => {
-    ev(c.at + 0.3, 1.2, pluck(c.k === "counter" ? 57 : CAPNOTE[ci % 5], 0.05, 1.6));
-    let lines = [...(c[R] || c.v)];
-    if (c.k === "quote") { lines[0] = "「" + lines[0]; lines[lines.length - 1] += "」"; }
-    const cp = L.cap, size = c.k === "quote" || c.k === "para" ? cp.size : cp.sizeAdd;
-    const n = lines.reduce((a, l) => a + handLen(l, size, c.k === "counter"), 0), per = Math.min(0.11, (c.to - c.at - 2.2) / n);
-    let tt = c.at + 0.35;
-    lines.forEach(l => { for (const it of layoutLine(l, size, c.k === "counter").items) { if (!it.lat && !NARROW.includes(it.tok)) ev(tt + per * 0.15, 0.04, noise(0.035, "bandpass", 4800, 3800, 1.5, 0.014, 0.004)); tt += per * it.n; } tt += 0.08; });
-  });
+  CAPS.forEach((c, ci) => ev(c.at + 0.3, 1.2, pluck(c.k === "counter" ? 57 : CAPNOTE[ci % 5], 0.05, 1.6)));
   SND.sort((a, b) => a.t - b.t);
 }
 function startSound() {
