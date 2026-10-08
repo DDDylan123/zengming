@@ -28,12 +28,15 @@
   #controls button.on { background: var(--ink); color: var(--paper); }
   #controls button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
   #speeds, #acts { display: flex; flex-wrap: wrap; gap: 4px; }
+  #hint { position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: 999px; font-size: 14px; letter-spacing: 1px; cursor: pointer; z-index: 2; transition: opacity .4s; }
+  #hint.off { opacity: 0; pointer-events: none; }
 </style>
 </head>
 <body>
 <div id="stage"><canvas id="cv" aria-label="动画：巨浪冲走沙堡，解读曾鸣访谈"></canvas></div>
+<div id="hint" role="button" tabindex="0">轻触画面开启声音</div>
 <div id="controls">
-  <button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button>
+  <button id="snd">开启声音</button><button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button>
   <span id="speeds"><button data-s="1">1×</button><button data-s="1.5">1.5×</button><button data-s="2">2×</button><button data-s="3">3×</button></span>
   <span id="acts"></span><span id="clock">0.0s</span>
 </div>
@@ -687,6 +690,189 @@ function render(t) {
   document.querySelectorAll("#acts button").forEach((b, i) => b.classList.toggle("on", i === idx));
 }
 
+/* ================= 声音：全部用 Web Audio 现场合成 ================= */
+// 事件表 SND 按片中时间排列；调度器每帧把未来 0.5 秒内的事件排进音频时钟，暂停、拖动、倍速都会重新对齐
+let AC = null, MASTER = null, BUS = null, NOISE = null, OCEAN = null, soundOn = false;
+const SND = [];
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+function ev(t, d, f, long = false) { SND.push({ t, d, f, long }); }
+function env(g, when, a, peak, hold, rel, off = 0) {
+  // 简单包络；off > 0 时从中途开始（跳过起音）
+  const p = g.gain;
+  if (off > 0) { p.setValueAtTime(peak, when); p.setValueAtTime(peak, when + Math.max(0.01, hold - off)); p.linearRampToValueAtTime(0.0001, when + Math.max(0.02, hold - off) + rel); return when + Math.max(0.02, hold - off) + rel; }
+  p.setValueAtTime(0.0001, when); p.linearRampToValueAtTime(peak, when + a); p.setValueAtTime(peak, when + a + hold); p.linearRampToValueAtTime(0.0001, when + a + hold + rel);
+  return when + a + hold + rel;
+}
+function osc(type, f, when, end, dest, detune = 0) { const o = AC.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = detune; o.connect(dest); o.start(when); o.stop(end + 0.05); return o; }
+// 铺底和弦：每个音两只略微失谐的振荡器，经低通滤波
+function pad(notes, vel, warm = 1400) {
+  return (when, off, rate, dur) => {
+    const g = AC.createGain(), lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = warm; lp.Q.value = 0.3;
+    g.connect(lp); lp.connect(BUS);
+    const end = env(g, when, 1.4 / rate, vel, Math.max(0.1, dur - 2.6 / rate), 1.6 / rate, off / rate);
+    notes.forEach((m, i) => { const f = mtof(m); if (i === 0) osc("sine", f, when, end, g); else { osc("triangle", f, when, end, g, -6); osc("sine", f, when, end, g, 7); } });
+  };
+}
+// 拨弦（类似卡林巴）
+function pluck(m, vel = 0.12, decay = 1.4) {
+  return (when, off, rate) => {
+    if (off > 0) return;
+    const g = AC.createGain(); g.connect(BUS);
+    g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(vel, when + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, when + decay / rate);
+    const f = mtof(m); osc("sine", f, when, when + decay / rate, g); const g2 = AC.createGain(); g2.gain.value = 0.25; g2.connect(g); osc("triangle", f * 2, when, when + decay / rate * 0.5, g2);
+  };
+}
+// 钟声：非整数泛音
+function bell(m, vel = 0.1, decay = 4) {
+  return (when, off, rate) => {
+    if (off > 0) return;
+    [[1, 1], [2.76, 0.4], [5.4, 0.18]].forEach(([k, a]) => { const g = AC.createGain(); g.connect(BUS); g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(vel * a, when + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, when + decay / rate / k ** 0.5); osc("sine", mtof(m) * k, when, when + decay / rate, g); });
+  };
+}
+// 噪声：滤波器从 f0 扫到 f1
+function noise(dur, type, f0, f1, Q, vel, a = 0.05) {
+  return (when, off, rate, d) => {
+    const D = (d ?? dur) / rate; if (off >= (d ?? dur)) return;
+    const src = AC.createBufferSource(); src.buffer = NOISE; src.loop = true;
+    const f = AC.createBiquadFilter(); f.type = type; f.Q.value = Q;
+    f.frequency.setValueAtTime(f0, when); f.frequency.exponentialRampToValueAtTime(Math.max(30, f1), when + D);
+    const g = AC.createGain(); src.connect(f); f.connect(g); g.connect(BUS);
+    g.gain.setValueAtTime(0.0001, when); g.gain.linearRampToValueAtTime(vel, when + Math.min(a / rate, D * 0.5)); g.gain.exponentialRampToValueAtTime(0.0001, when + D);
+    src.start(when, Math.random() * 1.5); src.stop(when + D + 0.05);
+  };
+}
+// 低频闷响：正弦从 f0 滑到 f1
+function thump(f0, f1, vel, dur = 0.5) {
+  return (when, off, rate) => {
+    if (off > 0) return;
+    const g = AC.createGain(); g.connect(BUS); const o = AC.createOscillator(); o.type = "sine"; o.connect(g);
+    o.frequency.setValueAtTime(f0, when); o.frequency.exponentialRampToValueAtTime(f1, when + dur / rate);
+    g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(vel, when + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, when + dur / rate);
+    o.start(when); o.stop(when + dur / rate + 0.05);
+  };
+}
+function buildSound() {
+  SND.length = 0;
+  const CH = {
+    D: [38, 50, 57, 64, 66, 69], Bm: [35, 47, 54, 62, 66, 69], G: [31, 43, 50, 59, 62, 66], A: [33, 45, 52, 57, 61, 64],
+    Em: [28, 40, 47, 55, 59, 62], Fsm: [30, 42, 49, 57, 61, 64], Dm: [38, 50, 57, 62, 65, 69], Bb: [34, 46, 53, 58, 62, 65], Gm: [31, 43, 50, 55, 58, 62],
+  };
+  // 每一幕的和弦进行：[开始, 结束, 每个和弦的秒数, 和弦序列, 音量, 亮度]
+  const SECTIONS = [
+    [0, 36, 4.5, ["D", "Bm", "G", "A"], 0.016, 1500],
+    [36, 52, 4, ["Bm", "Fsm", "G", "Em"], 0.02, 1100],
+    [52, 68, 4, ["D", "G", "Em", "A"], 0.017, 1500],
+    [68, 94, 6.5, ["D", "D", "A", "A"], 0.013, 900],
+    [94, 120, 4, ["G", "A", "Bm", "D"], 0.018, 2000],
+    [120, 150, 5, ["Dm", "Bb", "Gm", "A"], 0.024, 800],
+    [150, 176, 6.5, ["G", "A", "D", "D"], 0.018, 1600],
+  ];
+  for (const [a, b, len, seq, vel, warm] of SECTIONS)
+    for (let t = a, i = 0; t < b - 0.5; t += len, i++) { const d = Math.min(len, b - t) + 1.2; ev(t, d, (w, o, r) => pad(CH[seq[i % seq.length]], vel, warm)(w, o, r, d), true); }
+
+  // 浪：涌起 + 拍岸
+  for (const w of WAVES) {
+    const k = Math.min(1.0, w.amp / L.maxH), crash = w.t0 + w.dur * 0.42;
+    ev(w.t0, w.dur * 0.6, noise(w.dur * 0.6, "lowpass", 220, 1500, 0.7, 0.06 + 0.22 * k, w.dur * 0.35));
+    ev(crash, 2.2, noise(2.2 + k, "bandpass", 1800, 300, 0.6, 0.08 + 0.3 * k, 0.04));
+    if (k > 0.8) ev(crash, 1.2, thump(90, 38, 0.35 * k, 1.2));
+  }
+  // 沙堡：起稿时轻笔声、堆沙时沙沙声、建成时一个拨弦音（越高越亮）
+  const castleNote = { AOL: 78, YAHOO: 74, GOOGLE: 81, FACEBOOK: 73 };
+  for (const c of MAIN) {
+    ev(c.t0 - 1.1, 1.0, noise(1.0, "bandpass", 5200, 4200, 2, 0.012));
+    ev(c.t0, 2.8, noise(2.8, "bandpass", 3200, 2400, 0.8, 0.035, 0.6));
+    ev(c.t0 + 2.2, 1.6, pluck(castleNote[c.co], 0.11, 1.8));
+    if (c.exit) {
+      const tw = Math.min(...c.grains.map(g => g.tw));
+      [81, 78, 76, 74, 71, 69, 66, 64].forEach((m, j) => ev(tw + 0.1 + j * 0.09, 1, pluck(m - (c.co === "YAHOO" ? 2 : 0), 0.07, 1.2)));
+      ev(tw + 1.6, 2, pluck(45, 0.16, 2.4));
+    }
+  }
+  // AI 两座沙堡
+  [0, 1].forEach(i => { ev(54.1 + i * 1.4, 1.0, noise(1.0, "bandpass", 5200, 4200, 2, 0.012)); ev(55.1 + i * 1.4, 2.4, noise(2.4, "bandpass", 3200, 2400, 0.8, 0.03, 0.5)); ev(57.4 + i * 1.4, 1.5, pluck(78, 0.09, 1.6)); });
+  // 同质化：同一个音不断重复，越来越弱
+  for (let t = 68.6; t < 85; t += 0.5) ev(t, 0.6, pluck(69, 0.07 * (1 - (t - 68.6) / 20), 0.5));
+  // 需求—能力网：每亮一个节点响一颗高音
+  const PENTA = [86, 88, 90, 93, 95, 98];
+  NET.nodes.forEach((n, i) => ev(n.t + 0.6, 1.5, bell(PENTA[i % PENTA.length], 0.045, 2.2)));
+  ev(112, 6, noise(6, "highpass", 6000, 9000, 0.5, 0.012, 2));
+  // 反方：开场闷响，之后低沉心跳
+  ev(120.2, 1.6, thump(110, 34, 0.4, 1.6));
+  ev(120.2, 1.8, noise(1.8, "lowpass", 900, 80, 0.7, 0.12, 0.02));
+  for (let t = 124; t < 149; t += 1.25) { ev(t, 0.4, thump(62, 40, 0.16, 0.35)); ev(t + 0.28, 0.4, thump(58, 38, 0.1, 0.3)); }
+  ev(125.5, 2.5, noise(2.5, "lowpass", 160, 400, 1, 0.08, 0.8));
+  // 石头碎裂与重新立起
+  for (let i = 0; i < 34; i++) { const t = 142.4 + (i * 0.618 % 1) * 2.4; ev(t, 0.06, noise(0.05 + (i % 3) * 0.02, "bandpass", 2400 + (i * 397 % 2000), 1800, 3, 0.05, 0.002)); }
+  [74, 78, 81, 86].forEach((m, j) => ev(146.6 + j * 0.35, 1.5, bell(m, 0.05, 2)));
+  // 收尾：新光点一声钟，署名时一个上行琶音
+  ev(165.2, 5, bell(86, 0.09, 5)); ev(165.6, 5, bell(93, 0.05, 5));
+  [62, 66, 69, 74].forEach((m, j) => ev(171.2 + j * 0.18, 3, pluck(m, 0.08, 3)));
+  // 字幕：每条开始轻轻一个音；写字时细小的笔尖声
+  const CAPNOTE = [62, 66, 69, 71, 74];
+  CAPS.forEach((c, ci) => {
+    ev(c.at + 0.3, 1.2, pluck(c.k === "counter" ? 57 : CAPNOTE[ci % 5], 0.05, 1.6));
+    let lines = [...(c[R] || c.v)];
+    if (c.k === "quote") { lines[0] = "「" + lines[0]; lines[lines.length - 1] += "」"; }
+    const cp = L.cap, size = c.k === "quote" || c.k === "para" ? cp.size : cp.sizeAdd;
+    const n = lines.reduce((a, l) => a + handLen(l, size, c.k === "counter"), 0), per = Math.min(0.11, (c.to - c.at - 2.2) / n);
+    let tt = c.at + 0.35;
+    lines.forEach(l => { for (const it of layoutLine(l, size, c.k === "counter").items) { if (!it.lat && !NARROW.includes(it.tok)) ev(tt + per * 0.15, 0.04, noise(0.035, "bandpass", 4800, 3800, 1.5, 0.014, 0.004)); tt += per * it.n; } tt += 0.08; });
+  });
+  SND.sort((a, b) => a.t - b.t);
+}
+function startSound() {
+  if (AC) { AC.resume(); soundOn = true; return; }
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  // 总音量提高，压缩器兼作限幅，防止手机外放破音
+  const comp = AC.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 8; comp.attack.value = 0.003; comp.release.value = 0.25;
+  // 最后一道软限幅：tanh 曲线，输出不会超过 ±1
+  const clip = AC.createWaveShaper(), curve = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; curve[i] = Math.tanh(1.3 * x) / Math.tanh(1.3); }
+  clip.curve = curve; comp.connect(clip); clip.connect(AC.destination);
+  MASTER = AC.createGain(); MASTER.gain.value = 1.35; MASTER.connect(comp);
+  NOISE = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate); const ch = NOISE.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+  // 海浪环境声：一直在响，浪越大越响、越亮
+  const src = AC.createBufferSource(); src.buffer = NOISE; src.loop = true;
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 400; lp.Q.value = 0.5;
+  const g = AC.createGain(); g.gain.value = 0; src.connect(lp); lp.connect(g); g.connect(MASTER); src.start();
+  OCEAN = { lp, g };
+  soundOn = true; lastFt = null;
+}
+let BUSES = [], schedFt = 0, lastFt = null, lastAt = 0, lastSpeed = 1, wasPlaying = false;
+function resetBus() {
+  const at = AC.currentTime;
+  for (const b of BUSES) { b.gain.setTargetAtTime(0, at, 0.03); setTimeout(() => b.disconnect(), 400); }
+  BUS = AC.createGain(); BUS.gain.value = 1; BUS.connect(MASTER); BUSES = [BUS];
+}
+function audioTick(ft) {
+  if (!soundOn || !AC || !SND.length) return;
+  const at = AC.currentTime;
+  if (!playing || ft >= TOTAL) {
+    if (wasPlaying) resetBus();
+    wasPlaying = false; lastFt = null;
+    OCEAN.g.gain.setTargetAtTime(0, at, 0.15);
+    return;
+  }
+  const expected = lastFt === null ? null : lastFt + (at - lastAt) * speed;
+  if (!wasPlaying || speed !== lastSpeed || expected === null || Math.abs(ft - expected) > 0.3) {
+    resetBus(); schedFt = ft;
+    for (const e of SND) if (e.long && e.t < ft && e.t + e.d > ft) e.f(at, ft - e.t, speed);
+  }
+  const horizon = ft + 0.5 * speed;
+  for (const e of SND) { if (e.t >= horizon) break; if (e.t >= schedFt) e.f(at + Math.max(0, (e.t - ft) / speed), 0, speed); }
+  schedFt = horizon; lastFt = ft; lastAt = at; lastSpeed = speed; wasPlaying = true;
+  // 海浪环境声跟着画面里的浪
+  let wv = 0; for (const w of WAVES) wv = Math.max(wv, waveAmp(w, ft) / L.maxH);
+  const inv = prog(ft, 120, 1.2) * (1 - prog(ft, 149.4, 1.2));
+  OCEAN.g.gain.setTargetAtTime((0.035 + 0.1 * Math.min(1.2, wv)) * (1 - 0.5 * inv) * (ft > 172 ? 1 - prog(ft, 172, 4) : 1), at, 0.2);
+  OCEAN.lp.frequency.setTargetAtTime((380 + 1500 * Math.min(1.2, wv) + 80 * Math.sin(ft * 0.6)) * (1 - 0.45 * inv), at, 0.2);
+}
+function enableSound() {
+  if (!soundOn) startSound(); else { soundOn = false; AC.suspend(); }
+  document.getElementById("snd").textContent = soundOn ? "关闭声音" : "开启声音";
+  document.getElementById("hint").classList.add("off");
+}
+
 /* ================= 播放控制 ================= */
 // ?ar=h 横屏（默认竖屏）；?t=秒 定格；?act=序号 从某一幕开始；?speed=1.5 倍速
 const params = new URLSearchParams(location.search);
@@ -705,17 +891,22 @@ setSpeed(speed);
 function frame() {
   const t = now();
   render(Math.min(t, TOTAL));
+  audioTick(t);
   if (t >= TOTAL && playing) { offset = TOTAL; playing = false; document.getElementById("play").textContent = "播放"; }
   requestAnimationFrame(frame);
 }
 document.getElementById("play").onclick = e => { if (playing) { offset = now(); playing = false; } else { if (offset >= TOTAL) offset = 0; startAt = performance.now(); playing = true; } e.target.textContent = playing ? "暂停" : "播放"; };
+document.getElementById("snd").onclick = enableSound;
+document.getElementById("hint").onclick = enableSound;
+cv.addEventListener("click", () => { if (!soundOn && !AC) enableSound(); });
 document.getElementById("restart").onclick = () => { offset = 0; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; };
-document.getElementById("ratio").onclick = () => { const t = now(); build(R === "v" ? "h" : "v"); offset = t; startAt = performance.now(); };
+document.getElementById("ratio").onclick = () => { const t = now(); build(R === "v" ? "h" : "v"); buildSound(); offset = t; startAt = performance.now(); lastFt = null; };
 document.getElementById("fs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
 document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("play").click(); } });
 // 手写英文字体要等真正下载完再排版，否则量到的是后备字体的宽度
 Promise.all(["500 40px Caveat", "700 40px Caveat"].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(() => {
   for (const k in LAYOUT_CACHE) delete LAYOUT_CACHE[k];
+  buildSound();
   requestAnimationFrame(frame);
 });
 </script>
