@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>为什么 OpenAI 很可能赢不到最后</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0b0a;
+    --ivory: #efe7d6;
+    --ivory-2: rgba(239, 231, 214, 0.66);
+    --ivory-3: rgba(239, 231, 214, 0.40);
+    --hair: rgba(239, 231, 214, 0.22);
+    --accent: #e8654a;
+    --ink: #1a0f0c;
+    --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; font-family: var(--sans); }
+  #stage.h { width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; }
+  #stage.v { height: 100vh; width: 56.25vh; max-width: 100vw; max-height: 177.78vw; }
+  svg { width: 100%; height: 100%; display: block; fill: var(--ivory); }
+  text { font-family: var(--sans); }
+  .serif { font-family: var(--serif); }
+  #controls { position: fixed; left: 16px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--ivory-3); font-size: 13px; opacity: 0; transition: opacity .3s; }
+  body:hover #controls { opacity: 1; }
+  #controls button { background: #1a1917; color: var(--ivory-2); border: 1px solid var(--hair); border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+  #speeds, #scenes { display: flex; gap: 4px; }
+  #controls button.on { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="stage"><svg id="svg" role="img" aria-label="解读曾鸣访谈：为什么 OpenAI 很可能赢不到最后"></svg></div>
+<div id="controls">
+  <button id="play">暂停</button><button id="restart">重播</button><button id="ratio">切换横竖屏</button><button id="fs">全屏</button>
+  <span id="speeds"><button data-s="1">1×</button><button data-s="1.5">1.5×</button><button data-s="2">2×</button><button data-s="3">3×</button></span>
+  <span id="scenes"></span><span id="clock">0.0s</span>
+</div>
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("svg");
+
+/* ============ 通用工具 ============ */
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || svg).appendChild(e);
+  return e;
+}
+function txt(s, attrs, parent) { const e = el("text", attrs, parent); e.textContent = s; return e; }
+function block(arr, cx, cy, size, attrs, parent) {
+  const g = el("g", {}, parent), lh = size * 1.25, y0 = cy - (arr.length - 1) * lh / 2 + size * 0.35;
+  arr.forEach((s, i) => txt(s, { x: cx, y: y0 + i * lh, "text-anchor": "middle", "font-size": size, ...attrs }, g));
+  return g;
+}
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const expo = t => t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+const prog = (t, t0, d) => clamp((t - t0) / d);
+const fmt = v => Math.round(v).toLocaleString("en-US");
+function reveal(e, p, dy = 24) { e.setAttribute("opacity", p); e.setAttribute("transform", `translate(0,${(1 - easeOut(p)) * dy})`); }
+// 估算文字宽度（字体可能尚未加载，不能用 getComputedTextLength）
+const textW = (s, size, ls = 0) => [...s].reduce((w, ch) => w + (/[　-鿿＀-￯]/.test(ch) ? size : ch === " " ? size * 0.3 : size * 0.6) + ls, 0);
+
+/* ============ 版式 ============ */
+const LAY = {
+  v: { W: 1080, H: 1920, cap: { pill: 250, y0: 350, lh: 78, size: 54, sizeAdd: 50 }, foot: { y: [1808, 1850], size: 26 } },
+  h: { W: 1920, H: 1080, cap: { pill: 62, y0: 142, lh: 68, size: 50, sizeAdd: 46 }, foot: { y: [1044], size: 22 } },
+};
+let L, ratio;
+
+/* ============ 字幕：三类标签 ============ */
+// 原话：节目页摘录的曾鸣原话，一字不改，打「」；转述：曾鸣的观点、本片的说法；补充：本片自己加的
+const KIND = {
+  quote: { label: "原话 · 曾鸣" },
+  para:  { label: "转述 · 曾鸣观点" },
+  add:   { label: "补充 · 本片" },
+};
+function pill(kind, x, y, parent, label) {
+  const g = el("g", {}, parent), lab = label || KIND[kind].label, fs = 24, ls = 3;
+  const w = textW(lab, fs, ls) + 44, hgt = 44;
+  const r = el("rect", { x: x - w / 2, y: y - hgt / 2, width: w, height: hgt, rx: hgt / 2 }, g);
+  if (kind === "quote") r.setAttribute("fill", "var(--accent)");
+  else { r.setAttribute("fill", "none"); r.setAttribute("stroke", kind === "para" ? "var(--ivory-2)" : "var(--ivory-3)"); r.setAttribute("stroke-width", 2);
+         if (kind === "add") r.setAttribute("stroke-dasharray", "6 5"); }
+  txt(lab, { x, y: y + fs * 0.36, "text-anchor": "middle", "font-size": fs, "letter-spacing": ls, "font-weight": 500,
+    fill: kind === "quote" ? "var(--ink)" : kind === "para" ? "var(--ivory-2)" : "var(--ivory-3)" }, g);
+  return g;
+}
+function lineStyle(kind) {
+  const C = L.cap;
+  if (kind === "quote") return { "font-size": C.size, "font-weight": 700, class: "serif" };
+  if (kind === "para") return { "font-size": C.size, "font-weight": 500, class: "serif" };
+  return { "font-size": C.sizeAdd, "font-weight": 500 };
+}
+// list: [{ kind, at, until, v:[...], h:[...], label? }]
+function makeCaps(parent, list) {
+  const C = L.cap, cx = L.W / 2;
+  const items = list.map(c => {
+    const g = el("g", { opacity: 0 }, parent);
+    const p = pill(c.kind, cx, C.pill, g, c.label);
+    let lines = [...(c[ratio] || c.v)];
+    if (c.kind === "quote") { lines[0] = "「" + lines[0]; lines[lines.length - 1] += "」"; }
+    const ls = lines.map((s, i) => txt(s, { x: cx, y: C.y0 + i * C.lh, "text-anchor": "middle", ...lineStyle(c.kind) }, g));
+    return { ...c, g, p, ls };
+  });
+  return t => items.forEach(c => {
+    const out = 1 - prog(t, c.until - 0.4, 0.4);
+    const on = t >= c.at - 0.01 && t < c.until;
+    c.g.setAttribute("opacity", on ? 1 : 0);
+    reveal(c.p, prog(t, c.at, 0.5) * out, 12);
+    c.ls.forEach((l, j) => reveal(l, prog(t, c.at + 0.2 + j * 0.15, 0.6) * out, 18));
+  });
+}
+function makeFoot(parent, v, h) {
+  const g = el("g", { opacity: 0 }, parent);
+  (ratio === "v" ? v : h).forEach((s, i) => txt(s, { x: L.W / 2, y: L.foot.y[i], "text-anchor": "middle", "font-size": L.foot.size, fill: "var(--ivory-3)", "letter-spacing": 1 }, g));
+  return g;
+}
+// 居中大标题（带类别标签）
+function makeTitle(parent, kind, lines, ys, size, pillY) {
+  const g = el("g", {}, parent);
+  const p = pill(kind, L.W / 2, pillY, g);
+  const ls = lines.map((s, i) => txt(s, { x: L.W / 2, y: ys[i], "text-anchor": "middle", "font-size": size, "font-weight": 900, class: "serif" }, g));
+  return (t, t0, t1) => {
+    const out = 1 - prog(t, t1 - 0.5, 0.5);
+    reveal(p, prog(t, t0 + 0.1, 0.6) * out, 12);
+    ls.forEach((l, i) => reveal(l, prog(t, t0 + 0.4 + i * 0.3, 0.9) * out, 30));
+  };
+}
+
+/* ============ 场景 ============ */
+const SCENES = [];
+
+/* ---- 0 开场 ---- */
+SCENES.push({
+  name: "开场", dur: 26,
+  build(g) {
+    const v = ratio === "v", cx = L.W / 2, S = this;
+    // 图例
+    S.legend = el("g", {}, g);
+    txt("张小珺商业访谈录 · 第 153 期", { x: cx, y: v ? 470 : 200, "text-anchor": "middle", "font-size": 30, "letter-spacing": 6, fill: "var(--accent)" }, S.legend);
+    txt("曾鸣的产业史观", { x: cx, y: v ? 580 : 300, "text-anchor": "middle", "font-size": v ? 88 : 92, "font-weight": 900, class: "serif" }, S.legend);
+    txt("本片字幕分三类", { x: cx, y: v ? 780 : 430, "text-anchor": "middle", "font-size": 34, fill: "var(--ivory-2)", "letter-spacing": 4 }, S.legend);
+    const rows = [["quote", "节目页摘录的曾鸣原话，一字未改"], ["para", "曾鸣的观点，本片换了说法"], ["add", "本片加的数据、例子和推断"]];
+    S.rows = rows.map(([k, d], i) => {
+      const rg = el("g", {}, S.legend), y = (v ? 900 : 520) + i * (v ? 120 : 92);
+      const px = v ? 250 : 720;
+      pill(k, px, y, rg);
+      txt(d, { x: px + (v ? 150 : 160), y: y + 12, "font-size": 36, fill: "var(--ivory)" }, rg);
+      return rg;
+    });
+    // AOL 的一组数字
+    S.aol = el("g", {}, g);
+    const A = v ? { x1: cx, y1: 820, x2: cx, y2: 1300 } : { x1: 620, y1: 560, x2: 1300, y2: 560 };
+    S.a1 = el("g", {}, S.aol);
+    txt("2000 年 · AOL 市值", { x: A.x1, y: A.y1 - 150, "text-anchor": "middle", "font-size": 34, "letter-spacing": 4, fill: "var(--ivory-2)" }, S.a1);
+    const n1 = el("text", { x: A.x1, y: A.y1, "text-anchor": "middle", "font-size": 190, "font-weight": 300 }, S.a1);
+    n1.textContent = "1,630"; el("tspan", { "font-size": 40, dx: 10, fill: "var(--ivory-3)" }, n1).textContent = "亿美元";
+    S.a2 = el("g", {}, S.aol);
+    txt("2015 年 · 整体卖掉", { x: A.x2, y: A.y2 - 150, "text-anchor": "middle", "font-size": 34, "letter-spacing": 4, fill: "var(--ivory-2)" }, S.a2);
+    const n2 = el("text", { x: A.x2, y: A.y2, "text-anchor": "middle", "font-size": 190, "font-weight": 300, fill: "var(--accent)" }, S.a2);
+    n2.textContent = "44"; el("tspan", { "font-size": 40, dx: 10, fill: "var(--ivory-3)" }, n2).textContent = "亿美元";
+    S.aolFoot = makeFoot(g, ["数据：CNN 2000-01-10；AOL 8-K 公告 2015"], ["数据：CNN 2000-01-10；AOL 8-K 公告 2015"]);
+    // 两家 AI 公司
+    S.ai = el("g", {}, g);
+    const names = ["OpenAI", "Anthropic"];
+    S.names = names.map((s, i) => txt(s, v ? { x: cx, y: 1000 + i * 170, "text-anchor": "middle", "font-size": 120, "font-weight": 300 }
+                                              : { x: 600 + i * 720, y: 640, "text-anchor": "middle", "font-size": 120, "font-weight": 300 }, S.ai));
+    S.caps = makeCaps(g, [
+      { kind: "add", at: 7, until: 13.5, v: ["先看一家公司"] },
+      { kind: "add", at: 13.5, until: 19, v: ["今天最受瞩目的两家 AI 公司，", "十年后还会是赢家吗？"], h: ["今天最受瞩目的两家 AI 公司，十年后还会是赢家吗？"] },
+      { kind: "quote", at: 19, until: 26.5, v: ["Anthropic、OpenAI，", "大概率不是原生应用阶段的", "大玩家、大赢家。"], h: ["Anthropic、OpenAI，大概率不是原生应用阶段的大玩家、大赢家。"] },
+    ]);
+  },
+  render(t) {
+    const S = this;
+    const lgOut = 1 - prog(t, 6, 0.6);
+    S.legend.setAttribute("opacity", lgOut);
+    [...S.legend.children].slice(0, 3).forEach((e, i) => reveal(e, prog(t, 0.2 + i * 0.3, 0.8) * lgOut, 20));
+    S.rows.forEach((r, i) => reveal(r, prog(t, 1.6 + i * 0.7, 0.7) * lgOut, 16));
+    const aolOut = 1 - prog(t, 13, 0.5);
+    reveal(S.a1, prog(t, 7.5, 0.8) * aolOut, 30);
+    reveal(S.a2, prog(t, 9.5, 0.8) * aolOut, 30);
+    S.aolFoot.setAttribute("opacity", prog(t, 7.5, 0.8) * aolOut);
+    S.names.forEach((n, i) => reveal(n, prog(t, 14 + i * 0.5, 0.9) * (1 - 0.55 * prog(t, 19, 1)), 30));
+    S.ai.setAttribute("opacity", t > 13 ? 1 : 0);
+    S.caps(t);
+  },
+});
+
+/* ---- 1 互联网霸主更替 ---- */
+SCENES.push({
+  name: "霸主更替", dur: 44,
+  build(g) {
+    const S = this, v = ratio === "v", cx = L.W / 2;
+    const P = v ? { x0: 60, x1: 1020, y0: 1520, top: 780, barW: 150 } : { x0: 300, x1: 1620, y0: 860, top: 470, barW: 190 };
+    const LB = v ? { name: 30, value: 68, unit: 28, year: 26 } : { name: 30, value: 72, unit: 28, year: 26 };
+    const ST = v ? { bracket: 1552, num: 1606, desc: 1652, numSize: 28, descSize: 36 } : { bracket: 888, num: 932, desc: 972, numSize: 26, descSize: 34 };
+    S.P = P; S.LB = LB; S.V_MAX = 2000;
+    const h = val => val / S.V_MAX * (P.y0 - P.top); S.h = h;
+    S.T = { s1: 3, s2: 9, s3: 15, fall: 23, quote: 34 };
+    S.STAGES = [{ num: "01", desc: "基础设施", cos: [0] }, { num: "02", desc: "应用爆发", cos: [1] }, { num: "03", desc: "原生应用", cos: [2, 3] }];
+    S.COS = [
+      { co: "AOL",      v: 1630, yr: "2000", exit: { v: 44, yr: "2015 年卖掉", pct: "−97%" } },
+      { co: "YAHOO",    v: 1200, yr: "2000", exit: { v: 48, yr: "2016 年卖掉", pct: "−96%" } },
+      { co: "GOOGLE",   v: 1870, yr: "2007" },
+      { co: "FACEBOOK", v: 1040, yr: "2012 上市" },
+    ];
+    S.title = makeTitle(g, "add", v ? ["每个阶段的霸主", "都没赢下一个阶段"] : ["每个阶段的霸主，都没赢下一个阶段"], v ? [880, 1000] : [560], v ? 96 : 100, v ? 740 : 420);
+    S.base = el("line", { x1: cx, x2: cx, y1: P.y0, y2: P.y0, stroke: "var(--hair)", "stroke-width": 2 }, g);
+    const step = (P.x1 - P.x0) / S.COS.length;
+    S.COS.forEach((c, i) => {
+      c.cx = P.x0 + step * (i + 0.5);
+      c.g = el("g", {}, g);
+      const bx = c.cx - P.barW / 2;
+      if (c.exit) {
+        c.ghost = el("g", { opacity: 0 }, c.g);
+        el("rect", { x: bx, width: P.barW, y: P.y0 - h(c.v), height: h(c.v), fill: "#efe7d6", "fill-opacity": 0.05 }, c.ghost);
+        el("line", { x1: bx, x2: bx + P.barW, y1: P.y0 - h(c.v), y2: P.y0 - h(c.v), stroke: "var(--ivory-3)", "stroke-width": 2 }, c.ghost);
+      }
+      c.rect = el("rect", { x: bx, width: P.barW, y: P.y0, height: 0, fill: "url(#bar)" }, c.g);
+      c.cap = el("rect", { x: bx, width: P.barW, height: 3, y: P.y0, fill: "var(--ivory)" }, c.g);
+      c.label = el("g", {}, c.g);
+      c.nameEl = txt(c.co, { x: c.cx, "text-anchor": "middle", "font-size": LB.name, "font-weight": 500, "letter-spacing": 5, fill: "var(--ivory-2)" }, c.label);
+      c.valEl = el("text", { x: c.cx, "text-anchor": "middle", "font-size": LB.value, "font-weight": 300 }, c.label);
+      c.valNum = el("tspan", {}, c.valEl);
+      el("tspan", { "font-size": LB.unit, dx: 6, fill: "var(--ivory-3)" }, c.valEl).textContent = "亿";
+      c.yrEl = txt("", { x: c.cx, "text-anchor": "middle", "font-size": LB.year, fill: "var(--ivory-3)", "letter-spacing": 2 }, c.label);
+      if (c.exit) c.pctEl = txt(c.exit.pct, { x: c.cx, y: P.y0 - h(c.v) / 2 + 32, "text-anchor": "middle", "font-size": v ? 92 : 96, "font-weight": 300, fill: "var(--accent)", opacity: 0 }, c.g);
+    });
+    S.STAGES.forEach(s => {
+      const a = S.COS[s.cos[0]].cx - P.barW / 2, b = S.COS[s.cos[s.cos.length - 1]].cx + P.barW / 2, m = (a + b) / 2;
+      s.g = el("g", { opacity: 0 }, g);
+      el("path", { d: `M${a},${ST.bracket - 10} V${ST.bracket} H${b} V${ST.bracket - 10}`, fill: "none", stroke: "var(--hair)", "stroke-width": 2 }, s.g);
+      txt(s.num, { x: m, y: ST.num, "text-anchor": "middle", "font-size": ST.numSize, "letter-spacing": 4, fill: "var(--accent)" }, s.g);
+      txt(s.desc, { x: m, y: ST.desc, "text-anchor": "middle", "font-size": ST.descSize, fill: "var(--ivory-2)" }, s.g);
+    });
+    S.caps = makeCaps(g, [
+      { kind: "para", at: 3, until: 9, v: ["第一阶段", "技术成为社会基础设施"], h: ["第一阶段：技术成为社会基础设施"] },
+      { kind: "para", at: 9, until: 15, v: ["第二阶段", "基础设施上长出海量新应用"], h: ["第二阶段：基础设施上长出海量新应用"] },
+      { kind: "para", at: 15, until: 23, v: ["第三阶段", "需要更底层的方法运行新世界"], h: ["第三阶段：需要更底层的方法运行新世界"] },
+      { kind: "add", at: 23, until: 34, v: ["前两个阶段的霸主，", "后来怎样了？"], h: ["前两个阶段的霸主，后来怎样了？"] },
+      { kind: "quote", at: 34, until: 44.5, v: ["第一阶段的企业，", "很难活到第二阶段；", "第二阶段的企业，", "很难活到第三阶段。"], h: ["第一阶段的企业，很难活到第二阶段；", "第二阶段的企业，很难活到第三阶段。"] },
+    ]);
+    S.foot = makeFoot(g, ["单位：亿美元 · 数据：CNN、美国证监会文件、上市报道", "把公司归入三个阶段，是本片的推断"],
+                         ["单位：亿美元 · 数据：CNN、美国证监会文件、上市报道 · 把公司归入三个阶段，是本片的推断"]);
+  },
+  render(t) {
+    const S = this, P = S.P, h = S.h, T = S.T, cx = L.W / 2;
+    S.title(t, 0, T.s1);
+    const b = expo(prog(t, T.s1 - 0.2, 1.2)), half = (P.x1 - P.x0) / 2 * b;
+    S.base.setAttribute("x1", cx - half); S.base.setAttribute("x2", cx + half);
+    const quoteIn = prog(t, T.quote, 1.2), focus = easeOut(prog(t, T.fall, 1));
+    const appearAt = i => { const s = S.STAGES.findIndex(st => st.cos.includes(i)); return [T.s1, T.s2, T.s3][s] + 0.9 + S.STAGES[s].cos.indexOf(i) * 1.8; };
+    S.COS.forEach((c, i) => {
+      const g = expo(prog(t, appearAt(i), 1.6));
+      let val = c.v * g, yr = c.yr, drain = 0;
+      if (c.exit) {
+        const k = S.COS.filter(x => x.exit).indexOf(c), d0 = T.fall + 1.4 + k * 3.4;
+        drain = easeOut(prog(t, d0, 2.4));
+        val -= (c.v - c.exit.v) * drain;
+        if (drain > 0) yr = c.exit.yr;
+        c.ghost.setAttribute("opacity", drain > 0 ? 1 : 0);
+        reveal(c.pctEl, prog(t, d0 + 2.0, 0.6), 20);
+        c.rect.setAttribute("fill", drain > 0 ? "var(--accent)" : "url(#bar)");
+        c.cap.setAttribute("fill", drain > 0 ? "var(--accent)" : "var(--ivory)");
+      }
+      const hh = h(val);
+      c.rect.setAttribute("y", P.y0 - hh); c.rect.setAttribute("height", hh);
+      c.cap.setAttribute("y", P.y0 - hh); c.cap.setAttribute("opacity", g > 0.01 ? 1 : 0);
+      c.g.setAttribute("opacity", c.exit ? 1 : (1 - 0.72 * focus) * (1 - 0.6 * quoteIn));
+      if (!c.exit) c.label.style.visibility = quoteIn > 0.5 ? "hidden" : "visible";
+      c.valNum.textContent = fmt(val); c.yrEl.textContent = yr;
+      const top = P.y0 - (c.exit && drain > 0 ? h(c.v) : hh), lb = S.LB;
+      const yYr = top - 22, yVal = yYr - lb.year - 14, yName = yVal - lb.value - 6;
+      c.yrEl.setAttribute("y", yYr); c.valEl.setAttribute("y", yVal); c.nameEl.setAttribute("y", yName);
+      reveal(c.label, prog(t, appearAt(i) + 0.3, 0.7), 18);
+    });
+    S.STAGES.forEach((st, k) => reveal(st.g, prog(t, [T.s1, T.s2, T.s3][k] + 0.5, 0.6) * (k === 2 ? 1 - 0.6 * focus : 1), 12));
+    S.caps(t);
+    S.foot.setAttribute("opacity", prog(t, T.s1, 1) * 0.9);
+  },
+});
+
+/* ---- 2 AI 走到哪了 ---- */
+SCENES.push({
+  name: "AI 在哪", dur: 31,
+  build(g) {
+    const S = this, v = ratio === "v";
+    S.T = { net: 3, ai: 10, here: 15, link: 23 };
+    S.STAGES = [{ num: "01", desc: "基础设施" }, { num: "02", desc: "应用爆发" }, { num: "03", desc: "原生应用" }];
+    S.ROWS = [
+      { name: "互联网", cells: [["AOL"], ["Netscape", "Yahoo"], ["Google", "Facebook"]] },
+      { name: "AI", cells: [["OpenAI", "Anthropic"], null, null] },
+    ];
+    const G = v ? {
+      rule: { x1: 40, x2: 1040 }, rows: s => 800 + s * 300,
+      head: r => ({ x: 470 + r * 380, y: 760 }), stageLbl: s => ({ x: 150, y: 800 + s * 300 + 150 }),
+      cell: (r, s) => ({ cx: 470 + r * 380, cy: 800 + s * 300 + 150 }), cellText: 54, q: 150, numSize: 28, descSize: 36, nRules: 4,
+      hereLine: c => ({ x1: c.cx - 150, x2: c.cx + 150, y: c.cy - 105 }), hereLbl: c => ({ x: c.cx, y: c.cy - 45 }), qShift: c => ({ x: c.cx, y: c.cy + 80 }),
+      link: { x: 660, y: 950 } } : {
+      rule: { x1: 120, x2: 1840 }, rows: s => 420 + s * 230,
+      head: r => ({ x: 240, y: 420 + r * 230 + 115 }), stageLbl: s => ({ x: 640 + s * 480, y: 330 }),
+      cell: (r, s) => ({ cx: 640 + s * 480, cy: 420 + r * 230 + 115 }), cellText: 52, q: 140, numSize: 26, descSize: 34, nRules: 3,
+      hereLine: c => ({ x: c.cx - 170, y1: c.cy - 100, y2: c.cy + 100 }), hereLbl: c => ({ x: c.cx - 140, y: c.cy + 14, anchor: "start" }), qShift: c => ({ x: c.cx + 150, y: c.cy }),
+      link: { x: 640, y: 650 } };
+    S.title = makeTitle(g, "add", ["AI 走到哪一步了？"], v ? [960] : [580], v ? 100 : 104, v ? 820 : 440);
+    S.grid = el("g", { opacity: 0 }, g);
+    for (let s = 0; s < G.nRules; s++) el("line", { x1: G.rule.x1, x2: G.rule.x2, y1: G.rows(s), y2: G.rows(s), stroke: "var(--hair)", "stroke-width": 2 }, S.grid);
+    S.ROWS.forEach((row, ri) => { const hp = G.head(ri); txt(row.name, { x: hp.x, y: hp.y + (v ? 0 : 14), "text-anchor": "middle", "font-size": v ? 32 : 40, "letter-spacing": 8, fill: "var(--ivory-2)", "font-weight": 500 }, S.grid); });
+    S.STAGES.forEach((st, s) => { const p = G.stageLbl(s);
+      txt(st.num, { x: p.x, y: p.y - 14, "text-anchor": "middle", "font-size": G.numSize, "letter-spacing": 4, fill: "var(--accent)" }, S.grid);
+      txt(st.desc, { x: p.x, y: p.y + 32, "text-anchor": "middle", "font-size": G.descSize, fill: "var(--ivory-2)" }, S.grid); });
+    S.ROWS.forEach((row, ri) => {
+      row.els = row.cells.map((items, s) => {
+        const c = G.cell(ri, s), cg = el("g", { opacity: 0 }, g);
+        let q = null;
+        if (items) block(items, c.cx, c.cy, G.cellText, { "font-weight": 500 }, cg);
+        else { const pos = s === 1 ? G.qShift(c) : { x: c.cx, y: c.cy };
+               q = txt("?", { x: pos.x, y: pos.y + G.q * 0.35, "text-anchor": "middle", "font-size": G.q, "font-weight": 300, fill: "var(--ivory-3)" }, cg); }
+        return { g: cg, c, q };
+      });
+    });
+    const hc = S.ROWS[1].els[1].c;
+    S.here = el("g", { opacity: 0 }, g);
+    const hl = G.hereLine(hc), lb = G.hereLbl(hc);
+    const dot = v ? [hl.x1, hl.y] : [hl.x, hl.y1];
+    if (v) el("line", { x1: hl.x1, x2: hl.x2, y1: hl.y, y2: hl.y, stroke: "var(--accent)", "stroke-width": 3 }, S.here);
+    else el("line", { x1: hl.x, x2: hl.x, y1: hl.y1, y2: hl.y2, stroke: "var(--accent)", "stroke-width": 3 }, S.here);
+    el("circle", { cx: dot[0], cy: dot[1], r: 40, fill: "url(#glow)" }, S.here);
+    el("circle", { cx: dot[0], cy: dot[1], r: 10, fill: "var(--accent)" }, S.here);
+    txt("我们在这里", { x: lb.x, y: lb.y, "text-anchor": lb.anchor || "middle", "font-size": 40, "font-weight": 700, "letter-spacing": 4, fill: "var(--accent)" }, S.here);
+    S.link = el("g", { opacity: 0 }, g);
+    if (!v) el("rect", { x: G.link.x - 40, y: G.link.y - 30, width: 80, height: 60, fill: "#161512" }, S.link);
+    txt("≈", { x: G.link.x, y: G.link.y + 26, "text-anchor": "middle", "font-size": 80, "font-weight": 300, fill: "var(--accent)" }, S.link);
+    S.caps = makeCaps(g, [
+      { kind: "add", at: 3, until: 10, v: ["互联网走完了三个阶段"] },
+      { kind: "add", at: 10, until: 15, v: ["AI 呢？"] },
+      { kind: "quote", at: 15, until: 23, v: ["我们现在刚刚走到浏览器阶段，", "甚至比 Yahoo 还要早。"], h: ["我们现在刚刚走到浏览器阶段，甚至比 Yahoo 还要早。"] },
+      { kind: "quote", at: 23, until: 31.5, v: ["直白一点说，", "模型公司就是未来的 AI 云公司。"], h: ["直白一点说，模型公司就是未来的 AI 云公司。"] },
+    ]);
+    S.foot = makeFoot(g, ["表中公司归类为本片推断", "AOL 与模型公司的类比出自曾鸣原话"], ["表中公司归类为本片推断 · AOL 与模型公司的类比出自曾鸣原话"]);
+  },
+  render(t) {
+    const S = this, T = S.T;
+    S.title(t, 0, T.net);
+    S.grid.setAttribute("opacity", prog(t, T.net, 0.8));
+    const lk = easeOut(prog(t, T.link + 0.6, 0.9));
+    S.ROWS.forEach((row, ri) => row.els.forEach((e, s) => {
+      const t0 = ri === 0 ? T.net + 0.8 + s * 1.8 : T.ai + 0.8 + s * 1.0;
+      reveal(e.g, prog(t, t0, 0.7) * (s === 0 ? 1 : 1 - 0.75 * lk), 18);
+      if (e.q) e.q.setAttribute("opacity", 0.75 + 0.25 * Math.sin(t * 2.2));
+    }));
+    reveal(S.here, prog(t, T.here + 0.9, 0.6) * (1 - 0.7 * lk), 0);
+    S.link.setAttribute("opacity", lk);
+    S.caps(t);
+    S.foot.setAttribute("opacity", prog(t, T.net, 1) * 0.9);
+  },
+});
+
+/* ---- 3 同质化供给 ---- */
+SCENES.push({
+  name: "同质化", dur: 32,
+  build(g) {
+    const S = this, v = ratio === "v";
+    // 供给：一格格一模一样的方块
+    const SUP = v ? { x0: 540 - 4.5 * 84, y0: 840, cols: 9, cell: 84, size: 64, label: { x: 540, y: 800 } }
+                  : { x0: 150, y0: 480, cols: 9, cell: 76, size: 58, label: { x: 492, y: 430 } };
+    S.sup = el("g", {}, g);
+    txt("供给：越来越多、越来越像的模型", { x: SUP.label.x, y: SUP.label.y, "text-anchor": "middle", "font-size": 30, "letter-spacing": 3, fill: "var(--ivory-2)" }, S.sup);
+    S.tiles = [];
+    for (let i = 0; i < 27; i++) {
+      const cx = SUP.x0 + (i % SUP.cols) * SUP.cell + SUP.cell / 2, cy = SUP.y0 + Math.floor(i / SUP.cols) * SUP.cell + SUP.cell / 2;
+      const tg = el("g", { opacity: 0 }, S.sup);
+      el("rect", { x: cx - SUP.size / 2, y: cy - SUP.size / 2, width: SUP.size, height: SUP.size, rx: 12, fill: "#efe7d6", "fill-opacity": 0.10, stroke: "var(--ivory-3)", "stroke-width": 2 }, tg);
+      el("circle", { cx, cy, r: SUP.size * 0.16, fill: "var(--ivory-2)" }, tg);
+      S.tiles.push(tg);
+    }
+    // 价格示意曲线
+    const C = v ? { x0: 140, x1: 960, y0: 1520, y1: 1160 } : { x0: 980, x1: 1760, y0: 880, y1: 460 };
+    S.C = C;
+    S.chart = el("g", {}, g);
+    el("line", { x1: C.x0, x2: C.x1, y1: C.y0, y2: C.y0, stroke: "var(--hair)", "stroke-width": 2 }, S.chart);
+    el("line", { x1: C.x0, x2: C.x0, y1: C.y1 - 20, y2: C.y0, stroke: "var(--hair)", "stroke-width": 2 }, S.chart);
+    const costY = C.y0 - (C.y0 - C.y1) * 0.14;
+    el("line", { x1: C.x0, x2: C.x1, y1: costY, y2: costY, stroke: "var(--ivory-3)", "stroke-width": 2, "stroke-dasharray": "8 8" }, S.chart);
+    txt("成本", { x: C.x1, y: costY - 14, "text-anchor": "end", "font-size": 28, fill: "var(--ivory-3)" }, S.chart);
+    txt("价格", { x: C.x0 + 14, y: C.y1 - 4, "font-size": 30, fill: "var(--ivory-2)" }, S.chart);
+    txt("模型越来越多 →", { x: C.x1, y: C.y0 + 44, "text-anchor": "end", "font-size": 26, fill: "var(--ivory-3)" }, S.chart);
+    let d = "";
+    for (let i = 0; i <= 60; i++) { const k = i / 60, x = C.x0 + (C.x1 - C.x0) * k, y = costY - (costY - C.y1 - 10) * Math.exp(-3.2 * k); d += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); }
+    S.curve = el("path", { d, fill: "none", stroke: "var(--accent)", "stroke-width": 4, "stroke-linecap": "round" }, S.chart);
+    S.clen = S.curve.getTotalLength(); S.curve.style.strokeDasharray = S.clen;
+    S.squeeze = txt("利润被压平", { x: C.x1, y: costY - 54, "text-anchor": "end", "font-size": 34, "font-weight": 700, fill: "var(--accent)", opacity: 0 }, S.chart);
+    // 三个行业
+    S.ind = el("g", {}, g);
+    const IY = v ? 1680 : 960, IX = v ? [300, 540, 780] : [700, 960, 1220];
+    S.inds = ["电力", "电信", "云计算"].map((s, i) => { const ig = el("g", { opacity: 0 }, S.ind);
+      el("rect", { x: IX[i] - 95, y: IY - 38, width: 190, height: 76, rx: 38, fill: "none", stroke: "var(--ivory-2)", "stroke-width": 2 }, ig);
+      txt(s, { x: IX[i], y: IY + 13, "text-anchor": "middle", "font-size": 36, "font-weight": 500 }, ig); return ig; });
+    S.caps = makeCaps(g, [
+      { kind: "quote", at: 0.5, until: 12, v: ["因为经济学基本规律，", "只要有同质化的供给，", "你就不可能获取高额利润，", "你就是一家不怎么值钱的公司。"],
+        h: ["因为经济学基本规律，只要有同质化的供给，", "你就不可能获取高额利润，你就是一家不怎么值钱的公司。"] },
+      { kind: "add", at: 12, until: 20, v: ["电力、电信、云计算，", "都走到了同一个结局"], h: ["电力、电信、云计算，都走到了同一个结局"] },
+      { kind: "quote", at: 20, until: 32.5, v: ["公共基础设施的行业，", "只有一种商业模式是成立的，", "叫寡头垄断加政府强监管"], h: ["公共基础设施的行业，只有一种商业模式是成立的，", "叫寡头垄断加政府强监管"] },
+    ]);
+    S.foot = makeFoot(g, ["价格曲线为示意，不是真实数据", "电力、电信、云计算三例为本片补充"], ["价格曲线为示意，不是真实数据 · 电力、电信、云计算三例为本片补充"]);
+  },
+  render(t) {
+    const S = this;
+    const n = Math.round(27 * easeOut(prog(t, 1.5, 9)));
+    S.tiles.forEach((tg, i) => reveal(tg, i < n ? prog(t, 1.5 + i * 0.3, 0.4) : 0, 10));
+    reveal(S.sup.children[0], prog(t, 1, 0.6), 10);
+    const dp = easeOut(prog(t, 2, 9));
+    S.curve.style.strokeDashoffset = S.clen * (1 - dp);
+    S.chart.setAttribute("opacity", prog(t, 1.5, 0.8));
+    reveal(S.squeeze, prog(t, 10, 0.6), 12);
+    S.inds.forEach((ig, i) => reveal(ig, prog(t, 13 + i * 0.6, 0.6), 14));
+    S.caps(t);
+    S.foot.setAttribute("opacity", prog(t, 1.5, 1) * 0.9);
+  },
+});
+
+/* ---- 4 下一个入口 ---- */
+SCENES.push({
+  name: "新入口", dur: 34,
+  build(g) {
+    const S = this, v = ratio === "v";
+    // 第一部分：Agent 的两个空位 + 三年时间线
+    S.agent = el("g", {}, g);
+    const A = v ? { y: 960, slots: [[330, 1190], [750, 1190]], tl: { x0: 190, x1: 890, y: 1500 } }
+                : { y: 470, slots: [[760, 640], [1160, 640]], tl: { x0: 560, x1: 1360, y: 880 } };
+    S.agentTitle = txt("Agent", { x: L.W / 2, y: A.y, "text-anchor": "middle", "font-size": 150, "font-weight": 700, class: "serif" }, S.agent);
+    S.slots = [["标准", "谁来建立？"], ["用户入口", "谁来抢住？"]].map(([a, b], i) => { const sg = el("g", { opacity: 0 }, S.agent), [x, y] = A.slots[i];
+      el("rect", { x: x - 170, y: y - 110, width: 340, height: 220, rx: 18, fill: "none", stroke: "var(--ivory-3)", "stroke-width": 2, "stroke-dasharray": "10 8" }, sg);
+      txt(a, { x, y: y - 10, "text-anchor": "middle", "font-size": 46, "font-weight": 700 }, sg);
+      txt(b, { x, y: y + 50, "text-anchor": "middle", "font-size": 32, fill: "var(--ivory-3)" }, sg); return sg; });
+    S.tl = el("g", { opacity: 0 }, S.agent);
+    const TL = A.tl;
+    el("line", { x1: TL.x0, x2: TL.x1, y1: TL.y, y2: TL.y, stroke: "var(--hair)", "stroke-width": 3 }, S.tl);
+    S.tlFill = el("line", { x1: TL.x0, x2: TL.x0, y1: TL.y, y2: TL.y, stroke: "var(--accent)", "stroke-width": 4 }, S.tl);
+    el("circle", { cx: TL.x0, cy: TL.y, r: 9, fill: "var(--ivory)" }, S.tl);
+    txt("今天", { x: TL.x0, y: TL.y + 52, "text-anchor": "middle", "font-size": 32, fill: "var(--ivory-2)" }, S.tl);
+    S.tlDot = el("circle", { cx: TL.x1, cy: TL.y, r: 12, fill: "var(--accent)", opacity: 0 }, S.tl);
+    txt("3 年内", { x: TL.x1, y: TL.y + 52, "text-anchor": "middle", "font-size": 32, fill: "var(--ivory-2)" }, S.tl);
+    S.TL = TL;
+    // 第二部分：信息匹配 vs 能力匹配
+    S.cmp = el("g", {}, g);
+    const OLD = v ? { cx: 540, top: 780, w: 640 } : { cx: 520, top: 380, w: 600 };
+    const NEW = v ? { cx: 540, cy: 1440, r: 230 } : { cx: 1340, cy: 680, r: 250 };
+    S.old = el("g", { opacity: 0 }, S.cmp);
+    txt("旧平台 · 简单信息匹配", { x: OLD.cx, y: OLD.top, "text-anchor": "middle", "font-size": 34, "letter-spacing": 3, fill: "var(--ivory-2)" }, S.old);
+    el("rect", { x: OLD.cx - OLD.w / 2, y: OLD.top + 40, width: OLD.w, height: 70, rx: 35, fill: "none", stroke: "var(--ivory-2)", "stroke-width": 2 }, S.old);
+    el("circle", { cx: OLD.cx - OLD.w / 2 + 44, cy: OLD.top + 75, r: 13, fill: "none", stroke: "var(--ivory-2)", "stroke-width": 3 }, S.old);
+    S.results = [0, 1, 2, 3].map(i => el("rect", { x: OLD.cx - OLD.w / 2, y: OLD.top + 140 + i * (v ? 44 : 60), width: OLD.w * (0.95 - i * 0.12), height: v ? 18 : 22, rx: 9, fill: "#efe7d6", "fill-opacity": 0.18, opacity: 0 }, S.old));
+    S.neu = el("g", { opacity: 0 }, S.cmp);
+    txt("新平台 · 能力跟需求的匹配", { x: NEW.cx, y: NEW.cy - NEW.r - 50, "text-anchor": "middle", "font-size": 34, "letter-spacing": 3, fill: "var(--ivory-2)" }, S.neu);
+    const N = 12, pts = [];
+    for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2 - Math.PI / 2, rr = NEW.r * (i % 2 ? 0.82 : 1); pts.push([NEW.cx + Math.cos(a) * rr, NEW.cy + Math.sin(a) * rr]); }
+    S.edges = [];
+    pts.forEach(([x, y], i) => { const e = el("line", { x1: NEW.cx, y1: NEW.cy, x2: x, y2: y, stroke: "var(--accent)", "stroke-width": 2, opacity: 0 }, S.neu); S.edges.push(e); });
+    for (let i = 0; i < N; i++) for (const j of [i + 1, i + 3]) { const a = pts[i], b = pts[j % N];
+      S.edges.push(el("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: "var(--ivory-3)", "stroke-width": 1.5, opacity: 0 }, S.neu)); }
+    S.nodes = pts.map(([x, y]) => el("circle", { cx: x, cy: y, r: 13, fill: "var(--ivory)", opacity: 0 }, S.neu));
+    el("circle", { cx: NEW.cx, cy: NEW.cy, r: 70, fill: "url(#glow)" }, S.neu);
+    el("circle", { cx: NEW.cx, cy: NEW.cy, r: 46, fill: "var(--accent)" }, S.neu);
+    txt("需求", { x: NEW.cx, y: NEW.cy + 12, "text-anchor": "middle", "font-size": 32, "font-weight": 700, fill: "var(--ink)" }, S.neu);
+    S.caps = makeCaps(g, [
+      { kind: "quote", at: 0.5, until: 9.5, v: ["下个阶段就是看", "谁是 Netscape、谁是 Yahoo，", "谁把 Agent 的标准建立起来，", "谁抢住 Agent 的用户入口。"],
+        h: ["下个阶段就是看谁是 Netscape、谁是 Yahoo，", "谁把 Agent 的标准建立起来，谁抢住 Agent 的用户入口。"] },
+      { kind: "quote", at: 9.5, until: 15, v: ["未来三年是有可能", "开始出现 Agent 入口的。"], h: ["未来三年是有可能开始出现 Agent 入口的。"] },
+      // 与原文顺序一致：先结论，后原因
+      { kind: "quote", at: 15, until: 21, v: ["新的平台大概率", "不诞生自旧的平台。"], h: ["新的平台大概率不诞生自旧的平台。"] },
+      { kind: "quote", at: 21, until: 34.5, v: ["因为旧平台做的是简单信息匹配，", "新平台要做的是能力跟需求的匹配，", "复杂度高了很多。"],
+        h: ["因为旧平台做的是简单信息匹配，", "新平台要做的是能力跟需求的匹配，复杂度高了很多。"] },
+    ]);
+    S.foot = makeFoot(g, ["两种匹配的图为本片示意"], ["两种匹配的图为本片示意"]);
+  },
+  render(t) {
+    const S = this, TL = S.TL;
+    const agOut = 1 - prog(t, 14.5, 0.5);
+    reveal(S.agentTitle, prog(t, 1, 0.8) * agOut, 30);
+    S.slots.forEach((s, i) => reveal(s, prog(t, 3 + i * 1.5, 0.7) * agOut, 18));
+    S.tl.setAttribute("opacity", prog(t, 10, 0.6) * agOut);
+    const tp = easeOut(prog(t, 10.5, 2.5));
+    S.tlFill.setAttribute("x2", TL.x0 + (TL.x1 - TL.x0) * tp);
+    S.tlDot.setAttribute("opacity", prog(t, 12.8, 0.4));
+    S.agent.setAttribute("opacity", agOut);
+    const oldIn = prog(t, 15.5, 0.7), newIn = prog(t, 18, 0.7), fin = easeOut(prog(t, 27, 1));
+    reveal(S.old, oldIn * (1 - 0.7 * fin), 16);
+    S.results.forEach((r, i) => r.setAttribute("opacity", prog(t, 16.3 + i * 0.25, 0.4)));
+    reveal(S.neu, newIn, 16);
+    S.edges.forEach((e, i) => e.setAttribute("opacity", prog(t, 18.6 + i * 0.07, 0.4) * (i < 12 ? 0.9 : 0.55)));
+    S.nodes.forEach((n, i) => n.setAttribute("opacity", prog(t, 18.4 + i * 0.08, 0.3)));
+    S.caps(t);
+    S.foot.setAttribute("opacity", prog(t, 15.5, 1) * 0.9);
+  },
+});
+
+/* ---- 5 反方（全部为本片补充）---- */
+SCENES.push({
+  name: "反方", dur: 30,
+  build(g) {
+    const S = this, v = ratio === "v";
+    const LAB = "补充 · 本片观点，非曾鸣原意";
+    // 两张对照卡
+    S.cards = el("g", {}, g);
+    const CD = v ? [[540, 1000], [540, 1380]] : [[640, 640], [1280, 640]];
+    const cw = v ? 820 : 560, chh = v ? 300 : 360;
+    S.cardEls = [["AOL", "卖接入", "网络不是它造的"], ["模型公司", "卖智能", "智能是它自己造的"]].map(([a, b, c], i) => {
+      const cg = el("g", { opacity: 0 }, S.cards), [x, y] = CD[i];
+      el("rect", { x: x - cw / 2, y: y - chh / 2, width: cw, height: chh, rx: 22, fill: "#efe7d6", "fill-opacity": 0.04, stroke: i ? "var(--accent)" : "var(--hair)", "stroke-width": 2 }, cg);
+      txt(a, { x, y: y - chh / 2 + (v ? 90 : 110), "text-anchor": "middle", "font-size": 60, "font-weight": 700, class: "serif" }, cg);
+      txt(b, { x, y: y + (v ? 30 : 40), "text-anchor": "middle", "font-size": 40, fill: i ? "var(--accent)" : "var(--ivory-2)", "font-weight": 500 }, cg);
+      txt(c, { x, y: y + (v ? 100 : 120), "text-anchor": "middle", "font-size": 34, fill: "var(--ivory-3)" }, cg);
+      return cg; });
+    // 分岔
+    S.fork = el("g", { opacity: 0 }, g);
+    const F = v ? { root: [540, 820], a: [[290, 1060], [290, 1290], [290, 1520]], b: [[790, 1060], [790, 1290], [790, 1520]] }
+                : { root: [360, 640], a: [[760, 470], [1160, 470], [1560, 470]], b: [[760, 820], [1160, 820], [1560, 820]] };
+    const nodeBox = (x, y, s, strong, parent) => { const ng = el("g", { opacity: 0 }, parent), w = Math.max(textW(s, 34) + 60, 200);
+      el("rect", { x: x - w / 2, y: y - 42, width: w, height: 84, rx: 42, fill: strong ? "var(--accent)" : "none", stroke: strong ? "none" : "var(--ivory-2)", "stroke-width": 2 }, ng);
+      txt(s, { x, y: y + 12, "text-anchor": "middle", "font-size": 34, "font-weight": 500, fill: strong ? "var(--ink)" : "var(--ivory)" }, ng); return ng; };
+    const branch = (pts, labels) => {
+      const path = [F.root, ...pts].map((p, i) => (i ? "L" : "M") + p[0] + "," + p[1]).join(" ");
+      const line = el("path", { d: path, fill: "none", stroke: "var(--hair)", "stroke-width": 3 }, S.fork);
+      const len = line.getTotalLength(); line.style.strokeDasharray = len; line.style.strokeDashoffset = len;
+      return { line, len, nodes: pts.map((p, i) => nodeBox(p[0], p[1], labels[i], i === 2, S.fork)) };
+    };
+    S.br = [branch(F.a, ["被追平", "供给同质化", "曾鸣的判断成立"]), branch(F.b, ["一直领先", "供给不同质", "结论要打折扣"])];
+    S.root = nodeBox(F.root[0], F.root[1], "今天", false, S.fork);
+    S.caps = makeCaps(g, [
+      { kind: "add", label: LAB, at: 0.5, until: 7.5, v: ["但这个类比，", "有一个值得盯住的漏洞"], h: ["但这个类比，有一个值得盯住的漏洞"] },
+      { kind: "add", label: LAB, at: 7.5, until: 16.5, v: ["AOL 只负责接入；", "模型公司在生产智能本身"], h: ["AOL 只负责接入；模型公司在生产智能本身"] },
+      { kind: "add", label: LAB, at: 16.5, until: 30.5, v: ["关键变量：", "最强的模型，能不能一直领先？"], h: ["关键变量：最强的模型，能不能一直领先？"] },
+    ]);
+  },
+  render(t) {
+    const S = this;
+    const cOut = 1 - prog(t, 16, 0.5);
+    S.cardEls.forEach((c, i) => reveal(c, prog(t, 8 + i * 1.2, 0.8) * cOut, 24));
+    S.fork.setAttribute("opacity", t > 16.5 ? 1 : 0);
+    reveal(S.root, prog(t, 17.2, 0.6), 10);
+    S.br.forEach((b, k) => {
+      const t0 = 18 + k * 3.5;
+      b.line.style.strokeDashoffset = b.len * (1 - easeOut(prog(t, t0, 2.4)));
+      b.nodes.forEach((n, i) => reveal(n, prog(t, t0 + 0.5 + i * 0.75, 0.5), 10));
+    });
+    S.caps(t);
+  },
+});
+
+/* ---- 6 收尾 ---- */
+SCENES.push({
+  name: "收尾", dur: 34,
+  build(g) {
+    const S = this, v = ratio === "v";
+    const P = v ? { x0: 60, x1: 1020, y0: 1560, top: 960, barW: 120 } : { x0: 260, x1: 1660, y0: 900, top: 420, barW: 170 };
+    S.P = P;
+    const h = x => x / 2000 * (P.y0 - P.top);
+    const bars = [["AOL", 44, true], ["YAHOO", 48, true], ["GOOGLE", 1870], ["FACEBOOK", 1040], ["", 1500, false, true]];
+    const step = (P.x1 - P.x0) / bars.length;
+    S.bars = el("g", {}, g);
+    el("line", { x1: P.x0, x2: P.x1, y1: P.y0, y2: P.y0, stroke: "var(--hair)", "stroke-width": 2 }, S.bars);
+    bars.forEach(([n, val, fallen, next], i) => {
+      const x = P.x0 + step * (i + 0.5), bx = x - P.barW / 2;
+      if (next) {
+        S.next = el("g", { opacity: 0 }, S.bars);
+        el("rect", { x: bx, y: P.y0 - h(val), width: P.barW, height: h(val), rx: 4, fill: "none", stroke: "var(--accent)", "stroke-width": 3, "stroke-dasharray": "10 8" }, S.next);
+        el("circle", { cx: x, cy: P.y0 - h(val) / 2, r: 90, fill: "url(#glow)" }, S.next);
+        txt("?", { x, y: P.y0 - h(val) / 2 + 40, "text-anchor": "middle", "font-size": 120, "font-weight": 300, fill: "var(--accent)" }, S.next);
+      } else {
+        el("rect", { x: bx, y: P.y0 - h(val), width: P.barW, height: h(val), fill: fallen ? "var(--accent)" : "url(#bar)", opacity: fallen ? 0.9 : 0.35 }, S.bars);
+        txt(n, { x, y: P.y0 + 44, "text-anchor": "middle", "font-size": 24, "letter-spacing": 3, fill: "var(--ivory-3)" }, S.bars);
+      }
+    });
+    S.caps = makeCaps(g, [
+      { kind: "quote", at: 0.5, until: 9, v: ["我从来觉得在巨浪面前", "没有人是安全的。", "谁觉得安全，", "谁就是最不安全的。"], h: ["我从来觉得在巨浪面前没有人是安全的。", "谁觉得安全，谁就是最不安全的。"] },
+      { kind: "quote", at: 9, until: 21, v: ["这一点都不让人绝望啊，", "人有生老病死，", "公司也有生老病死，", "没有比这更正常的了。", "这样，新公司才有机会，", "年轻人才有梦想，", "这多好的一件事情啊！"],
+        h: ["这一点都不让人绝望啊，人有生老病死，公司也有生老病死，", "没有比这更正常的了。这样，新公司才有机会，", "年轻人才有梦想，这多好的一件事情啊！"] },
+      { kind: "add", at: 21, until: 30.5, v: ["下一个阶段的赢家，", "也许今天还没有名字"], h: ["下一个阶段的赢家，也许今天还没有名字"] },
+    ]);
+    S.foot = makeFoot(g, ["素材：张小珺商业访谈录第 153 期 · 嘉宾曾鸣", "「」内原话均取自节目页摘录"], ["素材：张小珺商业访谈录第 153 期 · 嘉宾曾鸣 · 「」内原话均取自节目页摘录"]);
+    // 署名卡
+    S.sign = el("g", { opacity: 0 }, g);
+    const cy = L.H / 2 - (v ? 80 : 60), size = v ? 260 : 220;
+    logoImg(L.W / 2 - size / 2, cy - size / 2, size, S.sign);
+    txt("Dylan He", { x: L.W / 2, y: cy + size / 2 + (v ? 110 : 90), "text-anchor": "middle", "font-size": v ? 72 : 64, "font-weight": 700, class: "serif" }, S.sign);
+    txt("制 作", { x: L.W / 2, y: cy + size / 2 + (v ? 170 : 140), "text-anchor": "middle", "font-size": 28, "letter-spacing": 10, fill: "var(--ivory-3)" }, S.sign);
+  },
+  render(t) {
+    const S = this;
+    const end = prog(t, 30, 0.6);
+    S.bars.setAttribute("opacity", prog(t, 1, 1) * (1 - end));
+    reveal(S.next, prog(t, 22, 1) * (1 - end), 30);
+    S.caps(t);
+    S.foot.setAttribute("opacity", prog(t, 1, 1) * 0.9 * (1 - end));
+    reveal(S.sign, prog(t, 30.4, 0.9), 24);
+  },
+});
+
+/* ============ 引擎 ============ */
+const LOGO = "logo.png";
+// logo 裁成圆角方块
+let clipN = 0;
+function logoImg(x, y, size, parent) {
+  const id = "lc" + (clipN++), defs = svg.querySelector("defs");
+  const cp = el("clipPath", { id }, defs);
+  el("rect", { x, y, width: size, height: size, rx: size * 0.22 }, cp);
+  return el("image", { href: LOGO, x, y, width: size, height: size, "clip-path": `url(#${id})` }, parent);
+}
+let watermark;
+const STARTS = []; let TOTAL = 0;
+SCENES.forEach(s => { STARTS.push(TOTAL); TOTAL += s.dur; });
+window.__film = { STARTS, TOTAL };
+
+function build(r) {
+  ratio = r; L = LAY[r];
+  svg.innerHTML = "";
+  svg.setAttribute("viewBox", `0 0 ${L.W} ${L.H}`);
+  document.getElementById("stage").className = r;
+  const defs = el("defs", {});
+  const rg = el("radialGradient", { id: "vig", cx: "50%", cy: "45%", r: "75%" }, defs);
+  el("stop", { offset: "0%", "stop-color": "#1b1915" }, rg); el("stop", { offset: "100%", "stop-color": "#080707" }, rg);
+  const bg = el("linearGradient", { id: "bar", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  el("stop", { offset: "0%", "stop-color": "#efe7d6", "stop-opacity": 0.95 }, bg); el("stop", { offset: "100%", "stop-color": "#efe7d6", "stop-opacity": 0.22 }, bg);
+  const glow = el("radialGradient", { id: "glow" }, defs);
+  el("stop", { offset: "0%", "stop-color": "#e8654a", "stop-opacity": 0.55 }, glow); el("stop", { offset: "100%", "stop-color": "#e8654a", "stop-opacity": 0 }, glow);
+  const f = el("filter", { id: "grain" }, defs);
+  el("feTurbulence", { type: "fractalNoise", baseFrequency: 0.9, numOctaves: 2, stitchTiles: "stitch" }, f);
+  el("feColorMatrix", { values: "0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.5 0" }, f);
+  el("rect", { width: L.W, height: L.H, fill: "url(#vig)" });
+  el("rect", { width: L.W, height: L.H, filter: "url(#grain)", opacity: 0.07 });
+  SCENES.forEach(s => { s.g = el("g", { opacity: 0 }); s.build(s.g); });
+  // 右上角署名角标；logo 读取同目录的 logo.png，缺文件时只显示文字
+  const v = r === "v", m = v ? { x: 1040, y: 72, s: 56, fs: 26 } : { x: 1880, y: 52, s: 48, fs: 22 };
+  watermark = el("g", { opacity: 0.85 });
+  txt("Dylan He", { x: m.x - m.s - 14, y: m.y + m.fs * 0.36, "text-anchor": "end", "font-size": m.fs, "letter-spacing": 2, fill: "var(--ivory-2)", "font-weight": 500 }, watermark);
+  logoImg(m.x - m.s, m.y - m.s / 2, m.s, watermark);
+}
+function render(T) {
+  SCENES.forEach((s, i) => {
+    const lt = T - STARTS[i];
+    const on = lt >= 0 && lt < s.dur || (i === SCENES.length - 1 && lt >= s.dur);
+    s.g.style.display = on ? "" : "none";
+    if (!on) return;
+    s.g.setAttribute("opacity", (i === 0 ? 1 : prog(lt, 0, 0.5)) * (i === SCENES.length - 1 ? 1 : 1 - prog(lt, s.dur - 0.5, 0.5)));
+    s.render(Math.min(lt, s.dur));
+  });
+  watermark.setAttribute("opacity", 0.85 * (1 - prog(T, TOTAL - 4, 0.6)));
+  const idx = STARTS.filter(x => x <= T).length - 1;
+  document.getElementById("clock").textContent = `${T.toFixed(1)}s / ${TOTAL}s`;
+  document.querySelectorAll("#scenes button").forEach((b, i) => b.classList.toggle("on", i === idx));
+}
+
+// 播放控制：?ar=h 横屏（默认竖屏）；?t=秒 定格；?scene=序号 从某段开始；?speed=1.5 倍速
+const params = new URLSearchParams(location.search);
+build(params.get("ar") === "h" ? "h" : "v");
+const sc = document.getElementById("scenes");
+SCENES.forEach((s, i) => { sc.appendChild(document.createElement("button")).textContent = `${i}·${s.name}`; });
+[...sc.querySelectorAll("button")].forEach((b, i) => b.onclick = () => { offset = STARTS[i]; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; });
+let playing = !params.has("t"), startAt = performance.now();
+let offset = params.has("t") ? parseFloat(params.get("t")) : params.has("scene") ? STARTS[+params.get("scene")] || 0 : 0;
+let speed = [1, 1.5, 2, 3].includes(+params.get("speed")) ? +params.get("speed") : 1;
+function now() { return playing ? offset + (performance.now() - startAt) / 1000 * speed : offset; }
+function setSpeed(s) {
+  offset = now(); startAt = performance.now(); speed = s;
+  document.querySelectorAll("#speeds button").forEach(b => b.classList.toggle("on", +b.dataset.s === s));
+}
+document.querySelectorAll("#speeds button").forEach(b => b.onclick = () => setSpeed(+b.dataset.s));
+setSpeed(speed);
+function frame() {
+  const t = now();
+  render(Math.min(t, TOTAL));
+  if (t >= TOTAL && playing) { offset = TOTAL; playing = false; document.getElementById("play").textContent = "播放"; }
+  requestAnimationFrame(frame);
+}
+document.getElementById("play").onclick = e => {
+  if (playing) { offset = now(); playing = false; } else { if (offset >= TOTAL) offset = 0; startAt = performance.now(); playing = true; }
+  e.target.textContent = playing ? "暂停" : "播放";
+};
+document.getElementById("restart").onclick = () => { offset = 0; startAt = performance.now(); playing = true; document.getElementById("play").textContent = "暂停"; };
+document.getElementById("ratio").onclick = () => { const t = now(); build(ratio === "v" ? "h" : "v"); offset = t; startAt = performance.now(); };
+document.getElementById("fs").onclick = () => document.documentElement.requestFullscreen?.();
+document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); document.getElementById("play").click(); } });
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
