@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<script>(function(){if(document.documentElement.lang.startsWith("en"))return;var q=new URLSearchParams(location.search);if(q.get("lang"))return;var l=((navigator.languages&&navigator.languages[0])||navigator.language||"").toLowerCase();if(l&&!/^zh/.test(l))location.replace("en/"+location.search+location.hash);})()</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>百分之二 — Dylan He</title>
 <meta name="description" content="一部纯代码画的黑白卡通：AI 越来越聪明，为什么经济增长还是那条百分之二的路？受 2026 年 9 月 23 日 Anthropic 首席经济学家与哈佛教授 Jason Furman 的一场对话启发。">
@@ -44,6 +45,10 @@
           border:0; padding:9px 15px; border-radius:999px; font:600 14px/1 "PingFang SC","Noto Serif SC",sans-serif; letter-spacing:1px; cursor:pointer; transition:opacity .3s; }
   #hint svg { width:16px; height:16px; }
   #hint.off { opacity:0; pointer-events:none; }
+  /* 手机静音键会让网页没声：开声音后在原位置提示几秒 */
+  #ringtip { position:fixed; top:calc(14px + env(safe-area-inset-top,0px)); right:14px; z-index:3; background:rgba(12,11,10,.85); color:#F1EEE6; border:1px solid rgba(241,238,230,.45);
+             padding:8px 13px; border-radius:999px; font:13px/1.3 "PingFang SC","Noto Serif SC",sans-serif; letter-spacing:.5px; opacity:0; pointer-events:none; transition:opacity .4s; }
+  #ringtip.on { opacity:1; }
   #src { position:absolute; left:50%; bottom:13%; transform:translateX(-50%); color:#F1EEE6; background:rgba(12,11,10,.85); border:1.5px solid #F1EEE6; padding:8px 18px; font:14px/1 monospace; letter-spacing:.1em; text-decoration:none; display:none; white-space:nowrap; }
   #stage.v #src { bottom:auto; top:73%; }
   #src.on { display:block; }
@@ -60,6 +65,7 @@
     <div class="row"><button id="snd">开启声音</button><button id="speed">1×</button><button id="subs">字幕 开</button><button id="ratio">横/竖屏</button><button id="fs">全屏</button><span class="grow"></span><a href="https://dylanhe.cn/zh/#explainers">Dylan He 首页</a></div>
   </div>
 </div>
+<div id="ringtip" role="status"></div>
 <button id="hint" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg>开启声音</button>
 <script>
 'use strict';
@@ -102,6 +108,9 @@ const breath = t => Math.cos(q(t) / BEAT * TAU);
 /* 黑白为主：角色占两端（纯白、墨黑），背景用中间几级灰；只有最关键的数字用一个强调色 */
 const P = { white: '#FCFBF7', paper: '#F1EEE6', pale: '#E2DFD6', light: '#C8C5BC', mid: '#9A978F', dmid: '#6B6963', dark: '#3B3A37', ink: '#0E0D0C', inkL: '#4A4844' };
 const ACC = '#E2622B';
+// 语言：en/index.html（<html lang="en">）是英文版；中文页对非中文浏览器自动跳到 en/（见页头）；?lang=en 也可强制
+const LANG = document.documentElement.lang.startsWith('en') ? 'en' : (new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'zh');
+const EN = LANG === 'en', L = (zh, en) => EN ? en : zh;
 const ZH_TITLE = '"ZCOOL KuaiLe","Noto Serif SC","WenQuanYi Zen Hei",sans-serif';
 const ZH_SUB = '"Noto Serif SC","WenQuanYi Zen Hei",serif';
 const ZH_CARD = `900 "Noto Serif SC","WenQuanYi Zen Hei",serif`;   // 字卡：粗宋体，像民国报纸和老新闻片字卡
@@ -633,9 +642,9 @@ function level(x, y, a) {
 function newspaper(x, y, rot, k, headline) {
   push(); translate(x, y); rotate(rot); scale(k);
   shape([[-170, -120], [170, -110], [175, 120], [-165, 115]], { fill: P.white, shade: () => fillLocal(rect(-180, 0, 400, 3), P.light) });
-  wtext('每 日 新 闻', 0, -88, { font: '600 26px "Noto Serif SC",serif' });
+  wtext(L('每 日 新 闻', 'THE DAILY NEWS'), 0, -88, { font: '600 26px "Noto Serif SC",serif' });
   stroke([[-150, -66], [150, -62]], 3, { boil: 0 });
-  wtext(headline[0], 0, -18, { font: `900 54px ${ZH_SUB}`, fill: ACC });
+  wtext(headline[0], 0, -18, { font: `900 ${EN ? 44 : 54}px ${ZH_SUB}`, fill: ACC });
   wtext(headline[1], 0, 34, { font: `600 26px ${ZH_SUB}`, fill: P.dmid });
   for (let i = 0; i < 4; i++) fillOnly(rect(-150 + (i % 2) * 160, 64 + Math.floor(i / 2) * 18, 140, 6), P.light, { boil: .2 });
   pop();
@@ -681,7 +690,7 @@ function hangSign(x, y, text, a, swing) {
   push(); translate(x, y - (1 - eo(a)) * 600); rotate(swing);
   stroke([[-70, -200], [-70, -40]], 3); stroke([[70, -200], [70, -40]], 3);
   shape(rr(-150, -50, 300, 100, 14), { fill: P.white });
-  wtext(text, 0, 2, { font: `900 46px ${ZH_SUB}`, fill: ACC });
+  wtext(text, 0, 2, { font: `900 ${EN ? 36 : 46}px ${ZH_SUB}`, fill: ACC });
   pop();
 }
 // 木头：从 a 端到 b 端（世界坐标）
@@ -711,7 +720,8 @@ function tinyLab(t, cx, cy) {
   shape(rr(-50, -60, 100, 120, 8), { fill: P.white });
   fillOnly(rect(-50, -60, 100, 30), P.ink, { boil: .2 });
   const ph = Math.floor(t / 1.6) % 3;
-  wtext(['一期', '二期', '三期'][ph], 0, 16, { font: `900 34px ${ZH_SUB}` });
+  if (EN) { wtext('PHASE', 0, -45, { font: `700 17px ${LAT}`, fill: P.white }); wtext(['I', 'II', 'III'][ph], 0, 18, { font: `900 46px ${ZH_SUB}` }); }
+  else wtext(['一期', '二期', '三期'][ph], 0, 16, { font: `900 34px ${ZH_SUB}` });
   pop();
 }
 // 同心圆环（取自 Dylan He 的标志）：片名卡 / 片尾的底
@@ -726,9 +736,9 @@ function sunburst(gg, t, cx, cy) {
   gg.restore();
 }
 // 胖字片名
-function fatTitle(gg, text, cx, cy, size, { font = ZH_TITLE, bounce = null, face = P.white, track = 0 } = {}) {
+function fatTitle(gg, text, cx, cy, size, { font = ZH_TITLE, weight = '', bounce = null, face = P.white, track = 0 } = {}) {
   gg.save();
-  gg.font = `${size}px ${font}`; gg.textBaseline = 'alphabetic'; gg.textAlign = 'left'; gg.lineJoin = 'round';
+  gg.font = `${weight} ${size}px ${font}`; gg.textBaseline = 'alphabetic'; gg.textAlign = 'left'; gg.lineJoin = 'round';
   const ws = [...text].map(c => gg.measureText(c).width + track), total = ws.reduce((a, b) => a + b, 0) - track;
   let x = cx - total / 2;
   const glyphs = [...text].map((c, i) => { const o = { c, x, dy: bounce ? bounce(i) : 0 }; x += ws[i]; return o; });
@@ -740,6 +750,11 @@ function fatTitle(gg, text, cx, cy, size, { font = ZH_TITLE, bounce = null, face
 }
 // 字卡：一条撕边的纸胶带标签；太长就按标点断成两行（宽度不超出片门）
 function wrapZH(gg, text, maxW) {
+  if (EN) {   // 英文按词折行
+    const out = []; let cur = '';
+    for (const w of text.split(' ')) { const tryL = cur ? cur + ' ' + w : w; if (cur && gg.measureText(tryL).width > maxW) { out.push(cur); cur = w; } else cur = tryL; }
+    if (cur) out.push(cur); return out;
+  }
   // 逐字排，超宽时优先退回到本行后半段最近的标点处断开
   const chars = [...text], lines = []; let cur = [];
   for (const ch of chars) {
@@ -833,7 +848,7 @@ function blankPaper(fromX) {
 
 /* ------------------------------ 旁白与时间线 ------------------------------ */
 // 老新闻片播音腔语速按约 6.2 字/秒估算每句时长；配音回来后改为真实时长
-const VO = [
+const VO_ZH = [
   [10.4, '各位观众！这个问题您一定听过：学这个专业，以后会不会被 AI 抢了饭碗？'],
   [17.0, '瞧！过去一百四十年，美国经济每年稳稳当当，增长大约百分之二！'],
   [22.2, '电灯来了！汽车来了！电脑、互联网也来了！每一次都有人嚷嚷：这回可不一样啦！'],
@@ -854,9 +869,37 @@ const VO = [
   [114.0, '这条百分之二的路，往后会不会突然变陡？经济学家也没给答案！'],
   [121.3, '就连画这条路的笔——也不知道！'],
   [129.4, '各位观众，下回再见！'],
-].map(([t, s]) => ({ t, s, d: Math.max(1.8, s.replace(/\s/g, '').length / 6.2 + .4) }));
+];
+const VO_EN = [
+  [10.4, "Ladies and gentlemen! You've surely heard this one: will AI take the job you're studying for?"],
+  [17.0, "Look here! For a hundred and forty years, the American economy has grown, steady as you please, about two percent a year!"],
+  [22.2, "Along came the electric light! The motorcar! Computers, and the internet! And every time, somebody hollered: this time it's different!"],
+  [29.4, "But measure it yourself — the slope of this road hardly budges!"],
+  [35.8, "A few years back, some folks swore up and down: by 2026, AI would be this smart!"],
+  [41.3, "Well, wouldn't you know — they called it!"],
+  [43.3, "They also said: by then, jobs would be falling like dominoes!"],
+  [47.4, "But the latest news: U.S. unemployment, 4.1% — near the lowest on record!"],
+  [57.0, "Anthropic's chief economist puts it this way: a job isn't one task — it's a whole chain of them!"],
+  [63.3, "AI can speed up the thinking and the writing a hundredfold! But some things must wait for the real world to answer."],
+  [69.5, "Take a new drug: AI can design ten thousand molecules a day! But every one must be tried in animals and in people — phase one, phase two, phase three — slowly!"],
+  [78.0, "Fill the top as full as you like — it still trickles through the bottleneck, one grain at a time!"],
+  [82.3, "Twenty times more code! And the software actually shipped? Only thirty percent more!"],
+  [90.8, "The host pressed on: I do my research with AI now — so what about my old research assistant?"],
+  [99.0, "The answer: you got stronger, and that job is gone! Both at once!"],
+  [104.4, "The work didn't vanish — it just changed hands!"],
+  [108.2, "So tell me: which end are you carrying?"],
+  [114.0, "Will this two-percent road suddenly turn steep? Even the economist won't say!"],
+  [121.3, "Not even the pen that drew this road knows!"],
+  [129.4, "Ladies and gentlemen — see you next time!"]
+];
+// 字数估时（配音回来后用真实时长）：中文约 6.2 字/秒，英文约 2.7 词/秒
+const VO = (EN ? VO_EN : VO_ZH).map(([t, s]) => ({ t, s, d: Math.max(1.8, EN ? s.split(/\s+/).length / 2.7 + .4 : s.replace(/\s/g, '').length / 6.2 + .4) }));
 /* 真实旁白：vo/NN.mp3（Seed Audio，老电视处理后），VO_META 由 tools/process_vo.py 生成 */
-const VO_META = {"01": {"dur": 6.374}, "02": {"dur": 5.93}, "03": {"dur": 7.158}, "04": {"dur": 3.448}, "05": {"dur": 6.322}, "06": {"dur": 2.247}, "07": {"dur": 3.866}, "08": {"dur": 5.851}, "09": {"dur": 6.4}, "10": {"dur": 6.713}, "11": {"dur": 8.072}, "12": {"dur": 4.963}, "13": {"dur": 4.31}, "14": {"dur": 4.31}, "15": {"dur": 5.042}, "16": {"dur": 2.821}, "17": {"dur": 2.377}, "18": {"dur": 5.825}, "19": {"dur": 2.873}, "20": {"dur": 2.116}}; /*VO_META*/
+const VO_META_ZH = {"01": {"dur": 6.374}, "02": {"dur": 5.93}, "03": {"dur": 7.158}, "04": {"dur": 3.448}, "05": {"dur": 6.322}, "06": {"dur": 2.247}, "07": {"dur": 3.866}, "08": {"dur": 5.851}, "09": {"dur": 6.4}, "10": {"dur": 6.713}, "11": {"dur": 8.072}, "12": {"dur": 4.963}, "13": {"dur": 4.31}, "14": {"dur": 4.31}, "15": {"dur": 5.042}, "16": {"dur": 2.821}, "17": {"dur": 2.377}, "18": {"dur": 5.825}, "19": {"dur": 2.873}, "20": {"dur": 2.116}}; /*VO_META_ZH*/
+const VO_META_EN = {"01": {"dur": 7.68}, "02": {"dur": 8.856}, "03": {"dur": 9.9}, "04": {"dur": 4.545}, "05": {"dur": 7.576}, "06": {"dur": 2.717}, "07": {"dur": 4.833}, "08": {"dur": 7.053}, "09": {"dur": 7.915}, "10": {"dur": 7.889}, "11": {"dur": 15.987}, "12": {"dur": 6.949}, "13": {"dur": 6.008}, "14": {"dur": 7.158}, "15": {"dur": 5.303}, "16": {"dur": 4.127}, "17": {"dur": 4.049}, "18": {"dur": 5.042}, "19": {"dur": 3.03}, "20": {"dur": 3.344}}; /*VO_META_EN*/
+const VO_META = EN ? VO_META_EN : VO_META_ZH;
+const ASSET_BASE = document.documentElement.dataset.base || '';   // en/ 子目录里是 '../'
+const VO_DIR = ASSET_BASE + (EN ? 'vo-en' : 'vo');
 const STORY_DUR = 137;
 // 按真实时长把每句的开始时间往后推（不重叠、留 0.35 s 气口），整片时间轴随之伸缩
 const WARP = (() => {
@@ -908,10 +951,11 @@ const SHOT = {
     sunburst(g, t, 960, 540);
     g.fillStyle = P.white; g.beginPath(); g.roundRect(420, 310, 1080, 500, 40); g.fill();
     g.strokeStyle = P.ink; g.lineWidth = 6; g.stroke();
-    fatTitle(g, '百分之二', 960, 450, 190, { bounce: i => -Math.max(0, Math.sin((t / BEAT - i * .5) * Math.PI)) * 24 * seg(t, .4, .9) });
-    g.font = `700 52px ${LAT}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('TWO PERCENT', 960, 635);
+    const tb = i => -Math.max(0, Math.sin((t / BEAT - i * .5) * Math.PI)) * 24 * seg(t, .4, .9);
+    if (EN) { fatTitle(g, 'TWO PERCENT', 960, 455, 132, { font: LAT, weight: 700, track: 4, bounce: tb }); g.font = `600 46px ${ZH_SUB}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('百分之二', 960, 632); }
+    else { fatTitle(g, '百分之二', 960, 450, 190, { bounce: tb }); g.font = `700 52px ${LAT}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('TWO PERCENT', 960, 635); }
     g.font = `500 28px ${LAT}`; g.fillStyle = P.ink; g.fillText('a cartoon by Dylan He', 960, 695);
-    g.font = `600 24px ${ZH_SUB}`; g.fillStyle = P.dmid; g.fillText('受 2026 年 9 月 23 日 Anthropic 首席经济学家与哈佛教授的一场对话启发', 960, 760);
+    g.font = EN ? `500 22px ${LAT}` : `600 24px ${ZH_SUB}`; g.fillStyle = P.dmid; g.fillText(L('受 2026 年 9 月 23 日 Anthropic 首席经济学家与哈佛教授的一场对话启发', 'Inspired by a Sept. 23, 2026 conversation with Anthropic’s chief economist at Harvard'), 960, 760);
     g.restore();
   },
   open(t) {
@@ -1015,7 +1059,7 @@ const SHOT = {
       armR: peel > 0 ? { x: 110, y: -190 + peel * 40, hand: 'grab', rot: 0 } : null });
     if (np > 0) {
       const flyX = lerp(hx + 900, hx + (peel > 0 ? lerp(10, 150, eo(peel)) : 10), eo(np)), flyY = roadY(hx) - 220 + (1 - eo(np)) * -200;
-      newspaper(flyX, flyY + (peel > 0 ? 20 : 0), (1 - np) * 2 + (peel > 0 ? .08 : -.05), peel > 0 ? lerp(.55, .9, eo(peel)) : .55, ['失业率 4.1%', '接近有记录以来最低']);
+      newspaper(flyX, flyY + (peel > 0 ? 20 : 0), (1 - np) * 2 + (peel > 0 ? .08 : -.05), peel > 0 ? lerp(.55, .9, eo(peel)) : .55, L(['失业率 4.1%', '接近有记录以来最低'], ['JOBLESS 4.1%', 'Near the lowest on record']));
     }
   },
   glass(t) {
@@ -1046,8 +1090,8 @@ const SHOT = {
       if (tip) for (let i = 0; i < 10; i++) { const u = ((t * 3 + i / 10) % 1); dot(rx - 80 - u * 30 + Math.sin(i) * 8, ry - 190 + u * 120, 6, P.dmid); }
     }
     // 吊牌
-    hangSign(gx - 420, gy - 520, '代码 ×20', seg(t, 82.4, 83.2), Math.sin(t * 3) * .04);
-    hangSign(gx + 420, gy - 160, '软件 +30%', seg(t, 84.2, 85.0), Math.sin(t * 3 + 1) * .04);
+    hangSign(gx - 420, gy - 520, L('代码 ×20', 'CODE ×20'), seg(t, 82.4, 83.2), Math.sin(t * 3) * .04);
+    hangSign(gx + 420, gy - 160, L('软件 +30%', 'SHIPPED +30%'), seg(t, 84.2, 85.0), Math.sin(t * 3 + 1) * .04);
     // 小人：等，看怀表，踮脚
     const hx = heroX(t);
     const tap = t > 77.6 ? Math.abs(Math.sin(t * 6)) : 0;
@@ -1148,17 +1192,17 @@ const SHOT = {
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
     sunburst(g, t, 960, 540);
     g.fillStyle = P.white; g.beginPath(); g.roundRect(330, 170, 1260, 720, 40); g.fill(); g.strokeStyle = P.ink; g.lineWidth = 6; g.stroke();
-    fatTitle(g, '完', 960, 270, 130, { bounce: () => -Math.max(0, Math.sin((t / BEAT) * Math.PI)) * 12 });
-    g.font = `700 40px ${LAT}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('TWO PERCENT', 960, 420);
+    fatTitle(g, L('完', 'THE END'), 960, 270, EN ? 104 : 130, { font: EN ? LAT : ZH_TITLE, weight: EN ? 700 : '', track: EN ? 4 : 0, bounce: () => -Math.max(0, Math.sin((t / BEAT) * Math.PI)) * 12 });
+    g.font = `700 40px ${LAT}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText(L('TWO PERCENT', 'TWO PERCENT  ·  百分之二'), 960, 420);
     // 署名：只写由 Dylan He 制作（不放标志）
-    g.font = `600 30px ${ZH_SUB}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText('制作', 960, 520);
+    g.font = EN ? `500 30px ${LAT}` : `600 30px ${ZH_SUB}`; g.textAlign = 'center'; g.fillStyle = P.dmid; g.fillText(L('制作', 'made by'), 960, 520);
     g.font = `700 76px ${LAT}`; g.fillStyle = P.ink; g.fillText('Dylan He', 960, 600);
     g.textAlign = 'center'; g.fillStyle = P.ink;
-    g.font = `600 23px ${ZH_SUB}`; g.fillText('灵感来源：2026 年 9 月 23 日 · 哈佛大学政治研究所 JFK Jr. 论坛', 960, 700);
+    g.font = EN ? `500 23px ${LAT}` : `600 23px ${ZH_SUB}`; g.fillText(L('灵感来源：2026 年 9 月 23 日 · 哈佛大学政治研究所 JFK Jr. 论坛', 'Inspired by: Sept. 23, 2026 · JFK Jr. Forum, Harvard Institute of Politics'), 960, 700);
     g.font = `500 23px ${LAT}`; g.fillText('"AI and the Future of the Economy" — Peter McCrory (Anthropic) × Jason Furman (Harvard)', 960, 738);
     g.font = `500 23px ${LAT}`; g.fillStyle = P.dmid; g.fillText('youtube.com/watch?v=BjT27aaM_FY', 960, 776);
-    g.font = `600 20px ${ZH_SUB}`; g.fillStyle = P.inkL;
-    g.fillText('新药、沙漏、抬木头等例子为补充，不代表对话者观点 · 画面与声音全部由代码生成', 960, 826);
+    g.font = EN ? `500 18px ${LAT}` : `600 20px ${ZH_SUB}`; g.fillStyle = P.inkL;
+    g.fillText(L('新药、沙漏、抬木头等例子为补充，不代表对话者观点 · 画面与声音全部由代码生成', 'Drug, hourglass and log examples are illustrations, not the speakers’ views · All images and sound made in code'), 960, 826);
     // 墨退开：从满屏的墨里露出片尾卡
     const ir = eio(seg(t, 128.0, 129.4));
     if (ir < 1) { g.fillStyle = P.ink; g.beginPath(); g.rect(0, 0, W, H); g.arc(960, 540, lerp(0, 1300, ir), 0, TAU, true); g.fill('evenodd'); }
@@ -1224,7 +1268,7 @@ function render(T) {
   SHOT[sh[1]](t);
   // 字卡：横屏压在画面上；竖屏放到画面下方的黑边里（compose 里画）
   const v = showSubs ? VO.find(v => T >= v.ft && T < v.ft + v.d) : null;
-  if (v && MODE === 'h') subPlate(g, v.s, 960, sh[1] === 'rocket' && t > 46 ? 150 : 990, 60);
+  if (v && MODE === 'h') subPlate(g, v.s, 960, sh[1] === 'rocket' && t > 46 ? 150 : 990, EN ? 52 : 60);
   const f = Math.round(t * 24), jump = SHOTS.some(s => s[0] > 0 && Math.round(s[0] * 24) === f) ? 3 : 0;
   post(t, jump);
   compose(T, t, v);
@@ -1243,11 +1287,11 @@ function compose(T, t, v) {
   const a = seg(t, 4.8, 5.8) * (1 - seg(t, 127.5, 128.5));
   if (a > 0) {
     o.globalAlpha = a; o.textAlign = 'center'; o.textBaseline = 'middle';
-    o.font = ZH_CARD.replace('900 ', '900 76px '); o.fillStyle = P.paper; o.fillText('百分之二', VW / 2, 300);
-    o.font = `500 26px ${LAT}`; o.fillStyle = P.mid; o.fillText('TWO PERCENT  ·  a cartoon by Dylan He', VW / 2, 378);
+    o.font = EN ? `700 72px ${LAT}` : ZH_CARD.replace('900 ', '900 76px '); o.fillStyle = P.paper; o.fillText(L('百分之二', 'TWO PERCENT'), VW / 2, 300);
+    o.font = `500 26px ${LAT}`; o.fillStyle = P.mid; o.fillText(L('TWO PERCENT  ·  a cartoon by Dylan He', 'a cartoon by Dylan He'), VW / 2, 378);
     o.globalAlpha = 1;
   }
-  if (v) subPlate(o, v.s, VW / 2, PY + PH + 150, 62, 900, PY + PH + 40, VH - 30);
+  if (v) subPlate(o, v.s, VW / 2, PY + PH + 150, EN ? 54 : 62, 900, PY + PH + 40, VH - 30);
 }
 
 /* ------------------------------ 声音：合成的 1930 年代小乐队 + 拟音 ------------------------------ */
@@ -1348,7 +1392,7 @@ const USE_MUSIC = true;
 const BAND = new Set(['tuba', 'banjo', 'brush', 'trumpet', 'clarinet', 'trombone', 'piano', 'tick', 'stinger']);
 async function loadMusic() {
   if (!USE_MUSIC) return;
-  try { const r = await fetch('music.mp3'); if (r.ok) { AU.musicBuf = await AU.ctx.decodeAudioData(await r.arrayBuffer()); if (playing && soundOn) startMusic(T, speed); } } catch (e) { }
+  try { const r = await fetch(ASSET_BASE + 'music.mp3'); if (r.ok) { AU.musicBuf = await AU.ctx.decodeAudioData(await r.arrayBuffer()); if (playing && soundOn) startMusic(T, speed); } } catch (e) { }
 }
 function stopMusic() { if (AU.musicSrc) { try { AU.musicSrc.stop(); } catch (e) { } AU.musicSrc = null; } }
 function startMusic(T, rate) {
@@ -1361,7 +1405,7 @@ function startMusic(T, rate) {
 async function loadVO() {
   if (!VO_META) return;
   await Promise.all(VO.map(async (v, i) => {
-    try { const r = await fetch(`vo/${String(i + 1).padStart(2, '0')}.mp3`); VOBUF[i] = await AU.ctx.decodeAudioData(await r.arrayBuffer()); } catch (e) { }
+    try { const r = await fetch(`${VO_DIR}/${String(i + 1).padStart(2, '0')}.mp3`); VOBUF[i] = await AU.ctx.decodeAudioData(await r.arrayBuffer()); } catch (e) { }
   }));
 }
 function newBus() { for (const k of ['bus', 'voBus']) if (AU[k]) { try { AU[k].disconnect(); } catch (e) { } } AU.bus = AU.ctx.createGain(); AU.bus.gain.value = 1; AU.bus.connect(AU.out); AU.voBus = AU.ctx.createGain(); AU.voBus.connect(AU.master); }
@@ -1444,13 +1488,13 @@ function SHOT_POSTER() {
   milestone(1820, '2%', 1, 0);
   walker({ x: 1180, y: roadY(1180), t, walk: q(t) / BEAT, mouth: { type: 'smile' } });
   g.setTransform(1, 0, 0, 1, 0, 0); g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = `600 30px ${ZH_SUB}`; g.fillStyle = P.dmid;
-  g.fillText('Anthropic 首席经济学家 × 哈佛 Jason Furman  ·  2026.9.23', 960, 190);
-  g.font = ZH_CARD.replace('900 ', '900 200px '); g.fillStyle = P.ink; g.fillText('百分之二', 960, 330);
+  g.font = EN ? `500 30px ${LAT}` : `600 30px ${ZH_SUB}`; g.fillStyle = P.dmid;
+  g.fillText(L('Anthropic 首席经济学家 × 哈佛 Jason Furman  ·  2026.9.23', 'Anthropic’s chief economist × Harvard’s Jason Furman  ·  Sept. 23, 2026'), 960, 190);
+  g.font = EN ? `700 170px ${LAT}` : ZH_CARD.replace('900 ', '900 200px '); g.fillStyle = P.ink; g.fillText(L('百分之二', 'TWO PERCENT'), 960, 330);
   g.font = `500 26px ${LAT}`; g.fillStyle = P.dmid; g.textAlign = 'right'; g.fillText('Dylan He', 1880, 50);
   const o = cv.getContext('2d'); o.setTransform(1, 0, 0, 1, 0, 0);
   o.drawImage(sceneCv, 0, 0);
-  o.globalAlpha = .05; o.drawImage(GRAIN, 0, 0, 2400, 1400); o.globalAlpha = 1;
+  // 海报不加颗粒：缩成卡片后看不出来，却让图片体积翻倍
 }
 
 /* ------------------------------ 播放器 ------------------------------ */
@@ -1468,6 +1512,14 @@ const params = new URLSearchParams(location.search);
 let T = +(params.get('t') || 0), playing = false, lastNow = 0, speed = 1, soundOn = false;
 let forced = POSTER ? 'h' : (['h', 'v'].includes(params.get('ar')) ? params.get('ar') : null);
 const SPEEDS = [1, 1.5, 2, 3];
+if (EN) {   // 界面文字
+  document.documentElement.lang = 'en'; document.title = 'Two Percent — Dylan He';
+  bar.snd.textContent = 'Sound on'; hint.lastChild.textContent = 'Sound on'; bar.subs.textContent = 'Subtitles on';
+  bar.ratio.textContent = 'Rotate'; bar.fs.textContent = 'Fullscreen';
+  const home = document.querySelector('#bar a'); home.textContent = 'Dylan He home'; home.href = 'https://dylanhe.cn/en/#explainers';
+  srcEl.textContent = '▶ Watch the original talk (YouTube)';
+  cv.setAttribute('aria-label', 'Two Percent, an animated short: AI keeps getting smarter, so why is the economy still on the two-percent road?');
+}
 const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 function setMode(m) {
   MODE = m; const [w, h] = m === 'h' ? [W, H] : [VW, VH];
@@ -1488,13 +1540,31 @@ function setPlaying(p) {
   playing = p;
   if (p && T >= DUR - .05) T = 0;
   if (soundOn) { resetSchedule(T); AU.bed.forEach((gn, i) => gn.gain.setTargetAtTime(p ? [.012, .05][i] : 0, AU.ctx.currentTime, .1)); }
-  bar.play.textContent = p ? '暂停' : '播放'; stage.classList.toggle('paused', !p); lastNow = performance.now();
+  bar.play.textContent = p ? L('暂停', 'Pause') : L('播放', 'Play'); stage.classList.toggle('paused', !p); lastNow = performance.now();
+}
+// iPhone 的静音键会把网页声音一起关掉：先请求「媒体播放」模式（Safari 16.4+），旧系统用一段循环的静音 <audio> 达到同样效果
+let silentEl = null;
+function unmuteIOS() {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { }
+  if (silentEl) return silentEl.play().catch(() => { });
+  const n = 800, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, t) => [...t].forEach((c, i) => b[o + i] = c.charCodeAt(0));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
+  silentEl = new Audio(URL.createObjectURL(new Blob([b], { type: 'audio/wav' }))); silentEl.loop = true; silentEl.setAttribute('playsinline', '');
+  silentEl.play().catch(() => { });
+}
+let ringTipShown = false;
+function ringTip() {
+  if (ringTipShown || !matchMedia('(hover: none)').matches) return;   // 只在手机上提示一次
+  ringTipShown = true; const el = document.getElementById('ringtip');
+  el.textContent = L('没声音？请关掉手机的静音', 'No sound? Turn off silent mode'); el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 5000);
 }
 function setSound(on) {
   soundOn = on;
-  if (on) { initAudio(); AU.ctx.resume(); resetSchedule(T); AU.bed.forEach((gn, i) => gn.gain.setTargetAtTime(playing ? [.012, .05][i] : 0, AU.ctx.currentTime, .1)); }
-  else if (AU.ctx) { stopMusic(); AU.ctx.suspend(); }
-  bar.snd.textContent = on ? '静音' : '开启声音'; bar.snd.classList.toggle('on', on); hint.classList.toggle('off', on);
+  if (on) { unmuteIOS(); ringTip(); initAudio(); AU.ctx.resume(); resetSchedule(T); AU.bed.forEach((gn, i) => gn.gain.setTargetAtTime(playing ? [.012, .05][i] : 0, AU.ctx.currentTime, .1)); }
+  else { if (AU.ctx) { stopMusic(); AU.ctx.suspend(); } if (silentEl) silentEl.pause(); }
+  bar.snd.textContent = on ? L('静音', 'Mute') : L('开启声音', 'Sound on'); hint.lastChild.textContent = L('开启声音', 'Sound on'); bar.snd.classList.toggle('on', on); hint.classList.toggle('off', on);
 }
 function setSpeed(v) { speed = v; bar.speed.textContent = v + '×'; if (soundOn) resetSchedule(T); }
 function seekSet(t) { T = clamp(t, 0, DUR); if (soundOn) resetSchedule(T); if (!playing) render(T); }
@@ -1515,7 +1585,7 @@ function loop(now) {
 bar.play.onclick = () => setPlaying(!playing);
 bar.snd.onclick = hint.onclick = () => setSound(!soundOn);
 bar.speed.onclick = () => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]);
-bar.subs.onclick = () => { showSubs = !showSubs; bar.subs.textContent = '字幕 ' + (showSubs ? '开' : '关'); };
+bar.subs.onclick = () => { showSubs = !showSubs; bar.subs.textContent = L('字幕 ', 'Subtitles ') + (showSubs ? L('开', 'on') : L('关', 'off')); };
 bar.ratio.onclick = () => { forced = MODE === 'h' ? 'v' : 'h'; setMode(forced); };
 bar.fs.onclick = () => {
   if (document.fullscreenElement) return document.exitFullscreen();
