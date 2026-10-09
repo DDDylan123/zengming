@@ -1489,7 +1489,7 @@ function SHOT_POSTER() {
   g.font = `500 26px ${LAT}`; g.fillStyle = P.dmid; g.textAlign = 'right'; g.fillText('Dylan He', 1880, 50);
   const o = cv.getContext('2d'); o.setTransform(1, 0, 0, 1, 0, 0);
   o.drawImage(sceneCv, 0, 0);
-  o.globalAlpha = .05; o.drawImage(GRAIN, 0, 0, 2400, 1400); o.globalAlpha = 1;
+  // 海报不加颗粒：缩成卡片后看不出来，却让图片体积翻倍
 }
 
 /* ------------------------------ 播放器 ------------------------------ */
