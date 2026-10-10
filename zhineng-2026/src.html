@@ -58,6 +58,7 @@ canvas.hand { display: block; width: 100%; }
 
 /* 来源标签 */
 .tag { display: inline-block; font-size: 12px; line-height: 1; padding: 4px 9px; border-radius: 999px; letter-spacing: 1.5px; font-weight: 500; vertical-align: 2px; white-space: nowrap; border: 1.5px solid currentColor; }
+.tag.quote { background: var(--orange); color: var(--paper); border-color: var(--orange); }
 .tag.para { color: var(--blue); }
 .tag.eg { color: var(--blue); border-style: dotted; }
 .tag.ext { color: var(--muted); border-style: dashed; }
@@ -131,6 +132,8 @@ details.pt[open] summary::after { transform: rotate(45deg); }
 .pt .body { padding: 2px 0 14px; display: grid; gap: 10px; font-size: 15.5px; }
 .pt ul { margin: 0; padding-left: 1.2em; }
 .pt li { margin: 2px 0; }
+.qt { font-family: var(--serif); font-weight: 600; font-size: 17px; line-height: 1.75; border-left: 3px solid var(--orange); padding: 2px 0 2px 14px; }
+.qt .tag { font-family: var(--sans); font-weight: 500; }
 .case { background: var(--paper2); border-radius: 12px; padding: 10px 14px; font-size: 15px; }
 .case b { font-family: var(--serif); display: block; margin-bottom: 2px; }
 
@@ -205,17 +208,18 @@ details.pt[open] summary::after { transform: rotate(45deg); }
   <p class="eyebrow">曾鸣 · 2026 · 互动读书笔记</p>
   <canvas class="hand" data-t="智能" data-max="190" data-per="0.5" aria-label="智能"></canvas>
   <p class="sub">从工具升级，到系统重构</p>
-  <p class="lead">当智能可以低成本、成规模地被调用，并进入真实任务的反馈闭环，竞争的重心就可能从占有资源、复制已有答案，转向持续生成：生成能力、供需关系、组织认知和战略路径。<span class="tag para">转述</span></p>
+  <p class="lead">当智能可以低成本、成规模地被调用，并进入真实任务的反馈闭环，技术、商业、组织和战略都会从在固定结构里优化，转向持续生成：生成能力、供需关系、组织认知和战略路径。<span class="tag para">转述</span> <span class="pg">p.7–9, 121</span></p>
   <div class="wide" style="margin-top:18px"><canvas class="fig" id="f-hero" aria-label="示意图：海浪退去后的沙滩，一个小人和一颗发光的种子"></canvas></div>
   <div class="stats"><span><b>6</b>章</span><span><b>16</b>个概念</span><span><b>10</b>个亮点</span><span><b>12</b>张自测卡</span><span><b>7</b>张可操作的图</span></div>
   <div class="legend">
-    <span class="tag para">转述</span><span>书中的观点，用笔记的话重新说</span>
+    <span class="tag quote">原话</span><span>原书逐字引用，只改了错别字</span>
+    <span class="tag para">转述</span><span>书中的观点，换了说法</span>
     <span class="tag eg">书中案例</span><span>书里举的公司和设想场景，作者用来说明观点</span>
     <span class="tag ext">原笔记延伸</span><span>原笔记整理者加的辨析、提问和边界</span>
     <span class="tag add">本页补充</span><span>这一版加的示意图和说明，不是书里的</span>
     <span class="tag counter">反方</span><span>这一版自己的反对意见，不是曾鸣说的</span>
   </div>
-  <p class="notice">底稿是一份《智能》的结构化笔记，它以 123 页的 PDF 为底本，正文全是转述。书的原话不在其中，所以本页没有「原话」标签。页码 <span class="pg">p.24</span> 指原 PDF 的文件页码。作者在前言说，书中大部分未来判断还缺完整的事实验证，重点是思考框架。</p>
+  <p class="notice">内容已对照原书全文（123 页 PDF）逐章核对，页码 <span class="pg">p.24</span> 指 PDF 的文件页码。作者在前言说，本书大部分观点还缺乏完整的事实验证：「但重要的不是结论，而是思考过程本身是否有借鉴作用。」<span class="tag quote">原话</span> <span class="pg">p.4</span></p>
 </section>
 
 <section class="sec wrap" id="map">
@@ -224,7 +228,7 @@ details.pt[open] summary::after { transform: rotate(45deg); }
     <nav class="map" aria-label="全书结构">
       <a href="#c1"><b>第一章 · AI 产业化的展开</b><span>前提：智能变成可调用的基础设施，智能体开始执行任务</span></a>
       <span class="arrow">技术改变了经济约束 ↓</span>
-      <a href="#c2" class="eng"><b>第二章 · 智能复利与黑洞效应</b><span>共同的动力：真实任务的反馈让能力增长</span></a>
+      <a href="#c2" class="eng"><b>第二章 · 智能复利和黑洞效应</b><span>共同的动力：真实任务的反馈让能力增长</span></a>
       <span class="arrow">同一个动力，进入三个层面 ↓</span>
       <div class="three">
         <a href="#c3"><b>第三章 · 商业</b><span>生成供需</span></a>
@@ -245,7 +249,7 @@ details.pt[open] summary::after { transform: rotate(45deg); }
         <tr><td>战略逻辑</td><td>预测、规划、执行</td><td>快速响应、适应</td><td>愿景驱动的生成系统</td></tr>
       </tbody>
     </table></div>
-    <p class="src"><span class="tag ext">原笔记延伸</span><span>这张对照是原笔记据全书归纳的，不表示旧机制全部消失，也不表示每个行业会同步转型。</span><span class="pg">p.4–5, 24–26, 118–121</span></p>
+    <p class="src"><span class="tag ext">原笔记延伸</span><span>这张对照是原笔记据全书归纳的，不表示旧机制全部消失，也不表示每个行业会同步转型。</span><span class="pg">p.4–5, 24–26, 38–45, 85, 115, 118–121</span></p>
   </div>
 </section>
 
@@ -270,7 +274,7 @@ details.pt[open] summary::after { transform: rotate(45deg); }
 
   <div class="pts">
     <details class="pt"><summary><h3>三个发展阶段：能力 → 任务 → 系统</h3><p class="gist">基础设施让任务系统大量涌现，任务系统的复杂又催生新的组织中心。</p></summary><div class="body">
-      <p>作者讨论的是 AI 产业化的路径，不是超级人工智能的技术路线或实现时间。重大的产业重构，往往发生在一项技术成了稳定、低成本、可规模化调用的基础设施之后。蒸汽机和互联网的类比是想说明：基础能力成熟只是开端，围绕能力形成的新系统更可能决定长期格局。<span class="tag para">转述</span> <span class="pg">p.6–9, 16–22</span></p>
+      <p class="qt">「这次 AI 技术革命的本质，就是用越来越低的成本生产越来越强大的人工智能。」<span class="tag quote">原话</span> <span class="pg">p.7</span></p><p>作者讨论的是 AI 产业化的路径，不是超级人工智能的技术路线或实现时间。重大的产业重构，往往发生在一项技术成了稳定、低成本、可规模化调用的基础设施之后。蒸汽机和互联网的类比是想说明：基础能力成熟只是开端，围绕能力形成的新系统更可能决定长期格局。<span class="tag para">转述</span> <span class="pg">p.6–9, 16–22</span></p>
       <div class="tbl"><table style="min-width:30rem"><thead><tr><th>阶段</th><th>主要变化</th><th>核心问题</th></tr></thead><tbody>
         <tr><td>基础设施建设</td><td>生成、理解、推理、编程等能力可以通过 API 调用</td><td>智能能否稳定、低成本、成规模地供给</td></tr>
         <tr><td>智能体大爆发</td><td>不同场景、不同工作流形成任务完成系统</td><td>谁能真正把用户的事做成</td></tr>
@@ -278,23 +282,28 @@ details.pt[open] summary::after { transform: rotate(45deg); }
       </tbody></table></div>
     </div></details>
     <details class="pt"><summary><h3>智能成为生产资料：三个基础设施特征</h3><p class="gist">可计量、可组合、可规模化，让智能从个人能力变成可调用的社会资源。</p></summary><div class="body">
-      <ul><li><b>可计量</b>：调用按 Token 等方式记录和计费，成本与资源配置更容易组织。</li><li><b>可组合</b>：搜索、分析、生成、编程等能力，可以被开发者按任务重新组合。</li><li><b>可规模化</b>：AI 持续驻留在工作流里，少数人可以调用大量认知能力。</li></ul>
-      <p><span class="tag para">转述</span> <span class="pg">p.7–9</span></p>
+      <ul><li><b>可计量</b>：调用按 Token 等方式记录和计费，成本与资源配置更容易组织。</li><li><b>可组合</b>：生成、理解、推理、编程等能力，可以被开发者按任务重新组合。</li><li><b>可规模化</b>：AI 持续驻留在工作流里，少数人可以调用大量认知能力。</li></ul>
+      <p><span class="tag para">转述</span> <span class="pg">p.8–9</span></p>
       <p>要分清「调用的计量单位」和「任务完成的质量」：Token 的数量本身不能代表智能高低，也不能代表创造了多少价值。<span class="tag ext">原笔记延伸</span></p>
     </div></details>
     <details class="pt"><summary><h3>智能体：价值创造单元</h3><p class="gist">用户关心的是完成目标，而不是买一组能力。</p></summary><div class="body">
-      <p>对话式 AI 的核心是生成答案，串联步骤和执行的工作仍在用户身上。智能体尝试进入任务过程本身：它不只是能行动，还会围绕目标持续运行。传统软件是功能的集合，智能体更像一个持续存在的工作单元。<span class="tag para">转述</span></p>
+      <p class="qt">「智能体真正重要的地方并不是“更聪明”，而是它围绕目标，在时间维度上持续运行。」<span class="tag quote">原话</span> <span class="pg">p.10</span></p>
+      <p>对话式 AI 的核心是生成答案，串联步骤和执行的工作仍在用户身上。智能体尝试进入任务过程本身，围绕目标在时间里持续推进。传统软件是功能的集合，智能体更像一个持续存在的工作单元。<span class="tag para">转述</span></p>
       <ul><li>理解目标，拆解任务。</li><li>调用外部工具、软件或资源。</li><li>执行中根据反馈调整路径，沿时间持续推进。</li></ul>
-      <p>「更聪明的聊天机器人」不足以定义智能体。真正的竞争在于能力如何被组合，以及这种组合能否稳定地为用户创造价值。<span class="tag para">转述</span> <span class="pg">p.10–11</span></p>
+      <p class="qt">「智能体是价值创造单元，而非能力单元。」<span class="tag quote">原话</span> <span class="pg">p.11</span></p>
+      <p>「更聪明的聊天机器人」不足以定义智能体。真正的竞争在于能力如何被组合，这种组合能否创造最大的价值，并被足够多的用户使用。<span class="tag para">转述</span> <span class="pg">p.10–11</span></p>
     </div></details>
     <details class="pt"><summary><h3>能力释放为什么带来复杂性爆炸</h3><p class="gist">自主行动的单元越多，越需要整体秩序；单点都很强，不保证系统可靠。</p></summary><div class="body">
       <ul><li><b>能力选择</b>：不同智能体的适用边界、稳定性和对上下文的依赖并不透明。</li><li><b>协同与失真</b>：上下文能否保持一致，错误会不会被后续环节放大。</li><li><b>信任与授权</b>：哪些信息和操作能交给系统，哪些节点要人介入。</li><li><b>责任边界</b>：出了损失，各方的责任怎么划。</li><li><b>成本与分配</b>：多个模型、工具、智能体参与时，成本和收益怎么组织。</li></ul>
-      <p>作者把「发现合适智能体的入口」看成连接用户和开发者的双边市场；再往后的系统竞争，是缩短「我有问题」到「问题被解决」的距离。这一章把<b>确定性本身</b>看作用户价值：面对持续变化的智能网络，企业的机会可能来自吸收复杂性，而不是再多加一个工具。<span class="tag para">转述</span> <span class="pg">p.11–16</span></p>
+      <p class="qt">「未来不会缺智能体，真正稀缺的将是谁能够有效组织大量持续运行的智能系统。」<span class="tag quote">原话</span> <span class="pg">p.13</span></p>
+      <p>作者把「发现合适智能体的入口」看成连接用户和开发者的双边市场，入口平台要缩短从「我有一个问题」到「找到能解决问题的智能体」的距离。到第三阶段再进一步：用户直接说要什么结果，由系统拆解任务、调度智能体。<span class="tag para">转述</span> <span class="pg">p.15–17</span></p>
+      <p class="qt">「用户购买的从来不只是能力，更是确定性。」<span class="tag quote">原话</span> <span class="pg">p.13</span></p>
     </div></details>
     <details class="pt"><summary><h3>AIOS：任务操作系统，不是界面换代</h3><p class="gist">从帮用户挑工具，走向理解目标、编排任务、保存长期状态。</p></summary><div class="body">
       <ul><li>理解任务目标，转成可执行的过程。</li><li>动态安排智能体的组合、执行顺序、信息传递和路径调整。</li><li>处理跨任务的上下文、身份权限、长期状态和运行规范。</li><li>保留关键判断、放弃过的方案和需要重新验证的假设。</li></ul>
-      <p>调度不是一次性分配资源，它贯穿整个任务。作者明确承认，标准、协同可靠性、系统边界这些问题都还没解决。<span class="tag para">转述</span> <span class="pg">p.16–22</span></p>
-      <div class="case"><b>设想案例：新能源车企 CEO 的战略任务</b>系统持续跟踪政策、竞争、供应链、财务和消费者反馈，让不同智能体一起更新判断。任务可能持续几周到几个月，所以系统必须记得过去为什么这样选，以及哪个新事实推翻了原来的假设。这个例子说的是未来任务系统的需求，不是已建成产品的实证。<span class="tag eg">书中案例</span></div>
+      <p class="qt">「过去，人需要理解软件；未来，系统会越来越需要理解人的任务。」<span class="tag quote">原话</span> <span class="pg">p.19</span></p>
+      <p>调度不是一次性分配资源，它贯穿整个任务。作者把 AIOS 称为一种可以设想的演化方向，并说这只是对产业演化路径的推演，目的不是预测未来；标准、协同可靠性、系统边界这些问题也都还没解决。<span class="tag para">转述</span> <span class="pg">p.16–22</span></p>
+      <div class="case"><b>设想案例：新能源车企 CEO 的战略任务</b>系统持续跟踪政策、竞争、供应链、财务和消费者洞察，让不同智能体一起更新判断。任务可能持续几周到几个月，所以系统必须记得不同方案为什么被放弃、哪些假设已经变了。这个例子说的是未来任务系统的需求，不是已建成产品的实证。<span class="tag eg">书中案例</span> <span class="pg">p.20</span></div>
     </div></details>
   </div>
   <div class="mine"><textarea id="note-c1" placeholder="写下这一章对你的启发，或者还想追问的问题……（只存在这台设备上）"></textarea><div class="row"><button class="readbtn" data-read="c1">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
@@ -304,7 +313,7 @@ details.pt[open] summary::after { transform: rotate(45deg); }
 <!-- ============ 第二章 ============ -->
 <section class="ch wrap" id="c2">
 <div class="col">
-  <div class="ch-head"><span class="num">02</span><canvas class="hand" data-t="智能复利与黑洞效应" data-max="72"></canvas><p class="kicker">价值如何累积，优势怎样产生 · <span class="pg">p.24–36</span></p></div>
+  <div class="ch-head"><span class="num">02</span><canvas class="hand" data-t="智能复利和黑洞效应" data-max="72"></canvas><p class="kicker">价值如何累积，优势怎样产生 · <span class="pg">p.24–36</span></p></div>
   <div class="qa">
     <p class="q">AI 企业为什么可能越用越强？为什么不是所有变强都能变成护城河？</p>
     <p class="a">智能复利解释的是能力增长。只有当能力差距改变了任务分配、带来别人不容易复制的反馈，才可能出现作者说的黑洞效应。<span class="tag para">转述</span></p>
@@ -317,7 +326,7 @@ details.pt[open] summary::after { transform: rotate(45deg); }
       <canvas class="fig" id="f-loop" aria-label="示意图：六个环节组成的圆环，一个光点绕圈，每转一圈中间的能力就长大一点"></canvas>
       <p class="panel" id="lp-panel"></p>
     </div>
-    <figcaption><span class="tag add">本页补充</span>示意图，不是增长速度或收益的量化模拟。六个环节的文字是 <span class="tag para">转述</span></figcaption>
+    <figcaption><span class="tag add">本页补充</span>示意图，不是增长速度或收益的量化模拟。六个环节合并了书中几处对循环的描述 <span class="tag para">转述</span> <span class="pg">p.26, 29, 33</span>；面板里橙色的「断点 / 辨析」一行是 <span class="tag ext">原笔记延伸</span></figcaption>
   </figure>
 
   <div class="pts">
@@ -327,15 +336,19 @@ details.pt[open] summary::after { transform: rotate(45deg); }
         <tr><td>互联网时代</td><td>连接成本大幅下降</td><td>节点越多，网络越值钱：网络效应</td></tr>
         <tr><td>AI 时代</td><td>认知能力开始可以成规模供给</td><td>真实任务带来学习，能力又带来更多任务：智能复利</td></tr>
       </tbody></table></div>
+      <p class="qt">「AI 第一次让能力本身进入复利循环，增长直接增强能力，能力推动增长，两者构成强大的反馈闭环。」<span class="tag quote">原话</span> <span class="pg">p.26</span></p>
       <p>智能复利不是「接入 AI 就自动进化」。前提是任务产生的有效反馈，确实进入了系统优化，并改变了后续能力。复利积累的是能力，不是调用次数、用户数或收入。<span class="tag para">转述</span> <span class="pg">p.24–26</span></p>
     </div></details>
     <details class="pt"><summary><h3>从智能复利到竞争优势：两道转化</h3><p class="gist">系统变强、用户得到更多价值、企业拉开相对差距，是三个不同的问题。</p></summary><div class="body">
+      <p class="qt">「智能复利是一种价值创造机制，而不是优势生成机制。」<span class="tag quote">原话</span> <span class="pg">p.28</span></p>
       <ul><li><b>第一道：能力提升 → 用户价值。</b>指标进步未必能被用户持续感知，也未必带来更高频的使用或更强的付费意愿。</li><li><b>第二道：用户价值 → 相对优势。</b>同行沿相似的路径学习，大家可能一起进步，竞争又回到价格、渠道和资源。</li><li>后来者可能跳过前人的试错。先开始学习，不天然意味着长期领先。</li></ul>
-      <div class="case"><b>书中对照：自动驾驶</b>作者一边用真实道路的反馈说明智能复利，一边指出：几家企业的系统同时改进时，用户未必分得清差距。同一个行业可以有学习飞轮，却没有哪一家形成黑洞效应。<span class="tag eg">书中案例</span> <span class="pg">p.26–28</span></div>
+      <div class="case"><b>书中对照：自动驾驶</b>作者先用特斯拉说明智能复利：车跑得越多，真实道路的反馈越多，系统越强。再用国内多家公司说明差距未必拉得开：几家的系统同时改进，用户分不清谁更好，竞争又回到价格、补贴和资源。<span class="tag eg">书中案例</span> <span class="pg">p.26–28</span></div>
     </div></details>
     <details class="pt" open><summary><h3>黑洞效应：差距放大的四个必要条件</h3><p class="gist">更强的系统拿到更复杂的任务，更复杂的任务又给它更好的学习机会。</p></summary><div class="body">
-      <ul><li><b>学习空间足够大</b>：问题复杂、全局、可以持续探索，不会很快到能力上限。</li><li><b>差距能被持续感知</b>：改善的是客户的重要体验，不只是好看的指标。</li><li><b>反馈有强路径依赖</b>：跨时间、跨步骤的真实决策历史，不容易被快速复制。</li><li><b>差距影响任务分配</b>：客户愿意把更重要的任务交给更可靠的系统。</li></ul>
-      <p>简单任务的评判标准相近，竞争者能拿到类似的反馈；复杂任务的经验有连续性，作者用「不可压缩的历史」形容这种路径依赖。他明确说，这不是当下普遍存在的事实，而是特定条件下可能形成的新型集中结构。<span class="tag para">转述</span> <span class="pg">p.28–31</span></p>
+      <ul><li><b>学习空间足够大</b>：问题复杂、全局、可以持续探索，不会很快到能力上限。</li><li><b>差距能被持续感知</b>：改进的是核心体验，而不只是边界条件；用户行为不变，市场结构就不会变。</li><li><b>反馈有强路径依赖</b>：跨时间、跨步骤的真实决策历史，不容易被快速复制。</li><li><b>差距影响任务分配</b>：客户愿意把更重要的任务交给更可靠的系统。</li></ul>
+      <p>简单任务的评判标准相近，竞争者能拿到类似的反馈；复杂任务的经验有连续性，作者用「不可压缩的历史」形容这种路径依赖。四个条件同时成立时，领先者创造的是一种新型垄断结构；作者也明确说，这还不是今天普遍存在的现实。<span class="tag para">转述</span> <span class="pg">p.28–31</span></p>
+      <p class="qt">「经历过什么，决定了你能学到什么。」<span class="tag quote">原话</span> <span class="pg">p.29</span></p>
+      <p class="qt">「在 AI 时代，领先一步往往意味着领先一个时代。」<span class="tag quote">原话</span> <span class="pg">p.30</span></p>
     </div></details>
   </div>
 
@@ -348,11 +361,12 @@ details.pt[open] summary::after { transform: rotate(45deg); }
       <canvas class="fig" id="f-hole" aria-label="示意图：任务像雨点落向三家公司，四个条件全部勾上时，任务越来越集中到一家"></canvas>
       <p class="panel" id="bh-panel"></p>
     </div>
-    <figcaption><span class="tag add">本页补充</span>示意图：落下的蓝点是任务，三堆沙是三家公司积累的能力。勾选规则按书中「四个条件必须同时成立」来写，数字不是真实数据。</figcaption>
+    <figcaption><span class="tag add">本页补充</span>示意图：落下的蓝点是任务，三堆沙是三家公司积累的能力。勾选规则按书中「只有在这 4 个条件同时成立时」来写，数字不是真实数据。</figcaption>
   </figure>
 
   <div class="pts" style="margin-top:20px">
     <details class="pt"><summary><h3>「60 分奇点」：人机分工的转折</h3><p class="gist">不是测试得分，也不是成功率 60%；指系统成为默认执行者，人主要处理例外。</p></summary><div class="body">
+      <p class="qt">「从“人对 AI 负责”转变为“AI 对结果负责”。」<span class="tag quote">原话</span> <span class="pg">p.32</span></p>
       <p>人不断修正输出，可能遮住原始错误和完整的因果链，系统反而拿不到高价值的反馈。跨过这道门槛的关键，是组织愿意把任务结果交给系统，反馈又能回流成学习的输入。<span class="tag para">转述</span> <span class="pg">p.31–34</span></p>
       <p>「对结果负责」说的是业务分工，不是说 AI 成了法律上的责任主体，也不意味着可以取消验证和人工兜底。<span class="tag ext">原笔记延伸</span></p>
     </div></details>
@@ -364,28 +378,30 @@ details.pt[open] summary::after { transform: rotate(45deg); }
       <canvas class="fig" id="f-sixty" aria-label="示意图：任务沿传送带经过；突破之前每件都要人审，突破之后系统执行、人只处理少数例外"></canvas>
       <p class="panel" id="sx-panel"></p>
     </div>
-    <figcaption><span class="tag add">本页补充</span>示意图。两种状态的对照来自书中「突破之前 / 之后」的表 <span class="tag para">转述</span></figcaption>
+    <figcaption><span class="tag add">本页补充</span>示意图。两种状态的对照来自书中对突破前后的文字描述 <span class="tag para">转述</span> <span class="pg">p.32–33</span></figcaption>
   </figure>
 
   <div class="pts" style="margin-top:20px">
     <details class="pt"><summary><h3>创业切口：复杂性和闭环能力的动态平衡</h3><p class="gist">切口太浅，学习空间有限；切口太大，眼下的能力又闭不了环。</p></summary><div class="body">
       <div class="tbl"><table style="min-width:32rem"><thead><tr><th>广告场景的切口</th><th>潜在价值</th><th>主要限制</th></tr></thead><tbody>
         <tr><td>生成广告素材</td><td>降低局部的内容生产成本</td><td>任务单点，学习路径容易同质化</td></tr>
-        <tr><td>广告投放</td><td>统筹创意、渠道、预算和效果</td><td>需要行业知识、持续有效的数据和结果反馈</td></tr>
-        <tr><td>管理客户增长</td><td>对更全局的业务结果负责</td><td>更复杂，信任和付费模式更难</td></tr>
-        <tr><td>接管企业整体运营</td><td>学习空间更大</td><td>眼下的技术、知识和客户配合可能撑不起闭环</td></tr>
+        <tr><td>广告投放</td><td>从提供工具到承诺对效果负责，是质的飞跃，后者才有智能复利的飞轮</td><td>工作流要覆盖的环节多；客户是否愿意按效果付费，是新的挑战</td></tr>
+        <tr><td>管理客户增长</td><td>复利增长的空间更大，有可能形成黑洞效应</td><td>更复杂，需要更全面的行业知识和数据</td></tr>
+        <tr><td>接管企业整体运营</td><td>学习空间最大</td><td>眼下很难完成闭环，无法突破 60 分奇点</td></tr>
       </tbody></table></div>
       <p>作者不主张一上来就挑最大的问题：应尽早形成可靠闭环，同时让任务有足够的纵深和横向空间。合理的切口会随技术、数据和信任水平变化。<span class="tag para">转述</span> <span class="pg">p.34–36</span></p>
     </div></details>
     <details class="pt"><summary><h3>重新解释增长</h3><p class="gist">增长的战略意义，在于系统有没有拿到新的学习机会、扩大能力边界。</p></summary><div class="body">
+      <p class="qt">「在 AI 时代，增长的目的不是规模，而是智能的不断提升，是智能复利的形成。」<span class="tag quote">原话</span> <span class="pg">p.35</span></p>
+      <p>智能复利和黑洞效应之于 AI 时代，就像规模经济之于工业时代、网络效应之于互联网时代。作者接下来从商业、组织和战略三个方面展开。<span class="tag para">转述</span> <span class="pg">p.35–36</span></p>
       <ul><li>仍然看收入、份额、用户规模，但把它们也当作结果变量。</li><li>再看真实任务闭环、高质量反馈、能力边界的变化。</li><li>检查新增业务是在强化系统，还是只靠更多人工交付。</li><li>既从外部看市场地位，也从内部看反馈结构和学习机制。</li></ul>
-      <p>这一章给后面三章提供了统一的动力：商业调度、组织认知、战略判断，都需要形成可积累、可修正、可继续放大的系统能力。<span class="tag para">转述</span> <span class="pg">p.34–36</span></p>
+      <p>上面四条是把这一章用到增长复盘上的检查清单。<span class="tag ext">原笔记延伸</span></p>
     </div></details>
   </div>
 
   <aside class="counter"><span class="tag counter">反方 · 本页观点，不是曾鸣说的</span>
-    <h3>路径依赖的壁垒，可能被合同和规则拆掉</h3>
-    <p>黑洞效应要求「反馈有强路径依赖」。但复杂任务的决策历史，很多存在客户自己的系统里：大客户可以要求导出数据、写进换供应商的条款，监管也可能要求数据可迁移。历史越值钱，客户越有动力把它攥在自己手里。所以这道壁垒也许比书里设想的更容易被拆掉。</p>
+    <h3>「不可压缩的历史」，是一个还没被证明的断言</h3>
+    <p>作者预先回应过「拿到数据就能追上」：后来者即便拿到同样的数据，没经历过同样的时间序列和反馈修正，也复现不了同样的能力 <span class="pg">p.30</span>。但如果客户导出的不只是结果，而是带时间戳的完整决策轨迹和反馈记录，后来者能不能把这段历史离线重放一遍？书里没有给证据。大客户越来越会把这类记录写进合同、留在自己手里，监管也可能要求可迁移。这道壁垒也许没有书里说的那么牢。</p>
   </aside>
   <div class="mine"><textarea id="note-c2" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c2">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
 </div>
@@ -412,7 +428,9 @@ details.pt[open] summary::after { transform: rotate(45deg); }
 
   <div class="pts">
     <details class="pt"><summary><h3>行为相关性不等于真实意图</h3><p class="gist">同一种行为可能出自完全不同的目的；预测你接着看什么，不等于知道你真正需要什么。</p></summary><div class="body">
+      <p class="qt">「它始终在回答“你属于哪一类人”，而不是“你正在面对什么问题”。」<span class="tag quote">原话</span> <span class="pg">p.41</span></p>
       <p>传统系统要求用户先把复杂的状态压缩成商品语言：孩子学习困难，变成「买课程」；企业增长困难，变成「买投放」。这一步翻译本身就可能偏离了问题。智能体尝试把模糊的表达转成目标结构，商业的起点从商品目录前移到问题定义。谁先成为用户说出真实问题的第一站，谁就更有机会参与定义解决路径，作者认为这是比流量入口更深的「任务入口」。<span class="tag para">转述</span> <span class="pg">p.39–44</span></p>
+      <p class="qt">「智能体时代真正的战略高地很可能就是：谁能成为人类表达真实问题的第一站。」<span class="tag quote">原话</span> <span class="pg">p.44</span></p>
       <div class="case"><b>儿童绘本与短视频</b>连续浏览绘本，可能是培养自己孩子的阅读习惯，可能是买礼物，也可能是在研究这个行业。刷同类短视频，可能只是放松或逃避压力。行为标签一样，真实任务不同。<span class="tag eg">书中案例</span></div>
     </div></details>
     <details class="pt"><summary><h3>需求生成：帮用户形成清楚的目标</h3><p class="gist">需求不总是提前存在的成品，它可能在人与系统的互动中慢慢变清楚。</p></summary><div class="body">
@@ -421,7 +439,8 @@ details.pt[open] summary::after { transform: rotate(45deg); }
     </div></details>
     <details class="pt"><summary><h3>需求判断力：什么值得先解决</h3><p class="gist">系统能识别无数潜在需求时，稀缺的变成注意力、优先级和价值判断。</p></summary><div class="body">
       <ul><li>不能把所有潜在问题一起推给客户，否则会过载。</li><li>要筛出真正影响长期目标的关键瓶颈，而不只是多几个能卖的项目。</li><li>帮客户减少无效选择、分辨重要问题，可能是值得信任的品牌成立的理由。</li><li>企业参与塑造人生路径时，效率、健康、成长和短期满足之间的取舍，涉及价值标准。</li></ul>
-      <p>社会责任应该在商业机制形成之初就进入价值对齐，而不是等业务扩张后再补。定义需求的能力越强，越要问：系统到底在替谁优化？<span class="tag para">转述</span> <span class="pg">p.46–48</span></p>
+      <p class="qt">「AI 时代高阶的商业能力不再是生成需求，而是判断什么需求真正重要。」<span class="tag quote">原话</span> <span class="pg">p.47</span></p>
+      <p>社会责任应该在商业机制形成之初就进入价值对齐，而不是等业务扩张后再补。作者追问：谁来决定什么是更好的人生方向？系统依据什么价值标准，判断健康优先还是效率优先？<span class="tag para">转述</span> <span class="pg">p.46–48</span></p>
     </div></details>
     <details class="pt"><summary><h3>过渡形态是意图匹配，长期方向是意图实现</h3><p class="gist">理解得再深，也可能只能在旧库存里找答案；供给生成才是下一步。</p></summary><div class="body">
       <div class="tbl"><table style="min-width:28rem"><thead><tr><th>意图匹配</th><th>意图实现（一人千面）</th></tr></thead><tbody>
@@ -429,8 +448,9 @@ details.pt[open] summary::after { transform: rotate(45deg); }
         <tr><td style="white-space:normal;color:inherit">已有的航班、酒店、商品构成约束</td><td>可调用柔性制造、设计和服务网络生成新供给</td></tr>
         <tr><td style="white-space:normal;color:inherit">更好的方案搜索</td><td>围绕具体情境生成动态方案</td></tr>
       </tbody></table></div>
+      <p class="qt">「我把这个“意图理解＋库存匹配”的阶段，称为“意图匹配”阶段，这将是未来几年 AI 商业发展的主要目标。」<span class="tag quote">原话</span> <span class="pg">p.49</span></p>
       <p>作者把意图匹配看作未来几年 AI 商业的主要目标：理解能力已经进步，组织能力在增强，但供给生成还不成熟。<span class="tag para">转述</span> <span class="pg">p.49–50</span></p>
-      <div class="case"><b>带父母旅行，与定制厨房刀</b>旅行系统即使理解老人的行动限制、舒适度和风险，也可能只能在现有航班和酒店里选。定制厨房刀更进一步：根据左手使用和握持的限制，组织设计、材料和制造节点，生成一把新刀。前者是近期的过渡形态，后者是供给生成的方向。<span class="tag eg">书中案例</span></div>
+      <div class="case"><b>带父母旅行，与定制厨房刀</b>旅行系统即使理解老人的行动限制、舒适度和风险，也可能只能在现有航班和酒店里选。定制厨房刀是作者的设想：一位用左手、手腕有轻微关节炎的用户提出需求，AI 系统直接触发柔性制造网络，定制握柄角度、刀身重量和材质，生产一把新刀。前者是近期的过渡形态，后者是供给生成的方向。<span class="tag eg">书中案例</span> <span class="pg">p.49</span></div>
     </div></details>
     <details class="pt"><summary><h3>供给结构：从固定链条到实时协同网络</h3><p class="gist">供给从「预测后的固定产品」，变成「在反馈中调整、按任务组合的能力网络」。</p></summary><div class="body">
       <p>固定供应链讲稳定路径和长期绑定，动态网络按当前需求、资源状态和约束重新挑选节点。作者用铁路和互联网路由作类比：前者沿预定路线跑，后者为每次请求找路。企业的价值，可能从掌握一段固定链条，变成持续做一个高价值的能力节点。<span class="tag para">转述</span> <span class="pg">p.50–53</span></p>
@@ -439,15 +459,16 @@ details.pt[open] summary::after { transform: rotate(45deg); }
     <details class="pt"><summary><h3>智能调度：商业的基本单位变了</h3><p class="gist">从一次交易，走向持续实现目标的协同过程；从占有资源，走向组织资源。</p></summary><div class="body">
       <ul><li><b>订单</b>：不再只是固定需求对应固定商品，可能是持续更新的任务流。</li><li><b>客户关系</b>：不只是获客、成交、复购，而是长期参与目标实现。</li><li><b>内部协作</b>：销售、服务、交付、调度同步配合，少一些分段交接。</li><li><b>平台</b>：从数字市场和交易撮合，走向跨资源网络的行业协调系统。</li><li><b>竞争</b>：调度规则和持续求解的能力，可能比单纯的流量规模更重要。</li></ul>
       <p>更好的调度带来更有价值的任务和反馈，正好接回第二章的智能复利。<span class="tag para">转述</span> <span class="pg">p.53–61</span></p>
-      <div class="case"><b>陪行动不便的母亲就医</b>目标包括车辆适配、医院预约、交通、取药和等待时间。系统要协调多类资源、动态处理变化。价值不在完成一单打车，而在把整段就医出行办好。<span class="tag eg">书中案例</span></div>
+      <p class="qt">「过去的平台最重要的资产是流量，未来的平台最重要的资产将是调度规则定义权。」<span class="tag quote">原话</span> <span class="pg">p.58</span></p>
+      <div class="case"><b>陪行动不便的母亲就医</b>作者假设用户提出的不是简单的打车请求，而是陪母亲就医：要适配无障碍车辆、预约医院、安排交通、取药，还要算上等待时间。平台因此从撮合者变成跨资源网络的实时任务协调中心。<span class="tag eg">书中案例</span> <span class="pg">p.58</span></div>
     </div></details>
     <details class="pt"><summary><h3>创业生态位：点、线、面</h3><p class="gist">三种角色的能力要求和路径不同，不能混成同一个战略。</p></summary><div class="body">
       <div class="tbl"><table style="min-width:28rem"><thead><tr><th>角色</th><th>做什么</th><th>关键选择</th></tr></thead><tbody>
-        <tr><td>点</td><td>提供能被集成的具体能力模块</td><td>选对生态，做高价值节点</td></tr>
-        <tr><td>线</td><td>整合平台资源，提供完整方案并对结果负责</td><td>形成客户的任务闭环</td></tr>
+        <tr><td>点</td><td>提供能被集成的具体能力模块</td><td>选对发展的面，做高价值节点</td></tr>
+        <tr><td>线</td><td>整合平台资源，提供完整方案，直接对结果负责</td><td>选对发展的面</td></tr>
         <tr><td>面</td><td>建设生态平台和调度环境</td><td>支持点和线，让生态更有吸引力</td></tr>
       </tbody></table></div>
-      <p>给创业者的四条建议：陪客户长期成长；探索需求和供给一起生成；建立相匹配的技术能力；想清楚生态位。它们是同一组约束，不是四条孤立的清单。<span class="tag para">转述</span> <span class="pg">p.62–63</span></p>
+      <p>给创业者的四条建议：陪客户长期成长；探索需求和供给一起生成；建立相匹配的技术能力；想清楚生态位。在点和线的战略里，选对发展的面至关重要。<span class="tag para">转述</span> <span class="pg">p.61–63</span></p>
     </div></details>
   </div>
   <div class="mine"><textarea id="note-c3" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c3">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
@@ -478,41 +499,48 @@ details.pt[open] summary::after { transform: rotate(45deg); }
       <p>工业生产要把大量陌生人、机器和资本组织起来：分工降低执行难度，层级负责协调，预算和绩效维持一致。现代公司的成功，建立在「问题能提前定义、解法能结构化、任务能稳定执行」的前提上。互联网加快了信息共享，但多数组织仍主要在优化既有答案的执行；AI 开始参与问题理解、抽象建模、探索和修正，动摇了固定结构的部分前提。<span class="tag para">转述</span> <span class="pg">p.64–69</span></p>
     </div></details>
     <details class="pt"><summary><h3>中层的深层功能：认知压缩与认知路由</h3><p class="gist">层级不只是管人，还在把复杂现实压缩、翻译、传递。</p></summary><div class="body">
+      <p class="qt">「他们承担的是组织中的认知压缩与认知路由功能。」<span class="tag quote">原话</span> <span class="pg">p.67</span></p>
       <ul><li><b>向下</b>：把方向和判断翻译成具体任务。</li><li><b>向上</b>：把一线现象筛选、汇总成可决策的信息。</li><li><b>横向</b>：同步背景、协调部门，让局部衔接起来。</li></ul>
-      <p>如果 AI 让更多真实反馈直接进入系统、让上下文更容易共享，就可能吸收一部分这些功能。减少层级有没有用，关键在认知流动是否真的改进，而不是砍掉中间岗位本身。作者也承认，稳定业务里结构、流程和分工仍然必要；「没有岗位、没有层级」是前沿方向的概括，不是所有公司马上能用的操作指令。<span class="tag para">转述</span> <span class="pg">p.67–69, 78</span></p>
+      <p>作者的判断很重：大量过去依赖中层完成的信息整理、任务拆解和跨部门协调，会完全被 AI 接管；许多因为认知传递成本而存在的层级，会逐渐失去存在基础。他也说，最重要的变化不只是人更少、效率更高。在前沿公司里，他看到的是「没有复杂层级，没有严格岗位边界」<span class="pg">p.64</span>；但在大量相对稳定的业务里，结构、流程和分工仍然必要。<span class="tag para">转述</span> <span class="pg">p.64, 67–69, 78</span></p>
     </div></details>
     <details class="pt"><summary><h3>创造力革命与创智人才</h3><p class="gist">知识更容易调用以后，人的价值更集中在提出问题、建立判断框架、开辟新路径。</p></summary><div class="body">
-      <ul><li>把复杂现实抽象成可处理的问题结构。</li><li>在多种可能性中建立判断框架。</li><li>跨领域连接，看到问题的本质。</li><li>保持好奇心、学习能力和主动担当。</li><li>在连续反馈中修正认知，设计能力组合。</li></ul>
+      <p class="qt">「人类在组织中的价值从知识的拥有者转向了认知的创造者。」<span class="tag quote">原话</span> <span class="pg">p.70</span></p>
+      <ul><li>把复杂现实抽象成可处理的问题结构。</li><li>在多种可能性中建立判断框架。</li><li>在不同领域之间建立连接，看到问题的本质。</li><li>保持好奇心、学习能力和主动担当。</li><li>在连续反馈中不断修正方向。</li></ul>
       <p>创智人才不等于技能更熟、资历更长的专家，他们的重要性在于推动认知生成。AI 放大了这些人的杠杆，组织规模不再必然对应价值规模。作者用顶尖 AI 人才重新定价、年轻人更快进入真实问题、「一人独角兽」的讨论说明趋势，也承认最后一种还带理想化色彩。<span class="tag para">转述</span> <span class="pg">p.69–72</span></p>
     </div></details>
     <details class="pt"><summary><h3>两项组织任务，两层闭环</h3><p class="gist">一是运营自动化，二是提高决策质量；提效替代不了认知升级。</p></summary><div class="body">
-      <p>运营层要把决策背景和反馈放到线上，让 AI 拿到可用的上下文，并能追踪行动和结果；要从 AI 的特点出发重构工作流，而不是把工具挂在以人为中心的老流程上。决策层要让 AI 进入思考过程：吸收不同人的认知模型，生成别的解释路径，帮系统形成更好的判断。业务执行飞轮和组织判断飞轮互相支撑，但不是一回事。<span class="tag para">转述</span> <span class="pg">p.72–73</span></p>
+      <p>运营层要从 AI 的特点出发重构工作流，而不是把工具挂在以人为中心的老流程上：AI 的学习需要直接的数据化反馈，谁先建立端到端、没有人干预的学习闭环，谁就领先，书里举的是特斯拉。决策层要让 AI 进入思考过程：把公司里认知最高的人的认知模型「蒸馏」成公司的能力，由 CEO 分解问题，再建一个参与所有讨论的「思考者」智能体。<span class="tag para">转述</span> <span class="pg">p.72–73</span></p>
+      <p class="qt">「如果还需要人在中间干预和评估，学习的飞轮就转不起来。」<span class="tag quote">原话</span> <span class="pg">p.72</span></p>
+      <p>运营和决策两层的飞轮互相支撑，但不是一回事。<span class="tag ext">原笔记延伸</span></p>
     </div></details>
     <details class="pt"><summary><h3>信息协同与认知共创的区别</h3><p class="gist">共享更多信息，不必然带来更好的理解。</p></summary><div class="body">
+      <p class="qt">「传统组织关注的是信息共享，AI 原生组织关注的则是认知共创。」<span class="tag quote">原话</span> <span class="pg">p.73</span></p>
       <div class="tbl"><table style="min-width:30rem"><thead><tr><th>维度</th><th>信息协同</th><th>认知共创</th></tr></thead><tbody>
         <tr><td>讨论</td><td>对齐已知信息、分配任务</td><td>重新问问题的定义、挑战假设</td></tr>
         <tr><td>决策</td><td>某个角色或层级给结论</td><td>多条路径在验证和反馈中生成判断</td></tr>
         <tr><td>反馈</td><td>主要看执行到不到位</td><td>更早修正问题定义和上层假设</td></tr>
         <tr><td>AI 的作用</td><td>提供资料、辅助输出</td><td>扩展可能性、识别模式、加快验证</td></tr>
       </tbody></table></div>
-      <div class="case"><b>作者观察：Anthropic 的自组织探索</b>员工围绕有潜力的想法聚集，资源随认同流动，产品在高速互动中成形。作者用它说明「共同愿景 + 认知共创」的可能性。这是书中的观察和解释，不是对这家公司治理结构的完整调查。<span class="tag eg">书中案例</span> <span class="pg">p.73–75</span></div>
+      <div class="case"><b>书中引用的观察：Anthropic 的自组织探索</b>在对它内部运作的多方观察里，有一个反复出现的描述：员工围绕有潜力的想法聚集，资源随认同流动，产品在高速互动中成形；公司同时一直有非常清楚的愿景。作者用它说明「共同愿景 + 认知共创」的可能性，这不是对这家公司治理结构的完整调查。<span class="tag eg">书中案例</span> <span class="pg">p.73</span></div>
     </div></details>
     <details class="pt"><summary><h3>共生智能体：组织的最小单元变了</h3><p class="gist">从固定岗位变成认知节点，从结构分工变成一起学习的动态网络。</p></summary><div class="body">
       <p>人和 AI 不是两支各干各的队伍。人提出目标和约束，AI 扩展路径和可能性，问题本身也可能在多轮互动里被一起重构。「共生」指参与同一个认知循环，「智能体」指组织有持续感知、反馈调整、学习的能力。作者明确说，这还不是成熟、可复制的最佳实践。<span class="tag para">转述</span> <span class="pg">p.76–79</span></p>
     </div></details>
     <details class="pt"><summary><h3>组织 OS：保存「为什么」，不只保存结果</h3><p class="gist">过程中的认知能被系统继承，组织才有机会越做越懂。</p></summary><div class="body">
       <ul><li>保留假设怎么形成、方案为什么被放弃、反馈怎么改变方向。</li><li>让散在个人身上的背景和判断，变成可查、可共享的组织记忆。</li><li>连接动态任务流、上下文、权限、反馈和认知沉淀。</li><li>新成员不只看到最终文档，还能理解当时为什么这样选。</li></ul>
-      <p>ERP、CRM、OA、文档和代码仓库主要记录资源、流程和结果；组织 OS 要进一步覆盖判断是怎么形成的。透明不等于无限开放，授权、信息访问和安全边界要一起设计。<span class="tag para">转述</span> <span class="pg">p.79–82</span></p>
+      <p>ERP、CRM、OA、文档和代码仓库主要记录资源、流程和结果；组织 OS 要进一步覆盖判断是怎么形成的。书里举了 Claude Code，也举了钉钉禁止员工人工撰写文档的做法。透明不等于无限开放，授权、信息访问和安全边界要一起设计。<span class="tag para">转述</span> <span class="pg">p.79–82</span></p>
+      <p class="qt">「后来的人也许还能看到结果，却很难理解为什么当时会那样选择。」<span class="tag quote">原话</span> <span class="pg">p.81</span></p>
     </div></details>
     <details class="pt"><summary><h3>新领导力：设计认知演化的机制</h3><p class="gist">领导者从给答案、维持控制，走向设计能持续产生好判断的系统。</p></summary><div class="body">
       <ul><li>信息和场景怎么流动，哪些背景应该共享。</li><li>反馈怎么进入系统，不同判断怎么碰撞。</li><li>哪些信号值得放大，哪些路径值得继续。</li><li>高自由度的探索中，怎么保持共同理解。</li></ul>
-      <p>AI 原生组织自由度更高，也可能更脆弱：每个团队都在局部优化，整体认知却发散了。所以新领导力不是退出协调，而是把协调从控制动作转向维护认知系统。<span class="tag para">转述</span></p>
-      <div class="case"><b>Netflix 与英伟达</b>作者用高人才密度、高透明度和大量直接汇报关系为例，说明减少信息过滤、扩大共享背景的价值。要点不在复制某个汇报人数，而在理解共享上下文怎样改变判断的形成。<span class="tag eg">书中案例</span> <span class="pg">p.82–84</span></div>
+      <p>AI 原生组织自由度更高，也可能更脆弱：每个团队都在局部优化，整体认知却发散了。所以新领导力不是退出协调，而是把协调从控制动作转向维护认知系统。<span class="tag para">转述</span> <span class="pg">p.82–84</span></p>
+      <p class="qt">「其核心任务开始从管理人转向设计认知演化。」<span class="tag quote">原话</span> <span class="pg">p.84</span></p>
+      <div class="case"><b>Netflix 与英伟达</b>Netflix 的高人才密度、高透明度和「成年人原则」：享受自由的前提是知道承担责任。黄仁勋有超过 50 名直接汇报者。书中还引了张一鸣的「context, not control」。要点不在复制某个汇报人数，而在理解共享上下文怎样改变判断的形成。<span class="tag eg">书中案例</span> <span class="pg">p.83–84</span></div>
     </div></details>
   </div>
   <aside class="counter"><span class="tag counter">反方 · 本页观点，不是曾鸣说的</span>
     <h3>中层接走的不只是信息</h3>
-    <p>书里把中层的深层功能归为认知压缩和认知路由，AI 确实可能接走一部分。但中层还在做另外两件事：带新人，以及在出事时兜住责任。这两件不是信息问题，AI 接不走。组织变扁之后，如果没人专门接住它们，年轻人会成长得更慢，出了事也更难找到负责的人。</p>
+    <p>书里说中层的信息整理、任务拆解和跨部门协调会完全被 AI 接管，层级会逐渐失去存在基础 <span class="pg">p.68</span>。但中层还在做另外两件事：带新人，以及出事时兜住责任。书中设想由组织记忆接替「老人」的经验传承 <span class="pg">p.81</span>，却没讨论谁来带教；讲责任时，说的也都是个人主动担当 <span class="pg">p.76, 83</span>，没讲出了事由谁问责。连作者自己的战略共创会，都专门请「关键的执行中层」来确保上传下达 <span class="pg">p.113–114</span>。层级拆掉以后，这两件事如果没人接，年轻人会成长得更慢，出了事也更难找到负责的人。</p>
   </aside>
   <div class="mine"><textarea id="note-c4" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c4">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
 </div>
@@ -547,25 +575,29 @@ details.pt[open] summary::after { transform: rotate(45deg); }
         <tr><td>适应</td><td>在变化中敏捷调整、快速迭代</td><td>响应与局部优化</td></tr>
         <tr><td>生成</td><td>通过行动、反馈、理解，让路径逐步浮现</td><td>连续的好选择和快速纠错</td></tr>
       </tbody></table></div>
-      <div class="case"><b>Chegg 与 OpenAI</b>作者用 Chegg 说明，严密的规划可能被「知识供给方式变了」这一结构变化击穿；用 OpenAI 多方向探索、聚焦大模型、看 ChatGPT 用户反馈，说明路径怎样在实践中显现。重点不在谁有没有计划，而在战略能否修正它依赖的前提。<span class="tag eg">书中案例</span> <span class="pg">p.85–87</span></div>
+      <p class="qt">「战略所面对的不再是一个可以通过更好分析来理解的未来，而是一个在参与中不断生成的未来。」<span class="tag quote">原话</span> <span class="pg">p.85</span></p>
+      <div class="case"><b>Chegg 与 OpenAI</b>Chegg 的规划假设学习支持的基本方式不会发生结构性变化，结果学生获取知识的方式被根本性地改变了；用 OpenAI 多方向探索、聚焦大模型、看 ChatGPT 用户反馈，说明路径怎样在实践中显现。重点不在谁有没有计划，而在战略能否修正它依赖的前提。<span class="tag eg">书中案例</span> <span class="pg">p.86–87</span></div>
     </div></details>
     <details class="pt"><summary><h3>愿景：解释框架、方向约束、认知对齐</h3><p class="gist">愿景要参与真实的取舍，才不是墙上的口号。</p></summary><div class="body">
       <ul><li><b>解释框架</b>：同一个技术变化，放在不同的未来判断下意义不同。</li><li><b>方向约束</b>：资源有限时，帮你决定做什么、放弃什么。</li><li><b>认知对齐</b>：不要求每个人答案一样，而是能理解彼此判断的依据。</li></ul>
       <p>作者区分「愿景」和「愿景化」：说法可以相对稳定，但对它含义的理解要在行动和反馈中持续加深。愿景退化成口号有三条常见路径：公开使命和真实的资源分配脱节；被当成不能挑战的固定答案；太抽象，没法在两个具体方案之间做取舍。<span class="tag para">转述</span></p>
-      <div class="case"><b>阿里巴巴、特斯拉、SpaceX、Anthropic</b>分别用生态开放、可持续能源、多星球生存、AI 安全可控说明愿景的约束作用：愿景不提供具体路径，却决定哪些关键能力值得长期积累。<span class="tag eg">书中案例</span> <span class="pg">p.87–93</span></div>
+      <p class="qt">「战略建立在对未来预判的基础上，但不能依赖这种预判的正确性。」<span class="tag quote">原话</span> <span class="pg">p.88</span></p>
+      <div class="case"><b>特斯拉与 SpaceX：方向约束</b>可持续能源、多星球生存，愿景不提供具体路径，却决定哪些关键能力值得长期积累。<span class="tag eg">书中案例</span> <span class="pg">p.90</span></div>
+      <div class="case"><b>阿里巴巴与 Anthropic：愿景化</b>阿里巴巴 2007 年的愿景「打造开放、协同、繁荣的电子商务生态系统」十年没变，但对每个词的理解一直在变，2008—2012 年淘宝围绕「是否开放」做过艰难取舍。Anthropic 对「安全」的理解，从风险控制走到对齐机制，再到大规模应用中的可控性。<span class="tag eg">书中案例</span> <span class="pg">p.89, 92–93</span></div>
     </div></details>
     <details class="pt"><summary><h3>行动：把未知变成看得见的信号</h3><p class="gist">行动不只是落实战略，也是生成战略的起点。</p></summary><div class="body">
-      <p>调研和推理很难提前拿到真实使用情境里的所有变量：用户怎么理解价值，哪些细节决定留存，什么触发扩散。但行动多不等于战略好。好的行动要有明确的假设、看得见的结果、承受得起的试错，并且和长期方向连起来，否则只是碎片化的忙碌。<span class="tag para">转述</span></p>
-      <div class="case"><b>AWS</b>作者把 AWS 的形成理解为：内部能力在实践中积累，再逐步向外试探。有限的功能进入市场，让付费意愿、稳定性、弹性、成本这些真实需求显现出来，战略因此逐渐清楚。<span class="tag eg">书中案例</span> <span class="pg">p.93–95</span></div>
+      <p>调研和推理很难提前拿到真实使用情境里的所有变量：用户怎么理解价值，哪些细节决定留存，什么触发扩散。但行动多不等于战略好。好的行动要有明确的假设、看得见的结果、承受得起的试错，并且和长期方向连起来，否则只是碎片化的忙碌。<span class="tag para">转述</span> <span class="pg">p.93–95, 104</span></p>
+      <div class="case"><b>AWS</b>作者把 AWS 的形成理解为：内部能力在实践中积累，再逐步向外试探。有限的功能进入市场，客户最在意的是成本、灵活性还是稳定性，哪些功能是真正的刚需，这些问题才显现出来，战略因此逐渐清楚。<span class="tag eg">书中案例</span> <span class="pg">p.94</span></div>
     </div></details>
     <details class="pt"><summary><h3>反馈：从绩效分数到未来线索</h3><p class="gist">偏离预期的信号，可能比达标的平均指标更值得研究。</p></summary><div class="body">
       <ul><li>揭示新的使用方式，以及未来可能怎样形成。</li><li>暴露原来假设的局限。</li><li>为下一轮理解提供原材料。</li></ul>
-      <p>用户误用、绕路、极端案例、异常高留存的人群，都可能暴露新的任务入口。作者用 ChatGPT 大量非预设的用途说明：产品方向可以被用户「用」出来。<span class="tag para">转述</span> <span class="pg">p.95–97</span></p>
+      <p>用户误用、绕路、极端案例、异常高留存的小群体，都可能暴露新的任务入口。作者用 ChatGPT 大量非预设的用途说明：产品方向可以被用户「用」出来。<span class="tag para">转述</span> <span class="pg">p.96–97, 100, 105</span></p>
     </div></details>
     <details class="pt"><summary><h3>理解：真正重写战略的环节</h3><p class="gist">有数据、有复盘，不等于组织更新了对世界的判断。</p></summary><div class="body">
       <ul><li>第一层：重新定义问题，把旧框架下的问题改成更贴近新结构的提问。</li><li>第二层：穿透反馈的表面，找到背后的因果机制和稳定结构。</li><li>把零散甚至矛盾的洞察，整合成结构性的理解。</li><li>研究原来的判断要怎样修正，而不只是找自己正确的证据。</li></ul>
       <p>一个自动化功能用的人少，可能是功能没价值，也可能是用户不放心把关键决策交给系统。不同的解释带来不同的方向。<span class="tag para">转述</span></p>
-      <div class="case"><b>亚马逊的六页叙事文档</b>要点不在不用 PPT，而在问题定义、关键假设、因果机制和条件变化被迫写清楚。问「云计算市场多大」和问「开发者为什么不想自己管服务器」，会得到不同的战略认识。<span class="tag eg">书中案例</span> <span class="pg">p.97–101</span></div>
+      <p class="qt">「理解不是“我原来判断对了”的证明，而是“我原来的判断需要怎样被修正”的过程。」<span class="tag quote">原话</span> <span class="pg">p.101</span></p>
+      <div class="case"><b>亚马逊的六页叙事文档</b>要点不在不用 PPT，而在问题定义、关键假设、因果机制和条件变化被迫写清楚。问「云计算市场有多大」和问「开发者为什么愿意放弃自己管理服务器」，会得到不同的战略认识。<span class="tag eg">书中案例</span> <span class="pg">p.99–100, 103–104</span></div>
     </div></details>
     <details class="pt"><summary><h3>战略生成系统：算法、算力、数据</h3><p class="gist">这是一组组织能力的类比，不是多买 GPU 就能得到好战略。</p></summary><div class="body">
       <div class="tbl"><table style="min-width:30rem"><thead><tr><th>维度</th><th>书中含义</th><th>落地机制</th></tr></thead><tbody>
@@ -581,20 +613,22 @@ details.pt[open] summary::after { transform: rotate(45deg); }
         <tr><td>干一年</td><td>进入现实行动，拿到真实反馈</td><td>只是完成年度任务</td></tr>
         <tr><td>想三年</td><td>不断校正方向和行动的关系</td><td>写一份固定的中期计划</td></tr>
       </tbody></table></div>
+      <p class="qt">「没有愿景，行动会变成机会主义；没有反馈，愿景会变成自我迷信。」<span class="tag quote">原话</span> <span class="pg">p.90</span></p>
       <p>每项重大投入都要同时回答：它是否强化长期方向？它是否基于真实反馈？只讲愿景，可能过早重投没验证过的项目；只看短期表现，可能把资源带去不积累长期能力的机会。<span class="tag para">转述</span> <span class="pg">p.106–110</span></p>
     </div></details>
     <details class="pt"><summary><h3>战略共创：让组织一起生成判断</h3><p class="gist">真正的战略输入分散在各处；共创不是大家说完、老板回到原结论。</p></summary><div class="body">
       <ul><li>创始人和联合创始人：全局和长远方向。</li><li>专业高管：专业深度和未来判断。</li><li>关键的执行中层：衔接行动和跨部门协同。</li><li>非正式的意见领袖：基层的真实感受。</li><li>优秀且敢说话的一线员工：用户痛点和难解的问题。</li></ul>
       <p>作者并不主张全改成线上和 AI 对话。他强调线下高强度的互动，能让难以写成文字的场景知识和模糊判断显现出来。<span class="tag para">转述</span></p>
-      <div class="case"><b>共创会，与 DeepSeek 的组织线索</b>书中介绍了二十多人、多种角色、连续几天深度碰撞的共创会，成效看新洞察和问题重构，而不是快速统一口径。另以 DeepSeek 围绕问题自然组队、跨领域探索，说明人才自主参与的可能。这些是方法和观察，不是人数或天数的规定。<span class="tag eg">书中案例</span> <span class="pg">p.110–114</span></div>
+      <div class="case"><b>共创会，与 DeepSeek 的组织线索</b>书中介绍了一场 20 多人、5 类人群、3 天深度碰撞的共创会：让关键的战略洞察涌现，推动认知模式的升级和战略共识的形成，就是成功。作者说，对已经有一定规模的企业，这是比较有效的冷启动方法。DeepSeek 的 328 位研发作者里，超过半数在跨界，79 人横跨 3 个以上方向：先有问题，再找人和资源。<span class="tag eg">书中案例</span> <span class="pg">p.111–114</span></div>
     </div></details>
     <details class="pt"><summary><h3>最终的战略能力：持续生成好战略</h3><p class="gist">不只是有一个好战略，而是有一个能不断产生好战略的组织。</p></summary><div class="body">
+      <p class="qt">「而未来真正强大的企业，也不再只是拥有一个好战略，还要拥有一个能够持续生成好战略的组织。」<span class="tag quote">原话</span> <span class="pg">p.116</span></p>
       <p>连续的决策会改变后面的选择空间，所以判断质量和纠错速度，比某一次英明的决定更重要。战略和组织在这里合为一体：第四章的共生智能体是组织形态，第五章的战略生成系统是它的认知运行机制。<span class="tag para">转述</span> <span class="pg">p.114–116</span></p>
     </div></details>
   </div>
   <aside class="counter"><span class="tag counter">反方 · 本页观点，不是曾鸣说的</span>
-    <h3>持续生成战略，小团队可能付不起</h3>
-    <p>连续几天的共创会、能保存「为什么」的组织 OS、一套持续解释反馈的机制，都要花人力和时间。几十个人、现金只够撑一年多的团队，未必付得起这个成本。对它们来说，一份写清假设的计划，加上按季度认真复盘，也许更现实，也一样能纠错。</p>
+    <h3>书里的公司，大多不缺钱</h3>
+    <p>作者想到了小团队：轻量的做法是每次重要实验前写下要验证的假设，复盘时问原来的问题要不要重写 <span class="pg">p.104</span>；创业公司早期本来就是共创的样子 <span class="pg">p.111</span>；成本问题，他认为 AI 已经把它降下来了 <span class="pg">p.106</span>。但「AI 让战略生成系统变便宜」这一点，书里没有给证据。书中的例子也几乎都是资本充足的公司：亚马逊、特斯拉、SpaceX、OpenAI、Anthropic、阿里巴巴。对现金有限的团队，「持续行动、拿反馈」本身就在烧钱，看十年的方向约束也要钱来撑。只看活下来的大公司，容易高估这套方法对普通团队的适用性。</p>
   </aside>
   <div class="mine"><textarea id="note-c5" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c5">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
 </div>
@@ -618,18 +652,22 @@ details.pt[open] summary::after { transform: rotate(45deg); }
     <details class="pt" open><summary><h3>四层变化，其实是同一个生成逻辑</h3><p class="gist">智能复利是四层持续学习和演化的共同动力。</p></summary><div class="body">
       <div class="tbl"><table style="min-width:28rem"><thead><tr><th>层次</th><th>旧结构的主要逻辑</th><th>作者提出的新方向</th></tr></thead><tbody>
         <tr><td>技术</td><td>执行预先定义的功能</td><td>在真实任务中拓展、生成能力</td></tr>
-        <tr><td>商业</td><td>匹配相对既定的供需</td><td>动态理解需求、组织供给</td></tr>
-        <tr><td>组织</td><td>稳定执行既定路径</td><td>一起形成、继承、更新认知</td></tr>
+        <tr><td>商业</td><td>匹配既有的供需</td><td>需求在互动中被理解和塑造，供给实时生成</td></tr>
+        <tr><td>组织</td><td>稳定执行既定路径</td><td>持续生成新认知</td></tr>
         <tr><td>战略</td><td>预先分析、定义、控制路径</td><td>在愿景、行动和反馈中生成路径</td></tr>
       </tbody></table></div>
-      <p>如果能力、任务和环境都在持续变化，商业就不能只守固定商品，组织不能只守固定岗位，战略不能只守固定计划。<span class="tag para">转述</span> <span class="pg">p.118–121</span></p>
+      <p class="qt">「世界从围绕既定结构运行，转向了通过持续生成来创造新形态。」<span class="tag quote">原话</span> <span class="pg">p.118</span></p>
+      <p>如果能力、任务和环境都在持续变化，商业就不能只守固定商品，组织不能只守固定岗位，战略不能只守固定计划。<span class="tag ext">原笔记延伸</span></p>
     </div></details>
     <details class="pt"><summary><h3>最深的前提变化</h3><p class="gist">过去很多制度默认人是唯一的智能主体；AI 正在挑战这个前提。</p></summary><div class="body">
+      <p class="qt">「这场 AI 技术革命真正重要的，是人类第一次开始创造智能本身。」<span class="tag quote">原话</span> <span class="pg">p.117</span></p>
       <p>过去的机器、软件和网络主要扩展动力、执行和连接，理解、判断、目标和协调由人负责。当智能可以被创造、复制、调用、协同和演化，工作、组织、学习、决策，乃至人的独特性，都要重新讨论。<span class="tag para">转述</span> <span class="pg">p.117–118</span></p>
       <p>这一章是文明层面的推演，不是在证明机器有意识、人会被完全替代，或者某个年份会实现。<span class="tag ext">原笔记延伸</span></p>
     </div></details>
     <details class="pt"><summary><h3>创业者的角色：参与新规则的形成</h3><p class="gist">不只是在现有地图上找机会，也在画新的地图。</p></summary><div class="body">
-      <p>行业边界、需求定义、组织模板和协作方式重新打开了。一个新产品、一次人机协作实验、一种组织机制，都可能成为未来结构的一部分。落到行动上，仍是前面几章的具体问题：选什么任务、拿什么反馈、怎么积累能力、怎么共享认知、怎样让方向持续接受现实校正。<span class="tag para">转述</span> <span class="pg">p.121–123</span></p>
+      <p>行业边界、需求定义、组织模板和协作方式重新打开了。一个新产品、一次人机协作实验、一种组织机制，都可能成为未来结构的一部分。<span class="tag para">转述</span> <span class="pg">p.121–123</span></p>
+      <p class="qt">「过去，创业者是在一个既有世界中寻找机会；今天，越来越多的创业者开始参与一个新世界本身的生成。」<span class="tag quote">原话</span> <span class="pg">p.123</span></p>
+      <p>落到行动上，仍是前面几章的具体问题：选什么任务、拿什么反馈、怎么积累能力、怎么共享认知、怎样让方向持续接受现实校正。<span class="tag ext">原笔记延伸</span></p>
     </div></details>
   </div>
   <div class="mine"><textarea id="note-c6" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c6">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
@@ -697,8 +735,8 @@ details.pt[open] summary::after { transform: rotate(45deg); }
       <div class="card"><h3>《智能商业》 · 书</h3><p>作者在前言说本书是既有思考的延伸；第三章再次引用点、线、面和协同网络。可以回看互联网时代网络协同与数据智能的框架，再比较本书为什么转向供需生成。</p><div class="meta"><span class="pg">p.5, 52, 62</span></div></div>
       <div class="card"><h3>《智能战略》 · 书</h3><p>前言列为作者的早期著作。可以比较「战略的动态调整」和本书「把战略能力系统化为持续生成」的区别。</p><div class="meta"><span class="pg">p.5</span></div></div>
       <div class="card"><h3>甲子光年：《DeepSeek 还有多少个“郭达雅”？扒完 27 篇论文，我们发现了一群“多边形战士”》 · 文章</h3><p>战略共创部分引用，讨论跨方向研发和薄层级的组织。</p><div class="meta"><span class="pg">p.112</span></div></div>
-      <div class="card"><h3>梁文锋接受「暗涌 Waves」的采访（2024 年 7 月） · 访谈</h3><p>书中引用了自然分工、主动提出想法、潜力显现后再调配资源的说法。原书没有列完整标题。</p><div class="meta"><span class="pg">p.113</span></div></div>
-      <div class="card"><h3>Steve Yegge 对 Anthropic 员工的访谈与观察</h3><p>作者用它描述围绕想法自发聚集的共创模式；书中没有给出可以唯一定位的原始标题或链接。</p><div class="meta"><span class="pg">p.112</span></div></div>
+      <div class="card"><h3>梁文锋接受「暗涌 Waves」的采访（2024 年 7 月） · 访谈</h3><p>书中引用了自然分工、主动提出想法、潜力显现后再调配资源的说法。原书没有列完整标题。</p><div class="meta"><span class="pg">p.112–113</span></div></div>
+      <div class="card"><h3>史蒂夫·雅吉（Steve Yegge）对 Anthropic 员工的访谈</h3><p>这位谷歌知名程序员采访了 Anthropic 内部几十名员工，作者用它描述围绕想法自发聚集的共创模式，例如 Claude Cowork 有了最初的想法后 10 天就上线。书中没有给出原始标题或链接。</p><div class="meta"><span class="pg">p.112</span></div></div>
       <div class="card"><h3>英伟达 GTC 2026 与「Token Factory」的说法 · 演讲</h3><p>第一章用来解释智能能力的持续生产、调用和计量。不是书中列出的推荐读物。</p><div class="meta"><span class="pg">p.7–8</span></div></div>
     </div>
     <p class="src"><span class="tag ext">原笔记延伸</span><span>原书没有单独的推荐书单。「书中提及」不等于作者推荐，没有原始链接的就不编链接。</span></p>
@@ -1218,7 +1256,7 @@ const people = fig("f-people", W => W < 700 ? 0.92 : 0.5, (f, t, dt) => {
 
 /* ---------- 第四章：层级组织 ↔ 共生智能体 ---------- */
 const OG_TEXT = [
-  "<b>层级组织</b>：中层把一线的现象筛选、汇总、往上传（认知压缩），再把方向翻译成任务往下派（认知路由）。信号每过一层就变小，「为什么」常常丢在半路。每个人手边都有 AI（小蓝点），但它只是工具。",
+  "<b>层级组织</b>：中层把一线的现象筛选、汇总、往上传，再把方向翻译成任务往下派，书里叫认知压缩与认知路由。信号每过一层就变小，「为什么」常常丢在半路。每个人手边都有 AI（小蓝点），但它只是工具。",
   "<b>共生智能体</b>：人和 AI 都是认知节点，在同一个循环里一起提出问题、扩展路径、修正判断。判断的理由沉进组织 OS（底部），新成员能看到当时为什么这样选。<span class=\"hint\">作者说，这还是在演化的方向，不是成熟的模板。</span>",
 ];
 const org = fig("f-org", W => W < 700 ? 0.95 : 0.55, (f, t, dt) => {
@@ -1444,7 +1482,7 @@ const GL = [
 ];
 const RC = [
   ["为什么接入同一个大模型，企业的长期价值仍可能完全不同？", "差异在真实任务、反馈结构、上下文、系统优化和用户信任上。通用能力人人能用，不代表独特的学习闭环已经成立。"],
-  ["智能复利和黑洞效应最关键的区别是什么？", "前者解释能力增强，后者解释能力差距持续扩大。后者还要求差距能被感知、反馈有路径依赖、差距影响任务分配。"],
+  ["智能复利和黑洞效应最关键的区别是什么？", "前者解释能力增强，后者解释能力差距持续扩大。后者要四个条件同时成立：学习空间足够大、差距能被持续感知、反馈有强路径依赖、差距影响任务分配。"],
   ["一个 AI 工具用户越来越多，为什么仍可能没有智能复利？", "任务反馈未必进入优化，改进未必改变能力边界；用得多本身不是复利。"],
   ["跨过「60 分奇点」之后，还要确认什么？", "自动执行的真实结果能否回流成有效的学习，人工是否主要只处理异常，可靠性和边界是否撑得住这个任务。"],
   ["一人千面为什么超越千人千面？", "它理解的是这个人在当前情境里的问题和目标，而不是只按历史行为给他分类。"],
@@ -1473,7 +1511,7 @@ document.addEventListener("click", e => {
 });
 
 /* ================= 已读与摘记 ================= */
-const CH = ["c1", "c2", "c3", "c4", "c5", "c6"], CH_NAME = { c1: "AI 产业化的展开", c2: "智能复利与黑洞效应", c3: "一人千面", c4: "AI 时代的组织新逻辑", c5: "智能战略", c6: "新文明的起点" };
+const CH = ["c1", "c2", "c3", "c4", "c5", "c6"], CH_NAME = { c1: "AI 产业化的展开", c2: "智能复利和黑洞效应", c3: "一人千面", c4: "AI 时代的组织新逻辑", c5: "智能战略", c6: "新文明的起点" };
 let READ = store.get("read", []);
 function renderRead() {
   document.getElementById("readN").textContent = READ.length;
