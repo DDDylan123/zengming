@@ -1,0 +1,1536 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>智能 · 读书笔记</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;900&display=swap">
+<style>
+/* 版式：一条居中的阅读栏（约 40 个汉字宽），每章一张可操作的孔版网点示意图，标题按笔顺手写。
+   配色沿用《巨浪》：米白纸、蓝/橙两色网点、深棕墨；「反方」整块反白成深色。只做这一种纸面效果。 */
+:root {
+  color-scheme: light;
+  --paper: #ece6da; --paper2: #e4ddcf; --ink: #3d2a2d; --muted: #6f5f5c; --line: rgba(61,42,45,.18);
+  --blue: #4a5cc0; --orange: #e8773d; --cream: #efe7d6; --dark: #2e2326; --blueLight: #8496ee;
+  --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --hand: "Caveat", "Noto Sans SC", cursive;
+  --col: 42rem;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 16.5px; line-height: 1.85; -webkit-text-size-adjust: 100%; }
+body.grain { background-image: var(--grain); }
+a { color: inherit; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 4px; }
+h1, h2, h3, p { margin: 0; }
+h2, h3 { text-wrap: balance; }
+
+/* 顶栏 */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: rgba(236,230,218,.94); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.top-in { max-width: 72rem; margin: 0 auto; padding: 8px 16px; display: flex; align-items: center; gap: 14px; }
+.brand { font-family: var(--serif); font-weight: 900; font-size: 17px; letter-spacing: 2px; white-space: nowrap; text-decoration: none; }
+.chips { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.chips::-webkit-scrollbar { display: none; }
+.chips a { white-space: nowrap; text-decoration: none; font-size: 13.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid transparent; color: var(--muted); }
+.chips a:hover { border-color: var(--line); color: var(--ink); }
+.chips a.read::after { content: " ✓"; color: var(--orange); }
+.prog { font-size: 13px; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.prog b { color: var(--orange); font-weight: 700; }
+
+.wrap { padding-inline: 16px; }
+.col { max-width: var(--col); margin: 0 auto; }
+.wide { max-width: 60rem; margin: 0 auto; }
+
+/* 开头 */
+.hero { padding-block: 40px 8px; text-align: center; }
+.eyebrow { font-size: 14px; letter-spacing: 4px; color: var(--blue); font-weight: 500; }
+canvas.hand { display: block; width: 100%; }
+.hero canvas.hand { margin: 4px auto 0; max-width: 34rem; }
+.hero .sub { font-family: var(--serif); font-weight: 600; font-size: clamp(20px, 4.6vw, 28px); line-height: 1.55; margin-top: 4px; }
+.hero .lead { max-width: 36rem; margin: 14px auto 0; color: var(--muted); text-align: left; }
+.stats { display: flex; justify-content: center; gap: 10px 28px; flex-wrap: wrap; margin-top: 18px; font-size: 14px; color: var(--muted); }
+.stats b { font-family: var(--hand); font-size: 30px; color: var(--ink); margin-right: 3px; font-weight: 700; }
+.fig { display: block; width: 100%; max-width: 100%; }
+
+/* 来源标签 */
+.tag { display: inline-block; font-size: 12px; line-height: 1; padding: 4px 9px; border-radius: 999px; letter-spacing: 1.5px; font-weight: 500; vertical-align: 2px; white-space: nowrap; border: 1.5px solid currentColor; }
+.tag.para { color: var(--blue); }
+.tag.eg { color: var(--blue); border-style: dotted; }
+.tag.ext { color: var(--muted); border-style: dashed; }
+.tag.add { color: var(--orange); border-style: dashed; }
+.tag.counter { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+.pg { font-family: var(--hand); font-size: 18px; color: var(--muted); white-space: nowrap; }
+.legend { margin: 26px auto 0; max-width: 40rem; display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; text-align: left; font-size: 14.5px; align-items: baseline; }
+.notice { margin: 22px auto 0; max-width: 40rem; text-align: left; font-size: 14px; color: var(--muted); border-left: 3px solid var(--orange); padding: 2px 0 2px 14px; }
+
+/* 全书地图 */
+.sec { padding-block: 56px 8px; }
+.sec-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 18px; }
+.kicker { font-size: 13.5px; letter-spacing: 3px; color: var(--blue); font-weight: 500; }
+.map { display: grid; gap: 8px; justify-items: center; }
+.map a { text-decoration: none; display: block; width: 100%; max-width: 26rem; text-align: center; padding: 10px 14px; border: 1.5px solid var(--ink); border-radius: 14px; background: var(--cream); }
+.map a:hover { background: #fff8ea; }
+.map a b { display: block; font-family: var(--serif); font-size: 18px; }
+.map a span { font-size: 13.5px; color: var(--muted); }
+.map .eng { border-color: var(--orange); background: var(--orange); color: var(--paper); }
+.map .eng span { color: rgba(239,231,214,.9); }
+.map .eng:hover { background: #ee8550; }
+.map .arrow { font-family: var(--hand); font-size: 20px; color: var(--muted); line-height: 1.2; }
+.map .three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 40rem; }
+.map .three a b { font-size: 16px; }
+.tbl { overflow-x: auto; margin-top: 18px; }
+table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: 14.5px; line-height: 1.6; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 700; font-size: 13.5px; color: var(--muted); }
+td:first-child { color: var(--muted); white-space: nowrap; }
+tr td:last-child { color: var(--blue); font-weight: 500; }
+.src { font-size: 13.5px; color: var(--muted); margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+
+/* 章节 */
+.ch { padding-block: 64px 12px; border-top: 1px solid var(--line); margin-top: 40px; }
+.ch-head { display: grid; gap: 2px; }
+.num { font-family: var(--hand); font-size: 34px; color: var(--orange); font-weight: 700; line-height: 1; }
+.ch-head canvas.hand { max-width: 40rem; }
+.qa { margin-top: 18px; display: grid; gap: 10px; }
+.qa .q { font-family: var(--serif); font-weight: 600; font-size: 20px; line-height: 1.6; }
+.qa .a { font-size: 16.5px; }
+.flow { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 6px 4px; align-items: center; font-size: 14px; }
+.flow li { padding: 3px 10px; border-radius: 8px; background: var(--paper2); }
+.flow li + li::before { content: "→ "; color: var(--orange); font-weight: 700; }
+
+figure { margin: 26px 0 0; }
+.figbox { background: var(--cream); border-radius: 18px; padding: 14px 14px 10px; border: 1px solid var(--line); }
+.ctrl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.ctrl button, .seg button { background: var(--paper); border: 1.5px solid rgba(61,42,45,.35); border-radius: 999px; padding: 4px 13px; font-size: 14px; }
+.ctrl button:hover { border-color: var(--ink); }
+.ctrl button.on, .seg button.on { background: var(--ink); border-color: var(--ink); color: var(--cream); }
+.ctrl label { font-size: 14px; display: inline-flex; gap: 6px; align-items: center; padding: 3px 10px; border-radius: 999px; border: 1.5px solid rgba(61,42,45,.25); background: var(--paper); cursor: pointer; }
+.ctrl label:has(input:checked) { border-color: var(--blue); color: var(--blue); }
+.ctrl input[type=checkbox] { accent-color: var(--blue); margin: 0; }
+.ctrl input[type=range] { accent-color: var(--orange); width: 120px; }
+.ctrl .sp { flex: 1; }
+.panel { margin-top: 10px; font-size: 15px; min-height: 3.4em; }
+.panel b { font-family: var(--serif); }
+.panel .hint { color: var(--orange); font-size: 14px; display: block; }
+figcaption { margin-top: 8px; font-size: 13px; line-height: 1.9; color: var(--muted); }
+figcaption .tag { margin-right: 6px; }
+
+.pts { margin-top: 26px; display: grid; gap: 0; }
+details.pt { border-top: 1px solid var(--line); padding: 4px 0; }
+details.pt:last-child { border-bottom: 1px solid var(--line); }
+details.pt summary { list-style: none; cursor: pointer; padding: 10px 28px 10px 0; position: relative; }
+details.pt summary::-webkit-details-marker { display: none; }
+details.pt summary::after { content: "+"; position: absolute; right: 2px; top: 8px; font-family: var(--hand); font-size: 28px; color: var(--orange); line-height: 1; transition: transform .2s; }
+details.pt[open] summary::after { transform: rotate(45deg); }
+.pt h3 { font-family: var(--serif); font-size: 18px; font-weight: 600; line-height: 1.55; }
+.pt .gist { font-size: 15px; color: var(--muted); margin-top: 2px; }
+.pt .body { padding: 2px 0 14px; display: grid; gap: 10px; font-size: 15.5px; }
+.pt ul { margin: 0; padding-left: 1.2em; }
+.pt li { margin: 2px 0; }
+.case { background: var(--paper2); border-radius: 12px; padding: 10px 14px; font-size: 15px; }
+.case b { font-family: var(--serif); display: block; margin-bottom: 2px; }
+
+.counter { margin-top: 26px; background: var(--dark); color: var(--cream); border-radius: 18px; padding: 18px 20px; }
+.counter .tag.counter { background: var(--cream); color: var(--dark); border-color: var(--cream); }
+.counter h3 { font-family: var(--serif); font-weight: 900; font-size: 20px; margin: 10px 0 6px; }
+.counter p { font-size: 15.5px; color: rgba(239,231,214,.92); }
+
+.mine { margin-top: 24px; display: grid; gap: 8px; }
+.mine textarea { width: 100%; min-height: 84px; resize: vertical; background: var(--cream); border: 1.5px dashed rgba(61,42,45,.35); border-radius: 12px; padding: 10px 12px; font-size: 15px; line-height: 1.7; }
+.mine .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13.5px; color: var(--muted); }
+.readbtn { background: transparent; border: 1.5px solid var(--orange); color: var(--orange); border-radius: 999px; padding: 4px 14px; font-size: 14px; }
+.readbtn.on { background: var(--orange); color: var(--paper); }
+
+/* 卡片 */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 12px; }
+.card { background: var(--cream); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.card .no { font-family: var(--hand); font-size: 24px; color: var(--orange); line-height: 1; font-weight: 700; }
+.card h3 { font-family: var(--serif); font-size: 17px; font-weight: 600; line-height: 1.5; }
+.card p { font-size: 14.5px; }
+.card .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.card .meta a { color: var(--blue); text-decoration: none; }
+.star { background: none; border: 0; padding: 2px 4px; font-size: 18px; line-height: 1; color: rgba(61,42,45,.35); }
+.star.on { color: var(--orange); }
+.card .diff { font-size: 13.5px; color: var(--blue); }
+.search { width: 100%; max-width: 24rem; background: var(--cream); border: 1.5px solid rgba(61,42,45,.3); border-radius: 999px; padding: 7px 16px; font-size: 15px; margin-bottom: 14px; }
+.flip { cursor: pointer; text-align: left; border: 1px solid var(--line); background: var(--cream); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; min-height: 9rem; }
+.flip .q { font-family: var(--serif); font-weight: 600; font-size: 16.5px; line-height: 1.55; }
+.flip .ans { display: none; font-size: 14.5px; color: var(--blue); }
+.flip .tap { font-size: 12.5px; color: var(--muted); }
+.flip.open { background: #f6efe0; border-color: var(--blue); }
+.flip.open .ans { display: block; }
+.flip.open .tap { display: none; }
+.qs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 12px; }
+.qs .card ul { margin: 0; padding-left: 1.2em; font-size: 14.5px; }
+.bounds { margin-top: 14px; background: var(--paper2); border-radius: 16px; padding: 16px 18px; }
+.bounds ol { margin: 8px 0 0; padding-left: 1.3em; font-size: 15px; display: grid; gap: 6px; }
+.reads { display: grid; gap: 10px; }
+.reads .card h3 { font-size: 16px; }
+
+.end { padding-block: 70px 30px; text-align: center; }
+.end .big { font-family: var(--serif); font-weight: 900; font-size: clamp(22px, 5vw, 32px); line-height: 1.6; max-width: 36rem; margin: 10px auto 0; }
+.foot { padding-block: 28px 48px; font-size: 13px; color: var(--muted); text-align: center; border-top: 1px solid var(--line); margin-top: 30px; }
+.foot p + p { margin-top: 4px; }
+
+/* 我的摘记 */
+#minebox { display: grid; gap: 12px; }
+#minebox pre { white-space: pre-wrap; word-break: break-word; background: var(--cream); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-family: var(--sans); font-size: 14px; line-height: 1.75; margin: 0; max-height: 26rem; overflow: auto; }
+.ctrl .btn, .btn { background: var(--ink); color: var(--cream); border: 0; border-radius: 999px; padding: 7px 18px; font-size: 14.5px; }
+.ctrl .btn.ghost, .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid rgba(61,42,45,.35); }
+#copied { font-size: 13.5px; color: var(--orange); }
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .map .three { grid-template-columns: 1fr; }
+  .qa .q { font-size: 18.5px; }
+  .legend { font-size: 14px; }
+  .top-in { gap: 10px; }
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <a class="brand" href="#top">智能</a>
+  <nav class="chips" aria-label="章节">
+    <a href="#map">全书</a><a href="#c1" data-ch="c1">01 产业化</a><a href="#c2" data-ch="c2">02 复利</a><a href="#c3" data-ch="c3">03 一人千面</a><a href="#c4" data-ch="c4">04 组织</a><a href="#c5" data-ch="c5">05 战略</a><a href="#c6" data-ch="c6">06 新文明</a><a href="#hl">亮点</a><a href="#gl">概念</a><a href="#rc">自测</a><a href="#me">我的摘记</a>
+  </nav>
+  <span class="prog">已读 <b id="readN">0</b>/6</span>
+</div></header>
+
+<main id="top">
+<section class="hero wrap">
+  <p class="eyebrow">曾鸣 · 2026 · 互动读书笔记</p>
+  <canvas class="hand" data-t="智能" data-max="190" data-per="0.5" aria-label="智能"></canvas>
+  <p class="sub">从工具升级，到系统重构</p>
+  <p class="lead">当智能可以低成本、成规模地被调用，并进入真实任务的反馈闭环，竞争的重心就可能从占有资源、复制已有答案，转向持续生成：生成能力、供需关系、组织认知和战略路径。<span class="tag para">转述</span></p>
+  <div class="wide" style="margin-top:18px"><canvas class="fig" id="f-hero" aria-label="示意图：海浪退去后的沙滩，一个小人和一颗发光的种子"></canvas></div>
+  <div class="stats"><span><b>6</b>章</span><span><b>16</b>个概念</span><span><b>10</b>个亮点</span><span><b>12</b>张自测卡</span><span><b>7</b>张可操作的图</span></div>
+  <div class="legend">
+    <span class="tag para">转述</span><span>书中的观点，用笔记的话重新说</span>
+    <span class="tag eg">书中案例</span><span>书里举的公司和设想场景，作者用来说明观点</span>
+    <span class="tag ext">原笔记延伸</span><span>原笔记整理者加的辨析、提问和边界</span>
+    <span class="tag add">本页补充</span><span>这一版加的示意图和说明，不是书里的</span>
+    <span class="tag counter">反方</span><span>这一版自己的反对意见，不是曾鸣说的</span>
+  </div>
+  <p class="notice">底稿是一份《智能》的结构化笔记，它以 123 页的 PDF 为底本，正文全是转述。书的原话不在其中，所以本页没有「原话」标签。页码 <span class="pg">p.24</span> 指原 PDF 的文件页码。作者在前言说，书中大部分未来判断还缺完整的事实验证，重点是思考框架。</p>
+</section>
+
+<section class="sec wrap" id="map">
+  <div class="col">
+    <div class="sec-head"><p class="kicker">全书一张图</p><canvas class="hand" data-t="六章，一个动力" data-max="64"></canvas></div>
+    <nav class="map" aria-label="全书结构">
+      <a href="#c1"><b>第一章 · AI 产业化的展开</b><span>前提：智能变成可调用的基础设施，智能体开始执行任务</span></a>
+      <span class="arrow">技术改变了经济约束 ↓</span>
+      <a href="#c2" class="eng"><b>第二章 · 智能复利与黑洞效应</b><span>共同的动力：真实任务的反馈让能力增长</span></a>
+      <span class="arrow">同一个动力，进入三个层面 ↓</span>
+      <div class="three">
+        <a href="#c3"><b>第三章 · 商业</b><span>生成供需</span></a>
+        <a href="#c4"><b>第四章 · 组织</b><span>生成认知</span></a>
+        <a href="#c5"><b>第五章 · 战略</b><span>生成路径</span></a>
+      </div>
+      <span class="arrow">收束成一个解释 ↓</span>
+      <a href="#c6"><b>第六章 · 新文明的起点</b><span>从在固定结构里优化，到持续生成</span></a>
+    </nav>
+    <div class="tbl"><table>
+      <thead><tr><th>比较</th><th>工业时代</th><th>互联网时代</th><th>AI 时代（作者推演）</th></tr></thead>
+      <tbody>
+        <tr><td>稀缺能力</td><td>稳定、低成本地制造</td><td>高效连接与匹配</td><td>理解问题、组织复杂智能</td></tr>
+        <tr><td>价值累积</td><td>规模经济</td><td>网络效应</td><td>智能复利</td></tr>
+        <tr><td>商业对象</td><td>平均用户、标准产品</td><td>用户画像、已有供给</td><td>具体情境里的意图和方案</td></tr>
+        <tr><td>商业结构</td><td>产能、固定供应链</td><td>交易平台、连接网络</td><td>实时协同、智能调度</td></tr>
+        <tr><td>组织目标</td><td>规模化执行既定答案</td><td>加快信息协同和迭代</td><td>持续生成、继承认知</td></tr>
+        <tr><td>战略逻辑</td><td>预测、规划、执行</td><td>快速响应、适应</td><td>愿景驱动的生成系统</td></tr>
+      </tbody>
+    </table></div>
+    <p class="src"><span class="tag ext">原笔记延伸</span><span>这张对照是原笔记据全书归纳的，不表示旧机制全部消失，也不表示每个行业会同步转型。</span><span class="pg">p.4–5, 24–26, 118–121</span></p>
+  </div>
+</section>
+
+<!-- ============ 第一章 ============ -->
+<section class="ch wrap" id="c1">
+<div class="col">
+  <div class="ch-head"><span class="num">01</span><canvas class="hand" data-t="AI 产业化的展开" data-max="72"></canvas><p class="kicker">从智能体爆发到系统级重构 · <span class="pg">p.6–22</span></p></div>
+  <div class="qa">
+    <p class="q">大模型越来越强之后，下一阶段到底比什么？</p>
+    <p class="a">作者的判断：竞争会从模型的单点能力，转向组织海量智能体、可靠完成真实任务的系统能力。<span class="tag para">转述</span></p>
+  </div>
+  <ol class="flow"><li>通用智能基础设施化</li><li>智能体进入真实任务</li><li>选择与协同成本上升</li><li>入口、调度与 AIOS 形成</li></ol>
+
+  <figure>
+    <div class="figbox">
+      <div class="ctrl seg" id="s1-seg"><button data-v="0" class="on">① 基础设施</button><button data-v="1">② 智能体爆发</button><button data-v="2">③ 系统级重构</button></div>
+      <canvas class="fig" id="f-stage" aria-label="示意图：网点从整齐的供给，变成一群群智能体，再被一个调度中心组织起来"></canvas>
+      <p class="panel" id="s1-panel"></p>
+    </div>
+    <figcaption><span class="tag add">本页补充</span>示意图。三个阶段是演化框架，不是一个阶段结束才进入下一个的时间表。</figcaption>
+  </figure>
+
+  <div class="pts">
+    <details class="pt"><summary><h3>三个发展阶段：能力 → 任务 → 系统</h3><p class="gist">基础设施让任务系统大量涌现，任务系统的复杂又催生新的组织中心。</p></summary><div class="body">
+      <p>作者讨论的是 AI 产业化的路径，不是超级人工智能的技术路线或实现时间。重大的产业重构，往往发生在一项技术成了稳定、低成本、可规模化调用的基础设施之后。蒸汽机和互联网的类比是想说明：基础能力成熟只是开端，围绕能力形成的新系统更可能决定长期格局。<span class="tag para">转述</span> <span class="pg">p.6–9, 16–22</span></p>
+      <div class="tbl"><table style="min-width:30rem"><thead><tr><th>阶段</th><th>主要变化</th><th>核心问题</th></tr></thead><tbody>
+        <tr><td>基础设施建设</td><td>生成、理解、推理、编程等能力可以通过 API 调用</td><td>智能能否稳定、低成本、成规模地供给</td></tr>
+        <tr><td>智能体大爆发</td><td>不同场景、不同工作流形成任务完成系统</td><td>谁能真正把用户的事做成</td></tr>
+        <tr><td>系统级重构</td><td>调度统一任务流、上下文和协同关系</td><td>如何组织持续运行的复杂智能网络</td></tr>
+      </tbody></table></div>
+    </div></details>
+    <details class="pt"><summary><h3>智能成为生产资料：三个基础设施特征</h3><p class="gist">可计量、可组合、可规模化，让智能从个人能力变成可调用的社会资源。</p></summary><div class="body">
+      <ul><li><b>可计量</b>：调用按 Token 等方式记录和计费，成本与资源配置更容易组织。</li><li><b>可组合</b>：搜索、分析、生成、编程等能力，可以被开发者按任务重新组合。</li><li><b>可规模化</b>：AI 持续驻留在工作流里，少数人可以调用大量认知能力。</li></ul>
+      <p><span class="tag para">转述</span> <span class="pg">p.7–9</span></p>
+      <p>要分清「调用的计量单位」和「任务完成的质量」：Token 的数量本身不能代表智能高低，也不能代表创造了多少价值。<span class="tag ext">原笔记延伸</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>智能体：价值创造单元</h3><p class="gist">用户关心的是完成目标，而不是买一组能力。</p></summary><div class="body">
+      <p>对话式 AI 的核心是生成答案，串联步骤和执行的工作仍在用户身上。智能体尝试进入任务过程本身：它不只是能行动，还会围绕目标持续运行。传统软件是功能的集合，智能体更像一个持续存在的工作单元。<span class="tag para">转述</span></p>
+      <ul><li>理解目标，拆解任务。</li><li>调用外部工具、软件或资源。</li><li>执行中根据反馈调整路径，沿时间持续推进。</li></ul>
+      <p>「更聪明的聊天机器人」不足以定义智能体。真正的竞争在于能力如何被组合，以及这种组合能否稳定地为用户创造价值。<span class="tag para">转述</span> <span class="pg">p.10–11</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>能力释放为什么带来复杂性爆炸</h3><p class="gist">自主行动的单元越多，越需要整体秩序；单点都很强，不保证系统可靠。</p></summary><div class="body">
+      <ul><li><b>能力选择</b>：不同智能体的适用边界、稳定性和对上下文的依赖并不透明。</li><li><b>协同与失真</b>：上下文能否保持一致，错误会不会被后续环节放大。</li><li><b>信任与授权</b>：哪些信息和操作能交给系统，哪些节点要人介入。</li><li><b>责任边界</b>：出了损失，各方的责任怎么划。</li><li><b>成本与分配</b>：多个模型、工具、智能体参与时，成本和收益怎么组织。</li></ul>
+      <p>作者把「发现合适智能体的入口」看成连接用户和开发者的双边市场；再往后的系统竞争，是缩短「我有问题」到「问题被解决」的距离。这一章把<b>确定性本身</b>看作用户价值：面对持续变化的智能网络，企业的机会可能来自吸收复杂性，而不是再多加一个工具。<span class="tag para">转述</span> <span class="pg">p.11–16</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>AIOS：任务操作系统，不是界面换代</h3><p class="gist">从帮用户挑工具，走向理解目标、编排任务、保存长期状态。</p></summary><div class="body">
+      <ul><li>理解任务目标，转成可执行的过程。</li><li>动态安排智能体的组合、执行顺序、信息传递和路径调整。</li><li>处理跨任务的上下文、身份权限、长期状态和运行规范。</li><li>保留关键判断、放弃过的方案和需要重新验证的假设。</li></ul>
+      <p>调度不是一次性分配资源，它贯穿整个任务。作者明确承认，标准、协同可靠性、系统边界这些问题都还没解决。<span class="tag para">转述</span> <span class="pg">p.16–22</span></p>
+      <div class="case"><b>设想案例：新能源车企 CEO 的战略任务</b>系统持续跟踪政策、竞争、供应链、财务和消费者反馈，让不同智能体一起更新判断。任务可能持续几周到几个月，所以系统必须记得过去为什么这样选，以及哪个新事实推翻了原来的假设。这个例子说的是未来任务系统的需求，不是已建成产品的实证。<span class="tag eg">书中案例</span></div>
+    </div></details>
+  </div>
+  <div class="mine"><textarea id="note-c1" placeholder="写下这一章对你的启发，或者还想追问的问题……（只存在这台设备上）"></textarea><div class="row"><button class="readbtn" data-read="c1">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
+</div>
+</section>
+
+<!-- ============ 第二章 ============ -->
+<section class="ch wrap" id="c2">
+<div class="col">
+  <div class="ch-head"><span class="num">02</span><canvas class="hand" data-t="智能复利与黑洞效应" data-max="72"></canvas><p class="kicker">价值如何累积，优势怎样产生 · <span class="pg">p.24–36</span></p></div>
+  <div class="qa">
+    <p class="q">AI 企业为什么可能越用越强？为什么不是所有变强都能变成护城河？</p>
+    <p class="a">智能复利解释的是能力增长。只有当能力差距改变了任务分配、带来别人不容易复制的反馈，才可能出现作者说的黑洞效应。<span class="tag para">转述</span></p>
+  </div>
+  <ol class="flow"><li>真实任务产生反馈</li><li>反馈进入能力优化</li><li>能力变成用户价值</li><li>差距改变任务分配</li><li>稀缺任务和反馈继续集中</li></ol>
+
+  <figure>
+    <div class="figbox">
+      <div class="ctrl"><button id="lp-prev">上一步</button><button id="lp-next">下一步</button><span class="sp"></span><label><input type="checkbox" id="lp-break"> 掐断反馈回流</label></div>
+      <canvas class="fig" id="f-loop" aria-label="示意图：六个环节组成的圆环，一个光点绕圈，每转一圈中间的能力就长大一点"></canvas>
+      <p class="panel" id="lp-panel"></p>
+    </div>
+    <figcaption><span class="tag add">本页补充</span>示意图，不是增长速度或收益的量化模拟。六个环节的文字是 <span class="tag para">转述</span></figcaption>
+  </figure>
+
+  <div class="pts">
+    <details class="pt"><summary><h3>三个时代的价值创造机制</h3><p class="gist">要看技术改变了哪一种经济约束，而不只看效率提升了多少。</p></summary><div class="body">
+      <div class="tbl"><table style="min-width:30rem"><thead><tr><th>时代</th><th>被改变的约束</th><th>增长强化什么</th></tr></thead><tbody>
+        <tr><td>工业时代</td><td>高固定成本、低边际生产成本</td><td>规模越大，单位成本越低：规模经济</td></tr>
+        <tr><td>互联网时代</td><td>连接成本大幅下降</td><td>节点越多，网络越值钱：网络效应</td></tr>
+        <tr><td>AI 时代</td><td>认知能力开始可以成规模供给</td><td>真实任务带来学习，能力又带来更多任务：智能复利</td></tr>
+      </tbody></table></div>
+      <p>智能复利不是「接入 AI 就自动进化」。前提是任务产生的有效反馈，确实进入了系统优化，并改变了后续能力。复利积累的是能力，不是调用次数、用户数或收入。<span class="tag para">转述</span> <span class="pg">p.24–26</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>从智能复利到竞争优势：两道转化</h3><p class="gist">系统变强、用户得到更多价值、企业拉开相对差距，是三个不同的问题。</p></summary><div class="body">
+      <ul><li><b>第一道：能力提升 → 用户价值。</b>指标进步未必能被用户持续感知，也未必带来更高频的使用或更强的付费意愿。</li><li><b>第二道：用户价值 → 相对优势。</b>同行沿相似的路径学习，大家可能一起进步，竞争又回到价格、渠道和资源。</li><li>后来者可能跳过前人的试错。先开始学习，不天然意味着长期领先。</li></ul>
+      <div class="case"><b>书中对照：自动驾驶</b>作者一边用真实道路的反馈说明智能复利，一边指出：几家企业的系统同时改进时，用户未必分得清差距。同一个行业可以有学习飞轮，却没有哪一家形成黑洞效应。<span class="tag eg">书中案例</span> <span class="pg">p.26–28</span></div>
+    </div></details>
+    <details class="pt" open><summary><h3>黑洞效应：差距放大的四个必要条件</h3><p class="gist">更强的系统拿到更复杂的任务，更复杂的任务又给它更好的学习机会。</p></summary><div class="body">
+      <ul><li><b>学习空间足够大</b>：问题复杂、全局、可以持续探索，不会很快到能力上限。</li><li><b>差距能被持续感知</b>：改善的是客户的重要体验，不只是好看的指标。</li><li><b>反馈有强路径依赖</b>：跨时间、跨步骤的真实决策历史，不容易被快速复制。</li><li><b>差距影响任务分配</b>：客户愿意把更重要的任务交给更可靠的系统。</li></ul>
+      <p>简单任务的评判标准相近，竞争者能拿到类似的反馈；复杂任务的经验有连续性，作者用「不可压缩的历史」形容这种路径依赖。他明确说，这不是当下普遍存在的事实，而是特定条件下可能形成的新型集中结构。<span class="tag para">转述</span> <span class="pg">p.28–31</span></p>
+    </div></details>
+  </div>
+
+  <figure>
+    <div class="figbox">
+      <div class="ctrl" id="bh-ctrl">
+        <label><input type="checkbox" data-c="0" checked> 学习空间大</label><label><input type="checkbox" data-c="1" checked> 差距可感知</label><label><input type="checkbox" data-c="2"> 路径依赖强</label><label><input type="checkbox" data-c="3"> 差距影响分配</label>
+        <span class="sp"></span><button id="bh-reset">重来</button>
+      </div>
+      <canvas class="fig" id="f-hole" aria-label="示意图：任务像雨点落向三家公司，四个条件全部勾上时，任务越来越集中到一家"></canvas>
+      <p class="panel" id="bh-panel"></p>
+    </div>
+    <figcaption><span class="tag add">本页补充</span>示意图：落下的蓝点是任务，三堆沙是三家公司积累的能力。勾选规则按书中「四个条件必须同时成立」来写，数字不是真实数据。</figcaption>
+  </figure>
+
+  <div class="pts" style="margin-top:20px">
+    <details class="pt"><summary><h3>「60 分奇点」：人机分工的转折</h3><p class="gist">不是测试得分，也不是成功率 60%；指系统成为默认执行者，人主要处理例外。</p></summary><div class="body">
+      <p>人不断修正输出，可能遮住原始错误和完整的因果链，系统反而拿不到高价值的反馈。跨过这道门槛的关键，是组织愿意把任务结果交给系统，反馈又能回流成学习的输入。<span class="tag para">转述</span> <span class="pg">p.31–34</span></p>
+      <p>「对结果负责」说的是业务分工，不是说 AI 成了法律上的责任主体，也不意味着可以取消验证和人工兜底。<span class="tag ext">原笔记延伸</span></p>
+    </div></details>
+  </div>
+
+  <figure>
+    <div class="figbox">
+      <div class="ctrl"><span class="seg" id="sx-seg"><button data-v="0" class="on">突破之前</button> <button data-v="1">突破之后</button></span><span class="sp"></span><label for="sx-vol">任务量</label><input type="range" id="sx-vol" min="1" max="5" value="2" step="1"></div>
+      <canvas class="fig" id="f-sixty" aria-label="示意图：任务沿传送带经过；突破之前每件都要人审，突破之后系统执行、人只处理少数例外"></canvas>
+      <p class="panel" id="sx-panel"></p>
+    </div>
+    <figcaption><span class="tag add">本页补充</span>示意图。两种状态的对照来自书中「突破之前 / 之后」的表 <span class="tag para">转述</span></figcaption>
+  </figure>
+
+  <div class="pts" style="margin-top:20px">
+    <details class="pt"><summary><h3>创业切口：复杂性和闭环能力的动态平衡</h3><p class="gist">切口太浅，学习空间有限；切口太大，眼下的能力又闭不了环。</p></summary><div class="body">
+      <div class="tbl"><table style="min-width:32rem"><thead><tr><th>广告场景的切口</th><th>潜在价值</th><th>主要限制</th></tr></thead><tbody>
+        <tr><td>生成广告素材</td><td>降低局部的内容生产成本</td><td>任务单点，学习路径容易同质化</td></tr>
+        <tr><td>广告投放</td><td>统筹创意、渠道、预算和效果</td><td>需要行业知识、持续有效的数据和结果反馈</td></tr>
+        <tr><td>管理客户增长</td><td>对更全局的业务结果负责</td><td>更复杂，信任和付费模式更难</td></tr>
+        <tr><td>接管企业整体运营</td><td>学习空间更大</td><td>眼下的技术、知识和客户配合可能撑不起闭环</td></tr>
+      </tbody></table></div>
+      <p>作者不主张一上来就挑最大的问题：应尽早形成可靠闭环，同时让任务有足够的纵深和横向空间。合理的切口会随技术、数据和信任水平变化。<span class="tag para">转述</span> <span class="pg">p.34–36</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>重新解释增长</h3><p class="gist">增长的战略意义，在于系统有没有拿到新的学习机会、扩大能力边界。</p></summary><div class="body">
+      <ul><li>仍然看收入、份额、用户规模，但把它们也当作结果变量。</li><li>再看真实任务闭环、高质量反馈、能力边界的变化。</li><li>检查新增业务是在强化系统，还是只靠更多人工交付。</li><li>既从外部看市场地位，也从内部看反馈结构和学习机制。</li></ul>
+      <p>这一章给后面三章提供了统一的动力：商业调度、组织认知、战略判断，都需要形成可积累、可修正、可继续放大的系统能力。<span class="tag para">转述</span> <span class="pg">p.34–36</span></p>
+    </div></details>
+  </div>
+
+  <aside class="counter"><span class="tag counter">反方 · 本页观点，不是曾鸣说的</span>
+    <h3>路径依赖的壁垒，可能被合同和规则拆掉</h3>
+    <p>黑洞效应要求「反馈有强路径依赖」。但复杂任务的决策历史，很多存在客户自己的系统里：大客户可以要求导出数据、写进换供应商的条款，监管也可能要求数据可迁移。历史越值钱，客户越有动力把它攥在自己手里。所以这道壁垒也许比书里设想的更容易被拆掉。</p>
+  </aside>
+  <div class="mine"><textarea id="note-c2" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c2">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
+</div>
+</section>
+
+<!-- ============ 第三章 ============ -->
+<section class="ch wrap" id="c3">
+<div class="col">
+  <div class="ch-head"><span class="num">03</span><canvas class="hand" data-t="一人千面" data-max="96"></canvas><p class="kicker">从商品匹配走向意图实现 · <span class="pg">p.37–63</span></p></div>
+  <div class="qa">
+    <p class="q">AI 更能理解人以后，商业最先变的是什么？最终会走向哪里？</p>
+    <p class="a">商业的入口可能从「我要买什么」前移到「我遇到了什么问题」。长期方向是需求和供给在同一个系统里动态生成，企业交付的是持续优化的解决方案。<span class="tag para">转述</span></p>
+  </div>
+  <ol class="flow"><li>理解具体情境和真实意图</li><li>一起定义、筛选需求</li><li>从库存匹配到供给生成</li><li>调度实时协同网络</li><li>持续实现用户目标</li></ol>
+
+  <figure>
+    <div class="figbox">
+      <div class="ctrl seg" id="pp-seg"><button data-v="0" class="on">千人一面</button><button data-v="1">千人千面</button><button data-v="2">一人千面</button></div>
+      <canvas class="fig" id="f-people" aria-label="示意图：一群人拿到同一件商品；分群后各拿各的；最后是一个人在不同情境里得到不同的方案"></canvas>
+      <p class="panel" id="pp-panel"></p>
+    </div>
+    <figcaption><span class="tag add">本页补充</span>示意图。第三格里的四个情境都是书中举过的例子 <span class="tag eg">书中案例</span></figcaption>
+  </figure>
+
+  <div class="pts">
+    <details class="pt"><summary><h3>行为相关性不等于真实意图</h3><p class="gist">同一种行为可能出自完全不同的目的；预测你接着看什么，不等于知道你真正需要什么。</p></summary><div class="body">
+      <p>传统系统要求用户先把复杂的状态压缩成商品语言：孩子学习困难，变成「买课程」；企业增长困难，变成「买投放」。这一步翻译本身就可能偏离了问题。智能体尝试把模糊的表达转成目标结构，商业的起点从商品目录前移到问题定义。谁先成为用户说出真实问题的第一站，谁就更有机会参与定义解决路径，作者认为这是比流量入口更深的「任务入口」。<span class="tag para">转述</span> <span class="pg">p.39–44</span></p>
+      <div class="case"><b>儿童绘本与短视频</b>连续浏览绘本，可能是培养自己孩子的阅读习惯，可能是买礼物，也可能是在研究这个行业。刷同类短视频，可能只是放松或逃避压力。行为标签一样，真实任务不同。<span class="tag eg">书中案例</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>需求生成：帮用户形成清楚的目标</h3><p class="gist">需求不总是提前存在的成品，它可能在人与系统的互动中慢慢变清楚。</p></summary><div class="body">
+      <p>用户常常只有一个「问题状态」，并不知道该买什么。系统通过持续沟通，把情境、约束和可能的路径连起来，让模糊的困境变成可以行动的目标。商业服务因此前移：过去等消费者自己定义需求，现在参与问题识别和目标澄清。<span class="tag para">转述</span> <span class="pg">p.45–46</span></p>
+      <p>「参与生成」不自动代表生成的需求正确、有益、值得优先处理。<span class="tag ext">原笔记延伸</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>需求判断力：什么值得先解决</h3><p class="gist">系统能识别无数潜在需求时，稀缺的变成注意力、优先级和价值判断。</p></summary><div class="body">
+      <ul><li>不能把所有潜在问题一起推给客户，否则会过载。</li><li>要筛出真正影响长期目标的关键瓶颈，而不只是多几个能卖的项目。</li><li>帮客户减少无效选择、分辨重要问题，可能是值得信任的品牌成立的理由。</li><li>企业参与塑造人生路径时，效率、健康、成长和短期满足之间的取舍，涉及价值标准。</li></ul>
+      <p>社会责任应该在商业机制形成之初就进入价值对齐，而不是等业务扩张后再补。定义需求的能力越强，越要问：系统到底在替谁优化？<span class="tag para">转述</span> <span class="pg">p.46–48</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>过渡形态是意图匹配，长期方向是意图实现</h3><p class="gist">理解得再深，也可能只能在旧库存里找答案；供给生成才是下一步。</p></summary><div class="body">
+      <div class="tbl"><table style="min-width:28rem"><thead><tr><th>意图匹配</th><th>意图实现（一人千面）</th></tr></thead><tbody>
+        <tr><td style="white-space:normal;color:inherit">深度理解需求，在已有供给里组织方案</td><td>需求和供给在同一个系统里动态形成</td></tr>
+        <tr><td style="white-space:normal;color:inherit">已有的航班、酒店、商品构成约束</td><td>可调用柔性制造、设计和服务网络生成新供给</td></tr>
+        <tr><td style="white-space:normal;color:inherit">更好的方案搜索</td><td>围绕具体情境生成动态方案</td></tr>
+      </tbody></table></div>
+      <p>作者把意图匹配看作未来几年 AI 商业的主要目标：理解能力已经进步，组织能力在增强，但供给生成还不成熟。<span class="tag para">转述</span> <span class="pg">p.49–50</span></p>
+      <div class="case"><b>带父母旅行，与定制厨房刀</b>旅行系统即使理解老人的行动限制、舒适度和风险，也可能只能在现有航班和酒店里选。定制厨房刀更进一步：根据左手使用和握持的限制，组织设计、材料和制造节点，生成一把新刀。前者是近期的过渡形态，后者是供给生成的方向。<span class="tag eg">书中案例</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>供给结构：从固定链条到实时协同网络</h3><p class="gist">供给从「预测后的固定产品」，变成「在反馈中调整、按任务组合的能力网络」。</p></summary><div class="body">
+      <p>固定供应链讲稳定路径和长期绑定，动态网络按当前需求、资源状态和约束重新挑选节点。作者用铁路和互联网路由作类比：前者沿预定路线跑，后者为每次请求找路。企业的价值，可能从掌握一段固定链条，变成持续做一个高价值的能力节点。<span class="tag para">转述</span> <span class="pg">p.50–53</span></p>
+      <div class="case"><b>Shein 与 Shopify</b>Shein 用小批量上线、看用户反馈再决定后续供给规模，体现从预测驱动到反馈驱动。Shopify 把商家、工具开发者、支付、物流、营销组织成可组合的生态，体现从完整结构到模块化节点。它们是线索，并非已经实现了一人千面。<span class="tag eg">书中案例</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>智能调度：商业的基本单位变了</h3><p class="gist">从一次交易，走向持续实现目标的协同过程；从占有资源，走向组织资源。</p></summary><div class="body">
+      <ul><li><b>订单</b>：不再只是固定需求对应固定商品，可能是持续更新的任务流。</li><li><b>客户关系</b>：不只是获客、成交、复购，而是长期参与目标实现。</li><li><b>内部协作</b>：销售、服务、交付、调度同步配合，少一些分段交接。</li><li><b>平台</b>：从数字市场和交易撮合，走向跨资源网络的行业协调系统。</li><li><b>竞争</b>：调度规则和持续求解的能力，可能比单纯的流量规模更重要。</li></ul>
+      <p>更好的调度带来更有价值的任务和反馈，正好接回第二章的智能复利。<span class="tag para">转述</span> <span class="pg">p.53–61</span></p>
+      <div class="case"><b>陪行动不便的母亲就医</b>目标包括车辆适配、医院预约、交通、取药和等待时间。系统要协调多类资源、动态处理变化。价值不在完成一单打车，而在把整段就医出行办好。<span class="tag eg">书中案例</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>创业生态位：点、线、面</h3><p class="gist">三种角色的能力要求和路径不同，不能混成同一个战略。</p></summary><div class="body">
+      <div class="tbl"><table style="min-width:28rem"><thead><tr><th>角色</th><th>做什么</th><th>关键选择</th></tr></thead><tbody>
+        <tr><td>点</td><td>提供能被集成的具体能力模块</td><td>选对生态，做高价值节点</td></tr>
+        <tr><td>线</td><td>整合平台资源，提供完整方案并对结果负责</td><td>形成客户的任务闭环</td></tr>
+        <tr><td>面</td><td>建设生态平台和调度环境</td><td>支持点和线，让生态更有吸引力</td></tr>
+      </tbody></table></div>
+      <p>给创业者的四条建议：陪客户长期成长；探索需求和供给一起生成；建立相匹配的技术能力；想清楚生态位。它们是同一组约束，不是四条孤立的清单。<span class="tag para">转述</span> <span class="pg">p.62–63</span></p>
+    </div></details>
+  </div>
+  <div class="mine"><textarea id="note-c3" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c3">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
+</div>
+</section>
+
+<!-- ============ 第四章 ============ -->
+<section class="ch wrap" id="c4">
+<div class="col">
+  <div class="ch-head"><span class="num">04</span><canvas class="hand" data-t="AI 时代的组织新逻辑" data-max="72"></canvas><p class="kicker">从执行机器到共生智能体 · <span class="pg">p.64–84</span></p></div>
+  <div class="qa">
+    <p class="q">为什么每个人都在用 AI 提效，整个组织还是可能很慢？</p>
+    <p class="a">瓶颈可能还在判断怎么形成、上下文怎么流动、大家怎么协同。AI 原生组织的目标，是让人和智能体一起持续生成、共享、积累认知。<span class="tag para">转述</span></p>
+  </div>
+  <ol class="flow"><li>认知的供给和流动方式变了</li><li>固定岗位和层级的前提松动</li><li>创智人才和 AI 组成认知节点</li><li>认知共创与组织记忆</li><li>共生智能体持续演化</li></ol>
+
+  <figure>
+    <div class="figbox">
+      <div class="ctrl seg" id="og-seg"><button data-v="0" class="on">层级组织</button><button data-v="1">共生智能体</button></div>
+      <canvas class="fig" id="f-org" aria-label="示意图：层级组织里，一线信号一层层往上压缩变小；共生智能体里，人和 AI 连成网，判断的理由沉进组织记忆"></canvas>
+      <p class="panel" id="og-panel"></p>
+    </div>
+    <figcaption><span class="tag add">本页补充</span>示意图。墨色圆点是人，蓝色圆点是 AI。</figcaption>
+  </figure>
+
+  <div class="pts">
+    <details class="pt"><summary><h3>传统公司是特定生产方式下的制度创新</h3><p class="gist">分工、层级和流程，服务于稳定复制已经被理解的答案。</p></summary><div class="body">
+      <p>工业生产要把大量陌生人、机器和资本组织起来：分工降低执行难度，层级负责协调，预算和绩效维持一致。现代公司的成功，建立在「问题能提前定义、解法能结构化、任务能稳定执行」的前提上。互联网加快了信息共享，但多数组织仍主要在优化既有答案的执行；AI 开始参与问题理解、抽象建模、探索和修正，动摇了固定结构的部分前提。<span class="tag para">转述</span> <span class="pg">p.64–69</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>中层的深层功能：认知压缩与认知路由</h3><p class="gist">层级不只是管人，还在把复杂现实压缩、翻译、传递。</p></summary><div class="body">
+      <ul><li><b>向下</b>：把方向和判断翻译成具体任务。</li><li><b>向上</b>：把一线现象筛选、汇总成可决策的信息。</li><li><b>横向</b>：同步背景、协调部门，让局部衔接起来。</li></ul>
+      <p>如果 AI 让更多真实反馈直接进入系统、让上下文更容易共享，就可能吸收一部分这些功能。减少层级有没有用，关键在认知流动是否真的改进，而不是砍掉中间岗位本身。作者也承认，稳定业务里结构、流程和分工仍然必要；「没有岗位、没有层级」是前沿方向的概括，不是所有公司马上能用的操作指令。<span class="tag para">转述</span> <span class="pg">p.67–69, 78</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>创造力革命与创智人才</h3><p class="gist">知识更容易调用以后，人的价值更集中在提出问题、建立判断框架、开辟新路径。</p></summary><div class="body">
+      <ul><li>把复杂现实抽象成可处理的问题结构。</li><li>在多种可能性中建立判断框架。</li><li>跨领域连接，看到问题的本质。</li><li>保持好奇心、学习能力和主动担当。</li><li>在连续反馈中修正认知，设计能力组合。</li></ul>
+      <p>创智人才不等于技能更熟、资历更长的专家，他们的重要性在于推动认知生成。AI 放大了这些人的杠杆，组织规模不再必然对应价值规模。作者用顶尖 AI 人才重新定价、年轻人更快进入真实问题、「一人独角兽」的讨论说明趋势，也承认最后一种还带理想化色彩。<span class="tag para">转述</span> <span class="pg">p.69–72</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>两项组织任务，两层闭环</h3><p class="gist">一是运营自动化，二是提高决策质量；提效替代不了认知升级。</p></summary><div class="body">
+      <p>运营层要把决策背景和反馈放到线上，让 AI 拿到可用的上下文，并能追踪行动和结果；要从 AI 的特点出发重构工作流，而不是把工具挂在以人为中心的老流程上。决策层要让 AI 进入思考过程：吸收不同人的认知模型，生成别的解释路径，帮系统形成更好的判断。业务执行飞轮和组织判断飞轮互相支撑，但不是一回事。<span class="tag para">转述</span> <span class="pg">p.72–73</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>信息协同与认知共创的区别</h3><p class="gist">共享更多信息，不必然带来更好的理解。</p></summary><div class="body">
+      <div class="tbl"><table style="min-width:30rem"><thead><tr><th>维度</th><th>信息协同</th><th>认知共创</th></tr></thead><tbody>
+        <tr><td>讨论</td><td>对齐已知信息、分配任务</td><td>重新问问题的定义、挑战假设</td></tr>
+        <tr><td>决策</td><td>某个角色或层级给结论</td><td>多条路径在验证和反馈中生成判断</td></tr>
+        <tr><td>反馈</td><td>主要看执行到不到位</td><td>更早修正问题定义和上层假设</td></tr>
+        <tr><td>AI 的作用</td><td>提供资料、辅助输出</td><td>扩展可能性、识别模式、加快验证</td></tr>
+      </tbody></table></div>
+      <div class="case"><b>作者观察：Anthropic 的自组织探索</b>员工围绕有潜力的想法聚集，资源随认同流动，产品在高速互动中成形。作者用它说明「共同愿景 + 认知共创」的可能性。这是书中的观察和解释，不是对这家公司治理结构的完整调查。<span class="tag eg">书中案例</span> <span class="pg">p.73–75</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>共生智能体：组织的最小单元变了</h3><p class="gist">从固定岗位变成认知节点，从结构分工变成一起学习的动态网络。</p></summary><div class="body">
+      <p>人和 AI 不是两支各干各的队伍。人提出目标和约束，AI 扩展路径和可能性，问题本身也可能在多轮互动里被一起重构。「共生」指参与同一个认知循环，「智能体」指组织有持续感知、反馈调整、学习的能力。作者明确说，这还不是成熟、可复制的最佳实践。<span class="tag para">转述</span> <span class="pg">p.76–79</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>组织 OS：保存「为什么」，不只保存结果</h3><p class="gist">过程中的认知能被系统继承，组织才有机会越做越懂。</p></summary><div class="body">
+      <ul><li>保留假设怎么形成、方案为什么被放弃、反馈怎么改变方向。</li><li>让散在个人身上的背景和判断，变成可查、可共享的组织记忆。</li><li>连接动态任务流、上下文、权限、反馈和认知沉淀。</li><li>新成员不只看到最终文档，还能理解当时为什么这样选。</li></ul>
+      <p>ERP、CRM、OA、文档和代码仓库主要记录资源、流程和结果；组织 OS 要进一步覆盖判断是怎么形成的。透明不等于无限开放，授权、信息访问和安全边界要一起设计。<span class="tag para">转述</span> <span class="pg">p.79–82</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>新领导力：设计认知演化的机制</h3><p class="gist">领导者从给答案、维持控制，走向设计能持续产生好判断的系统。</p></summary><div class="body">
+      <ul><li>信息和场景怎么流动，哪些背景应该共享。</li><li>反馈怎么进入系统，不同判断怎么碰撞。</li><li>哪些信号值得放大，哪些路径值得继续。</li><li>高自由度的探索中，怎么保持共同理解。</li></ul>
+      <p>AI 原生组织自由度更高，也可能更脆弱：每个团队都在局部优化，整体认知却发散了。所以新领导力不是退出协调，而是把协调从控制动作转向维护认知系统。<span class="tag para">转述</span></p>
+      <div class="case"><b>Netflix 与英伟达</b>作者用高人才密度、高透明度和大量直接汇报关系为例，说明减少信息过滤、扩大共享背景的价值。要点不在复制某个汇报人数，而在理解共享上下文怎样改变判断的形成。<span class="tag eg">书中案例</span> <span class="pg">p.82–84</span></div>
+    </div></details>
+  </div>
+  <aside class="counter"><span class="tag counter">反方 · 本页观点，不是曾鸣说的</span>
+    <h3>中层接走的不只是信息</h3>
+    <p>书里把中层的深层功能归为认知压缩和认知路由，AI 确实可能接走一部分。但中层还在做另外两件事：带新人，以及在出事时兜住责任。这两件不是信息问题，AI 接不走。组织变扁之后，如果没人专门接住它们，年轻人会成长得更慢，出了事也更难找到负责的人。</p>
+  </aside>
+  <div class="mine"><textarea id="note-c4" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c4">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
+</div>
+</section>
+
+<!-- ============ 第五章 ============ -->
+<section class="ch wrap" id="c5">
+<div class="col">
+  <div class="ch-head"><span class="num">05</span><canvas class="hand" data-t="智能战略" data-max="96"></canvas><p class="kicker">愿景驱动的战略生成 · <span class="pg">p.85–116</span></p></div>
+  <div class="qa">
+    <p class="q">未来没法完整预测时，企业靠什么持续做出好的选择？</p>
+    <p class="a">愿景给方向，行动拿到真实反馈，理解修正判断。把这个循环变成组织日常运行的系统，战略才会不断生成。<span class="tag para">转述</span></p>
+  </div>
+  <ol class="flow"><li>愿景：方向与解释框架</li><li>行动：进入真实世界</li><li>反馈：暴露变化和假设的局限</li><li>理解：重构问题和判断</li><li>再行动：生成下一段路径</li></ol>
+
+  <figure>
+    <div class="figbox">
+      <div class="ctrl"><span class="seg" id="st-seg"><button data-v="2" class="on">方向 + 反馈</button> <button data-v="0">只讲愿景</button> <button data-v="1">只看短期</button></span><span class="sp"></span><button id="st-reset">再走一遍</button></div>
+      <canvas class="fig" id="f-path" aria-label="示意图：从左下角出发走向右上角的星，蓝色的障碍要走近了才看得见"></canvas>
+      <p class="panel" id="st-panel"></p>
+    </div>
+    <figcaption><span class="tag add">本页补充</span>示意图：星是愿景，蓝色团块是走近了才看得见的现实约束，橙点是短期诱惑。三种走法对应书中「张力机制」一节 <span class="tag para">转述</span></figcaption>
+  </figure>
+
+  <div class="ctrl seg" id="vl-seg" style="margin-top:18px"><button data-v="0" class="on">1 愿景</button><button data-v="1">2 行动</button><button data-v="2">3 反馈</button><button data-v="3">4 理解</button></div>
+  <p class="panel" id="vl-panel" style="margin-top:4px"></p>
+
+  <div class="pts">
+    <details class="pt"><summary><h3>从规划、适应到生成</h3><p class="gist">未来不只是等着被发现，它也在企业、用户和技术的互动中形成。</p></summary><div class="body">
+      <div class="tbl"><table style="min-width:30rem"><thead><tr><th>范式</th><th>主要逻辑</th><th>需要什么能力</th></tr></thead><tbody>
+        <tr><td>规划</td><td>提前分析未来，选路径，再配资源</td><td>判断与稳定执行</td></tr>
+        <tr><td>适应</td><td>在变化中敏捷调整、快速迭代</td><td>响应与局部优化</td></tr>
+        <tr><td>生成</td><td>通过行动、反馈、理解，让路径逐步浮现</td><td>连续的好选择和快速纠错</td></tr>
+      </tbody></table></div>
+      <div class="case"><b>Chegg 与 OpenAI</b>作者用 Chegg 说明，严密的规划可能被「知识供给方式变了」这一结构变化击穿；用 OpenAI 多方向探索、聚焦大模型、看 ChatGPT 用户反馈，说明路径怎样在实践中显现。重点不在谁有没有计划，而在战略能否修正它依赖的前提。<span class="tag eg">书中案例</span> <span class="pg">p.85–87</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>愿景：解释框架、方向约束、认知对齐</h3><p class="gist">愿景要参与真实的取舍，才不是墙上的口号。</p></summary><div class="body">
+      <ul><li><b>解释框架</b>：同一个技术变化，放在不同的未来判断下意义不同。</li><li><b>方向约束</b>：资源有限时，帮你决定做什么、放弃什么。</li><li><b>认知对齐</b>：不要求每个人答案一样，而是能理解彼此判断的依据。</li></ul>
+      <p>作者区分「愿景」和「愿景化」：说法可以相对稳定，但对它含义的理解要在行动和反馈中持续加深。愿景退化成口号有三条常见路径：公开使命和真实的资源分配脱节；被当成不能挑战的固定答案；太抽象，没法在两个具体方案之间做取舍。<span class="tag para">转述</span></p>
+      <div class="case"><b>阿里巴巴、特斯拉、SpaceX、Anthropic</b>分别用生态开放、可持续能源、多星球生存、AI 安全可控说明愿景的约束作用：愿景不提供具体路径，却决定哪些关键能力值得长期积累。<span class="tag eg">书中案例</span> <span class="pg">p.87–93</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>行动：把未知变成看得见的信号</h3><p class="gist">行动不只是落实战略，也是生成战略的起点。</p></summary><div class="body">
+      <p>调研和推理很难提前拿到真实使用情境里的所有变量：用户怎么理解价值，哪些细节决定留存，什么触发扩散。但行动多不等于战略好。好的行动要有明确的假设、看得见的结果、承受得起的试错，并且和长期方向连起来，否则只是碎片化的忙碌。<span class="tag para">转述</span></p>
+      <div class="case"><b>AWS</b>作者把 AWS 的形成理解为：内部能力在实践中积累，再逐步向外试探。有限的功能进入市场，让付费意愿、稳定性、弹性、成本这些真实需求显现出来，战略因此逐渐清楚。<span class="tag eg">书中案例</span> <span class="pg">p.93–95</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>反馈：从绩效分数到未来线索</h3><p class="gist">偏离预期的信号，可能比达标的平均指标更值得研究。</p></summary><div class="body">
+      <ul><li>揭示新的使用方式，以及未来可能怎样形成。</li><li>暴露原来假设的局限。</li><li>为下一轮理解提供原材料。</li></ul>
+      <p>用户误用、绕路、极端案例、异常高留存的人群，都可能暴露新的任务入口。作者用 ChatGPT 大量非预设的用途说明：产品方向可以被用户「用」出来。<span class="tag para">转述</span> <span class="pg">p.95–97</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>理解：真正重写战略的环节</h3><p class="gist">有数据、有复盘，不等于组织更新了对世界的判断。</p></summary><div class="body">
+      <ul><li>第一层：重新定义问题，把旧框架下的问题改成更贴近新结构的提问。</li><li>第二层：穿透反馈的表面，找到背后的因果机制和稳定结构。</li><li>把零散甚至矛盾的洞察，整合成结构性的理解。</li><li>研究原来的判断要怎样修正，而不只是找自己正确的证据。</li></ul>
+      <p>一个自动化功能用的人少，可能是功能没价值，也可能是用户不放心把关键决策交给系统。不同的解释带来不同的方向。<span class="tag para">转述</span></p>
+      <div class="case"><b>亚马逊的六页叙事文档</b>要点不在不用 PPT，而在问题定义、关键假设、因果机制和条件变化被迫写清楚。问「云计算市场多大」和问「开发者为什么不想自己管服务器」，会得到不同的战略认识。<span class="tag eg">书中案例</span> <span class="pg">p.97–101</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>战略生成系统：算法、算力、数据</h3><p class="gist">这是一组组织能力的类比，不是多买 GPU 就能得到好战略。</p></summary><div class="body">
+      <div class="tbl"><table style="min-width:30rem"><thead><tr><th>维度</th><th>书中含义</th><th>落地机制</th></tr></thead><tbody>
+        <tr><td>算法</td><td>判断不确定性的方法论</td><td>明确问题、写出假设、分开事实和判断、解释因果</td></tr>
+        <tr><td>算力</td><td>参与理解和决策的能力规模</td><td>纳入一线、技术、产品等认知节点，加上 AI 的分析探索</td></tr>
+        <tr><td>数据</td><td>持续输入的真实反馈</td><td>用户行为、异常案例、失败实验、技术与环境的变化</td></tr>
+      </tbody></table></div>
+      <p>只有算法、没有真实反馈，判断会空转；只有数据、没有解释方法，信息会堆积。AI 的贡献是降低收集、整理、分析和模拟的成本，让这个循环从少数人的阶段性活动，变成组织的持续能力。<span class="tag para">转述</span> <span class="pg">p.102–106</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>张力机制：看十年、想三年、干一年</h3><p class="gist">方向带来积累，反馈防止封闭；两者要持续拉扯，而不是选一边。</p></summary><div class="body">
+      <div class="tbl"><table style="min-width:28rem"><thead><tr><th>框架</th><th>作用</th><th>常见误解</th></tr></thead><tbody>
+        <tr><td>看十年</td><td>选择相信的长期方向，约束眼下的取舍</td><td>预测十年后的每个细节</td></tr>
+        <tr><td>干一年</td><td>进入现实行动，拿到真实反馈</td><td>只是完成年度任务</td></tr>
+        <tr><td>想三年</td><td>不断校正方向和行动的关系</td><td>写一份固定的中期计划</td></tr>
+      </tbody></table></div>
+      <p>每项重大投入都要同时回答：它是否强化长期方向？它是否基于真实反馈？只讲愿景，可能过早重投没验证过的项目；只看短期表现，可能把资源带去不积累长期能力的机会。<span class="tag para">转述</span> <span class="pg">p.106–110</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>战略共创：让组织一起生成判断</h3><p class="gist">真正的战略输入分散在各处；共创不是大家说完、老板回到原结论。</p></summary><div class="body">
+      <ul><li>创始人和联合创始人：全局和长远方向。</li><li>专业高管：专业深度和未来判断。</li><li>关键的执行中层：衔接行动和跨部门协同。</li><li>非正式的意见领袖：基层的真实感受。</li><li>优秀且敢说话的一线员工：用户痛点和难解的问题。</li></ul>
+      <p>作者并不主张全改成线上和 AI 对话。他强调线下高强度的互动，能让难以写成文字的场景知识和模糊判断显现出来。<span class="tag para">转述</span></p>
+      <div class="case"><b>共创会，与 DeepSeek 的组织线索</b>书中介绍了二十多人、多种角色、连续几天深度碰撞的共创会，成效看新洞察和问题重构，而不是快速统一口径。另以 DeepSeek 围绕问题自然组队、跨领域探索，说明人才自主参与的可能。这些是方法和观察，不是人数或天数的规定。<span class="tag eg">书中案例</span> <span class="pg">p.110–114</span></div>
+    </div></details>
+    <details class="pt"><summary><h3>最终的战略能力：持续生成好战略</h3><p class="gist">不只是有一个好战略，而是有一个能不断产生好战略的组织。</p></summary><div class="body">
+      <p>连续的决策会改变后面的选择空间，所以判断质量和纠错速度，比某一次英明的决定更重要。战略和组织在这里合为一体：第四章的共生智能体是组织形态，第五章的战略生成系统是它的认知运行机制。<span class="tag para">转述</span> <span class="pg">p.114–116</span></p>
+    </div></details>
+  </div>
+  <aside class="counter"><span class="tag counter">反方 · 本页观点，不是曾鸣说的</span>
+    <h3>持续生成战略，小团队可能付不起</h3>
+    <p>连续几天的共创会、能保存「为什么」的组织 OS、一套持续解释反馈的机制，都要花人力和时间。几十个人、现金只够撑一年多的团队，未必付得起这个成本。对它们来说，一份写清假设的计划，加上按季度认真复盘，也许更现实，也一样能纠错。</p>
+  </aside>
+  <div class="mine"><textarea id="note-c5" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c5">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
+</div>
+</section>
+
+<!-- ============ 第六章 ============ -->
+<section class="ch wrap" id="c6">
+<div class="col">
+  <div class="ch-head"><span class="num">06</span><canvas class="hand" data-t="新文明的起点" data-max="88"></canvas><p class="kicker">把六章还原成一个共同逻辑 · <span class="pg">p.117–123</span></p></div>
+  <div class="qa">
+    <p class="q">技术、商业、组织和战略，为什么会同时变化？</p>
+    <p class="a">智能开始成为可以创造、调用、共同演化的能力，世界因此从「在固定结构里优化」，走向持续生成新的能力、关系和结构。<span class="tag para">转述</span></p>
+  </div>
+  <figure>
+    <div class="figbox">
+      <canvas class="fig" id="f-four" aria-label="示意图：技术、商业、组织、战略四排网点，被同一道浪推动"></canvas>
+    </div>
+    <figcaption><span class="tag add">本页补充</span>示意图：四排网点被同一道浪推着走，对应「四层变化是同一个生成逻辑」。</figcaption>
+  </figure>
+  <div class="pts">
+    <details class="pt" open><summary><h3>四层变化，其实是同一个生成逻辑</h3><p class="gist">智能复利是四层持续学习和演化的共同动力。</p></summary><div class="body">
+      <div class="tbl"><table style="min-width:28rem"><thead><tr><th>层次</th><th>旧结构的主要逻辑</th><th>作者提出的新方向</th></tr></thead><tbody>
+        <tr><td>技术</td><td>执行预先定义的功能</td><td>在真实任务中拓展、生成能力</td></tr>
+        <tr><td>商业</td><td>匹配相对既定的供需</td><td>动态理解需求、组织供给</td></tr>
+        <tr><td>组织</td><td>稳定执行既定路径</td><td>一起形成、继承、更新认知</td></tr>
+        <tr><td>战略</td><td>预先分析、定义、控制路径</td><td>在愿景、行动和反馈中生成路径</td></tr>
+      </tbody></table></div>
+      <p>如果能力、任务和环境都在持续变化，商业就不能只守固定商品，组织不能只守固定岗位，战略不能只守固定计划。<span class="tag para">转述</span> <span class="pg">p.118–121</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>最深的前提变化</h3><p class="gist">过去很多制度默认人是唯一的智能主体；AI 正在挑战这个前提。</p></summary><div class="body">
+      <p>过去的机器、软件和网络主要扩展动力、执行和连接，理解、判断、目标和协调由人负责。当智能可以被创造、复制、调用、协同和演化，工作、组织、学习、决策，乃至人的独特性，都要重新讨论。<span class="tag para">转述</span> <span class="pg">p.117–118</span></p>
+      <p>这一章是文明层面的推演，不是在证明机器有意识、人会被完全替代，或者某个年份会实现。<span class="tag ext">原笔记延伸</span></p>
+    </div></details>
+    <details class="pt"><summary><h3>创业者的角色：参与新规则的形成</h3><p class="gist">不只是在现有地图上找机会，也在画新的地图。</p></summary><div class="body">
+      <p>行业边界、需求定义、组织模板和协作方式重新打开了。一个新产品、一次人机协作实验、一种组织机制，都可能成为未来结构的一部分。落到行动上，仍是前面几章的具体问题：选什么任务、拿什么反馈、怎么积累能力、怎么共享认知、怎样让方向持续接受现实校正。<span class="tag para">转述</span> <span class="pg">p.121–123</span></p>
+    </div></details>
+  </div>
+  <div class="mine"><textarea id="note-c6" placeholder="写下这一章对你的启发，或者还想追问的问题……"></textarea><div class="row"><button class="readbtn" data-read="c6">标记已读</button><span>摘记会自动保存在本机浏览器</span></div></div>
+</div>
+</section>
+
+<!-- ============ 亮点 ============ -->
+<section class="sec wrap" id="hl" style="margin-top:40px;border-top:1px solid var(--line)">
+  <div class="wide">
+    <div class="sec-head"><p class="kicker">值得反复回看 · 点 ☆ 收进我的摘记</p><canvas class="hand" data-t="十个亮点" data-max="72" style="max-width:24rem"></canvas></div>
+    <div class="grid" id="hl-grid"></div>
+    <p class="src"><span class="tag para">转述</span><span>十个亮点由原笔记挑出，每条都能回到对应章节的论证。</span></p>
+  </div>
+</section>
+
+<!-- ============ 概念 ============ -->
+<section class="sec wrap" id="gl">
+  <div class="wide">
+    <div class="sec-head"><p class="kicker">定义与辨析</p><canvas class="hand" data-t="概念的边界" data-max="72" style="max-width:28rem"></canvas></div>
+    <input class="search" id="gl-q" type="search" placeholder="搜概念，例如：复利、意图、组织" aria-label="搜索概念">
+    <div class="grid" id="gl-grid"></div>
+    <p class="src"><span class="tag para">转述</span><span>定义是书中概念的转述；「辨析」一行是 <span class="tag ext">原笔记延伸</span></span></p>
+  </div>
+</section>
+
+<!-- ============ 自测 ============ -->
+<section class="sec wrap" id="rc">
+  <div class="wide">
+    <div class="sec-head"><p class="kicker">先回想，再翻开</p><canvas class="hand" data-t="十二个问题" data-max="72" style="max-width:28rem"></canvas></div>
+    <div class="ctrl"><button id="rc-all">全部翻开</button><button id="rc-none">全部合上</button></div>
+    <div class="grid" id="rc-grid"></div>
+    <p class="src"><span class="tag ext">原笔记延伸</span><span>问题和参考答案由原笔记整理者根据书的内容写成。</span></p>
+  </div>
+</section>
+
+<!-- ============ 应用 ============ -->
+<section class="sec wrap" id="ap">
+  <div class="wide">
+    <div class="sec-head"><p class="kicker">带回自己的业务</p><canvas class="hand" data-t="怎么问" data-max="72" style="max-width:18rem"></canvas></div>
+    <div class="qs">
+      <div class="card"><span class="no">01</span><h3>检查价值创造机制</h3><ul><li>客户愿意交给我们的真实任务是什么？</li><li>每完成一次任务，系统能学到什么新东西？</li><li>错误、纠正和最终结果，能不能一起回到优化过程？</li><li>能力提高了，客户感觉得到吗？会改变任务分配吗？</li></ul></div>
+      <div class="card"><span class="no">02</span><h3>检查商业入口</h3><ul><li>我们面对的是商品请求，还是客户没说清楚的问题？</li><li>客户在不同情境里的目标和约束怎么变？</li><li>我们是在旧库存里匹配，还是已经能动态组织供给？</li><li>如果做不了平台，最合适的「点」或「线」角色是什么？</li></ul></div>
+      <div class="card"><span class="no">03</span><h3>检查组织认知</h3><ul><li>哪些会只是在重复同步背景？</li><li>哪些好判断只留在某个人脑子里？</li><li>我们有没有保存否定某个方案的真实理由？</li><li>一线的反常反馈，能不能直接进入问题重构？</li></ul></div>
+      <div class="card"><span class="no">04</span><h3>检查战略生成</h3><ul><li>愿景真的帮我们在两个具体方案之间做过取舍吗？</li><li>这次行动验证哪个假设？什么结果会推翻它？</li><li>我们是在更新理解，还是在解释自己为什么是对的？</li><li>沿当前路径走三年，还在逼近长期方向吗？</li></ul></div>
+    </div>
+    <div class="bounds">
+      <b style="font-family:var(--serif)">读懂精华，也记住五个边界</b> <span class="tag ext">原笔记延伸</span>
+      <ol>
+        <li><b>反馈不是天然的学习。</b>任务日志、记忆、检索、流程优化、模型训练是不同的机制，要确认到底哪一层改进了。</li>
+        <li><b>路径依赖是有条件的壁垒。</b>历史反馈能不能迁移、复制，会不会被更好的算法绕开，要具体检验。「不可压缩的历史」是作者的重要假说。</li>
+        <li><b>供给端的约束不会凭空消失。</b>资源开放、柔性制造、真实交付和行业规则，决定意图实现能走多远。</li>
+        <li><b>组织不必一次取消层级。</b>书中也承认稳定业务仍需要分工和流程，探索系统可以和稳定执行系统并存。</li>
+        <li><b>有方向，不等于认知封闭。</b>判断可以修正是战略生成的核心，作者自己的未来推论也该接受同样的标准。</li>
+      </ol>
+    </div>
+    <p class="src" style="margin-top:12px"><span class="tag ext">原笔记延伸</span><span>这些提问从书的框架延伸而来，供复盘用，不是作者原文，也不预设所有业务都适合完全自动化。</span></p>
+  </div>
+</section>
+
+<!-- ============ 延伸阅读 ============ -->
+<section class="sec wrap" id="rd">
+  <div class="col">
+    <div class="sec-head"><p class="kicker">书中提到的资料</p><canvas class="hand" data-t="延伸阅读" data-max="64" style="max-width:20rem"></canvas></div>
+    <div class="reads">
+      <div class="card"><h3>《智能商业》 · 书</h3><p>作者在前言说本书是既有思考的延伸；第三章再次引用点、线、面和协同网络。可以回看互联网时代网络协同与数据智能的框架，再比较本书为什么转向供需生成。</p><div class="meta"><span class="pg">p.5, 52, 62</span></div></div>
+      <div class="card"><h3>《智能战略》 · 书</h3><p>前言列为作者的早期著作。可以比较「战略的动态调整」和本书「把战略能力系统化为持续生成」的区别。</p><div class="meta"><span class="pg">p.5</span></div></div>
+      <div class="card"><h3>甲子光年：《DeepSeek 还有多少个“郭达雅”？扒完 27 篇论文，我们发现了一群“多边形战士”》 · 文章</h3><p>战略共创部分引用，讨论跨方向研发和薄层级的组织。</p><div class="meta"><span class="pg">p.112</span></div></div>
+      <div class="card"><h3>梁文锋接受「暗涌 Waves」的采访（2024 年 7 月） · 访谈</h3><p>书中引用了自然分工、主动提出想法、潜力显现后再调配资源的说法。原书没有列完整标题。</p><div class="meta"><span class="pg">p.113</span></div></div>
+      <div class="card"><h3>Steve Yegge 对 Anthropic 员工的访谈与观察</h3><p>作者用它描述围绕想法自发聚集的共创模式；书中没有给出可以唯一定位的原始标题或链接。</p><div class="meta"><span class="pg">p.112</span></div></div>
+      <div class="card"><h3>英伟达 GTC 2026 与「Token Factory」的说法 · 演讲</h3><p>第一章用来解释智能能力的持续生产、调用和计量。不是书中列出的推荐读物。</p><div class="meta"><span class="pg">p.7–8</span></div></div>
+    </div>
+    <p class="src"><span class="tag ext">原笔记延伸</span><span>原书没有单独的推荐书单。「书中提及」不等于作者推荐，没有原始链接的就不编链接。</span></p>
+  </div>
+</section>
+
+<!-- ============ 我的摘记 ============ -->
+<section class="sec wrap" id="me">
+  <div class="col">
+    <div class="sec-head"><p class="kicker">收藏的亮点、概念和各章摘记</p><canvas class="hand" data-t="我的摘记" data-max="64" style="max-width:20rem"></canvas></div>
+    <div id="minebox">
+      <pre id="mine-text"></pre>
+      <div class="ctrl"><button class="btn" id="mine-copy">复制全文（Markdown）</button><button class="btn ghost" id="mine-clear">清空收藏和摘记</button><span id="copied" role="status"></span></div>
+    </div>
+  </div>
+</section>
+
+<section class="end wrap">
+  <p class="kicker">回到全书的核心问题</p>
+  <p class="big">我们的系统，能不能通过真实任务和反馈，持续变得更会理解、更会组织、更会判断？</p>
+</section>
+</main>
+<footer class="foot wrap">
+  <p>Dylan He 制作 · 依据一份《智能》结构化笔记整理，书中观点均为转述 · 2026</p>
+  <p>手写字形取自 Make Me a Hanzi（Arphic 公共许可）</p>
+</footer>
+
+<script>
+/*__HANZI__*/
+const C = { paper: "#ece6da", ink: "#3d2a2d", blue: "#4a5cc0", orange: "#e8773d", cream: "#efe7d6", dark: "#2e2326", blueLight: "#8496ee", paper2: "#e4ddcf" };
+const SANS = '"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif', HAND = '"Caveat","Noto Sans SC",cursive';
+const TAU = Math.PI * 2;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const rgba = (h, a) => { const [r, g, b] = hex(h); return `rgba(${r},${g},${b},${a})`; };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("zhineng:" + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("zhineng:" + k, JSON.stringify(v)); } catch (e) {} },
+};
+let ctx;   // 当前在画的 canvas
+
+/* ================= 手写：汉字按笔顺写出（同《巨浪》） ================= */
+const GLYPH = {};
+const PUNCT = { "，": [[[250, 150], [262, 95], [235, 30], [190, -30]]], "·": [[[500, 400], [512, 385]]] };
+const NARROW = "，·";
+const isLatin = ch => /[A-Za-z0-9.%+\-−×]/.test(ch);
+const polyLen = m => { let l = 0; for (let i = 1; i < m.length; i++) l += Math.hypot(m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]); return Math.max(l, 1); };
+function glyph(ch) {
+  if (ch in GLYPH) return GLYPH[ch];
+  let g = null;
+  if (typeof HANZI !== "undefined" && HANZI[ch]) g = { strokes: HANZI[ch].s.map(q => new Path2D(q)), medians: HANZI[ch].m };
+  else if (PUNCT[ch]) g = { medians: PUNCT[ch] };
+  if (g) g.lens = g.medians.map(polyLen);
+  return GLYPH[ch] = g;
+}
+function partialPath(m, len) {
+  ctx.beginPath(); ctx.moveTo(m[0][0], m[0][1]);
+  let acc = 0;
+  for (let i = 1; i < m.length; i++) {
+    const d = Math.hypot(m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]);
+    if (acc + d >= len) { const k = (len - acc) / d; ctx.lineTo(lerp(m[i - 1][0], m[i][0], k), lerp(m[i - 1][1], m[i][1], k)); return; }
+    acc += d; ctx.lineTo(m[i][0], m[i][1]);
+  }
+  if (m.length === 1 || len < 2) ctx.lineTo(m[0][0] + 1, m[0][1]);
+}
+function drawGlyph(ch, x, y, size, p, color) {
+  const g = glyph(ch);
+  if (!g || p <= 0) {
+    if (!g && p > 0) { ctx.save(); ctx.font = `700 ${size * 0.9}px ${SANS}`; ctx.fillStyle = color; ctx.globalAlpha *= p; ctx.fillText(ch, x, y + size * 0.8); ctx.restore(); }   // 没有笔画数据就退回普通字体
+    return;
+  }
+  ctx.save(); ctx.translate(x, y);
+  const k = size / 1024; ctx.scale(k, -k); ctx.translate(0, -900);
+  ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const total = g.lens.reduce((a, b) => a + b, 0);
+  let acc = 0;
+  for (let i = 0; i < g.medians.length; i++) {
+    const s0 = acc / total, s1 = (acc + g.lens[i]) / total; acc += g.lens[i];
+    const sp = clamp((p - s0) / (s1 - s0)); if (sp <= 0) break;
+    if (g.strokes) {
+      if (sp >= 1) ctx.fill(g.strokes[i]);
+      else { ctx.save(); ctx.clip(g.strokes[i]); ctx.lineWidth = 160; partialPath(g.medians[i], sp * g.lens[i]); ctx.stroke(); ctx.restore(); }
+    } else { ctx.lineWidth = 80; partialPath(g.medians[i], sp * g.lens[i]); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+const latinFont = size => `700 ${size * 1.08}px ${HAND}`;
+function tokens(str) { const out = []; let buf = ""; for (const ch of str) { if (isLatin(ch) || (ch === " " && buf && isLatin(buf[buf.length - 1]))) buf += ch; else { if (buf) { out.push(buf.trimEnd()); buf = ""; } out.push(ch); } } if (buf) out.push(buf.trimEnd()); return out; }
+let LAYOUT_CACHE = {};
+function layoutLine(str, size) {
+  const key = str + "|" + size;
+  if (LAYOUT_CACHE[key]) return LAYOUT_CACHE[key];
+  const items = []; let x = 0;
+  for (const tok of tokens(str)) {
+    if (tok === " ") { x += size * 0.3; continue; }
+    const lat = isLatin(tok[0]);
+    let w;
+    if (lat) { ctx.save(); ctx.font = latinFont(size); w = ctx.measureText(tok).width + size * 0.06; ctx.restore(); }
+    else w = size * (NARROW.includes(tok) ? 0.62 : 1.02);
+    items.push({ tok, x, w, lat, n: lat ? Math.max(1, tok.length * 0.35) : 1 });
+    x += w + (lat ? size * 0.12 : 0);
+  }
+  return LAYOUT_CACHE[key] = { items, w: x, n: items.reduce((a, b) => a + b.n, 0) };
+}
+function drawHand(str, x, baseline, size, color, per, t) {
+  const lay = layoutLine(str, size);
+  let tt = 0;
+  for (const it of lay.items) {
+    const d = per * it.n, p = d > 0 ? clamp((t - tt) / d) : 1;
+    if (p > 0) {
+      if (it.lat) {
+        ctx.save(); ctx.font = latinFont(size); ctx.fillStyle = color;
+        ctx.beginPath(); ctx.rect(x + it.x - 2, baseline - size * 1.2, (it.w + 6) * p, size * 1.6); ctx.clip();
+        ctx.fillText(it.tok, x + it.x, baseline); ctx.restore();
+      } else drawGlyph(it.tok, x + it.x - (NARROW.includes(it.tok) ? size * 0.12 : 0), baseline - size * 0.86, size, p, color);
+    }
+    tt += d;
+  }
+  return tt;
+}
+
+/* 每个 canvas.hand：完整画好；第一次滚进视野时按笔顺重写一遍 */
+const HANDS = [...document.querySelectorAll("canvas.hand")].map(cv => ({ cv, text: cv.dataset.t, max: +cv.dataset.max || 72, per: +cv.dataset.per || 0.16, t: Infinity, started: false }));
+function sizeHand(h) {
+  const dpr = Math.min(2, devicePixelRatio || 1), cw = h.cv.clientWidth || 300;
+  ctx = h.cv.getContext("2d");
+  const w100 = layoutLine(h.text, 100).w / 100;
+  h.size = Math.min(h.max, (cw - 4) / w100);
+  h.cv.width = Math.round(cw * dpr); h.cv.height = Math.round(h.size * 1.28 * dpr);
+  h.cv.style.height = (h.size * 1.28) + "px";
+  h.dpr = dpr;
+  h.align = getComputedStyle(h.cv.parentElement).textAlign === "center" ? "center" : "left";
+}
+function paintHand(h) {
+  ctx = h.cv.getContext("2d");
+  ctx.setTransform(h.dpr, 0, 0, h.dpr, 0, 0);
+  ctx.clearRect(0, 0, h.cv.width, h.cv.height);
+  const cw = h.cv.width / h.dpr, w = layoutLine(h.text, h.size).w;
+  const x = h.align === "center" ? (cw - w) / 2 : 2;
+  return drawHand(h.text, x, h.size * 1.02, h.size, C.ink, h.per, h.t);
+}
+
+/* ================= 示意图框架 ================= */
+// 每张图在 W×H 的逻辑坐标里画；手机上 W=600，宽屏 W=1000，字号因此在两种屏上都看得清
+const FIGS = [];
+function fig(id, aspect, draw, init) {
+  const cv = document.getElementById(id); if (!cv) return null;
+  const f = { cv, aspect, draw, st: {}, t: 0, vis: false };
+  f.resize = () => {
+    const cw = cv.clientWidth || 600, dpr = Math.min(2, devicePixelRatio || 1);
+    f.W = cw < 560 ? 600 : 1000;
+    const a = typeof aspect === "function" ? aspect(f.W) : aspect;
+    f.H = Math.round(f.W * a);
+    cv.width = Math.round(cw * dpr); cv.height = Math.round(cw * a * dpr);
+    cv.style.aspectRatio = `${f.W} / ${f.H}`;
+    f.k = cv.width / f.W;
+    if (init) init(f);
+  };
+  FIGS.push(f);
+  return f;
+}
+function dot(x, y, r) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
+function label(s, x, y, o = {}) {
+  ctx.save(); ctx.globalAlpha = o.a ?? 1; ctx.font = `${o.w || 500} ${o.size || 22}px ${o.hand ? HAND : SANS}`; ctx.fillStyle = o.c || C.ink;
+  ctx.textAlign = o.align || "center"; ctx.textBaseline = "middle"; ctx.fillText(s, x, y); ctx.restore();
+}
+// 网点填充的圆：越靠中心点越大，像孔版印刷
+function halfDisc(cx, cy, r, cell, color, a = 1) {
+  if (r < 2) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = color; ctx.beginPath();
+  for (let y = -r; y <= r; y += cell) for (let x = -r + ((Math.round((y + r) / cell)) % 2) * cell / 2; x <= r; x += cell) {
+    const d = Math.hypot(x, y) / r; if (d > 1) continue;
+    dot(cx + x, cy + y, cell * 0.5 * clamp(1.05 - d * 0.75, 0.2, 1));
+  }
+  ctx.fill(); ctx.restore();
+}
+// logo 里的小人：深色身体、橙色的头
+function person(x, y, s, ink = C.ink) {
+  ctx.save(); ctx.fillStyle = ink;
+  ctx.beginPath(); ctx.roundRect(x - 15 * s, y - 74 * s, 30 * s, 44 * s, 8 * s); ctx.fill();
+  ctx.fillRect(x - 12 * s, y - 34 * s, 9 * s, 34 * s); ctx.fillRect(x + 3 * s, y - 34 * s, 9 * s, 34 * s);
+  ctx.fillStyle = C.orange; ctx.beginPath(); ctx.arc(x, y - 90 * s, 15 * s, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function sand(G, W, H, cell) {
+  ctx.save(); ctx.fillStyle = C.orange; ctx.globalAlpha = 0.85; ctx.beginPath();
+  for (let x = cell / 2, col = 0; x < W; x += cell, col++) for (let y = G + cell / 2 + (col % 2) * cell / 2; y < H; y += cell) {
+    const rr = cell * 0.46 * clamp(1 - (y - G) / (H - G)); if (rr > 0.6) dot(x, y, rr);
+  }
+  ctx.fill(); ctx.restore();
+}
+
+/* ---------- 开头：浪退去的沙滩，一颗新种子 ---------- */
+fig("f-hero", W => W < 700 ? 0.62 : 0.36, (f, t) => {
+  const { W, H } = f, G = H * 0.7, cell = W < 700 ? 11 : 12, sx = W * 0.58;
+  sand(G, W, H, cell);
+  // 海：右边的蓝色网点，海面缓缓起伏
+  ctx.save(); ctx.globalCompositeOperation = "multiply"; ctx.fillStyle = C.blue; ctx.beginPath();
+  for (let x = cell / 2, col = 0; x < W; x += cell, col++) {
+    const edge = sx + 40 * Math.sin(t * 0.5) + 30 * Math.sin(t * 0.9 + 1);
+    if (x < edge) continue;
+    const swell = (H * 0.16) * clamp((x - edge) / (W * 0.25)) + 8 * Math.sin(x * 0.02 - t * 1.4) + 5 * Math.sin(x * 0.05 + t);
+    const sy = G - swell;
+    for (let y = sy + (col % 2) * cell / 2; y < G + 6; y += cell) dot(x, y, cell * 0.52 * clamp(0.22 + (y - sy) / 120, 0.22, 1));
+  }
+  ctx.fill(); ctx.restore();
+  // 浪退后沙滩上留下的旧沙堡虚影
+  ctx.save(); ctx.fillStyle = C.ink; ctx.globalAlpha = 0.18; ctx.beginPath();
+  const r = rng(7);
+  for (let i = 0; i < 260; i++) { const dx = (r() - 0.5) * W * 0.12, k = 1 - (2 * dx / (W * 0.12)) ** 2; dot(W * 0.44 + dx, G - r() * H * 0.12 * k, 1.4); }
+  ctx.fill(); ctx.restore();
+  // 新的种子：橙色光点，一呼一吸
+  const gx = W * 0.3, gy = G - 6, pulse = REDUCED ? 0 : Math.sin(t * 2.2);
+  const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, 80 + 8 * pulse); g.addColorStop(0, rgba(C.orange, 0.65)); g.addColorStop(1, rgba(C.orange, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(gx, gy, 90, 0, TAU); ctx.fill();
+  ctx.fillStyle = C.orange; ctx.beginPath(); ctx.arc(gx, gy, 9, 0, TAU); ctx.fill();
+  person(W * 0.13, G, W < 700 ? 0.9 : 0.8);
+  label("新的起点", gx, gy - 52, { size: W < 700 ? 24 : 20, c: C.ink, a: 0.75 });
+});
+
+/* ---------- 第一章：能力 → 任务 → 系统 ---------- */
+const S1_TEXT = [
+  "<b>基础设施建设</b>：生成、理解、推理、编程等能力可以通过 API 调用。核心问题是智能能否稳定、低成本、成规模地供给。<span class=\"hint\">网点排成整齐的供给，按 Token 计量。</span>",
+  "<b>智能体大爆发</b>：不同场景、不同工作流里长出一个个任务系统。核心问题是谁能真正把用户的事做成。<span class=\"hint\">智能体越多，彼此之间的选择、协同、信任和责任就越乱（灰线）。</span>",
+  "<b>系统级重构</b>：调度统一任务流、上下文和协同关系，AIOS 这类基础系统出现。核心问题是怎样组织一张持续运行的复杂智能网络。<span class=\"hint\">中心负责理解目标、编排任务、保存长期状态。</span>",
+];
+const stage = fig("f-stage", W => W < 700 ? 0.9 : 0.52, (f, t, dt) => {
+  const s = f.st, { W, H } = f;
+  if (s.N === undefined) return;
+  const k = easeInOut(clamp((t - s.since) / 1.4));
+  // 混乱的连线（第二阶段）
+  const chaos = s.stage === 1 ? k : s.prev === 1 ? 1 - k : 0;
+  if (chaos > 0) {
+    ctx.save(); ctx.strokeStyle = rgba(C.ink, 0.22 * chaos); ctx.lineWidth = 1.5; ctx.beginPath();
+    const r = rng(Math.floor(t * 2) + 3);
+    for (let i = 0; i < 16; i++) { const a = s.cl[Math.floor(r() * s.cl.length)], b = s.cl[Math.floor(r() * s.cl.length)]; const A = s.clPos(a, 1, t), B = s.clPos(b, 1, t); ctx.moveTo(A[0], A[1]); ctx.quadraticCurveTo((A[0] + B[0]) / 2 + (r() - 0.5) * 120, (A[1] + B[1]) / 2 + (r() - 0.5) * 120, B[0], B[1]); }
+    ctx.stroke(); ctx.restore();
+  }
+  // 调度中心（第三阶段）
+  const hub = s.stage === 2 ? k : s.prev === 2 ? 1 - k : 0;
+  if (hub > 0) {
+    ctx.save(); ctx.globalAlpha = hub; ctx.strokeStyle = C.orange; ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let c = 0; c < s.cl.length; c++) { const P = s.clPos(c, 2, t); ctx.moveTo(s.hub[0], s.hub[1]); ctx.lineTo(P[0], P[1]); }
+    ctx.stroke();
+    ctx.fillStyle = C.orange;
+    for (let c = 0; c < s.cl.length; c++) { const P = s.clPos(c, 2, t), q = ((t * 0.5 + c * 0.13) % 1); ctx.beginPath(); ctx.arc(lerp(s.hub[0], P[0], q), lerp(s.hub[1], P[1], q), 4, 0, TAU); ctx.fill(); }
+    ctx.restore();
+    halfDisc(s.hub[0], s.hub[1], 58 * hub, 9, C.orange, hub);
+    label("AIOS", s.hub[0], s.hub[1] + 2, { hand: true, w: 700, size: 34, c: C.ink, a: hub });
+  }
+  // 粒子
+  ctx.save(); ctx.globalCompositeOperation = "multiply";
+  for (const p of s.P) {
+    const tgt = s.target(p, s.stage, t), from = p.from;
+    const x = lerp(from[0], tgt[0], k), y = lerp(from[1], tgt[1], k);
+    p.cur = [x, y];
+    const col = s.stage === 0 ? C.blue : p.core ? C.orange : C.ink;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, p.core ? 6 : 4.2, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+  if (s.stage === 0 && k > 0.5) {
+    label("可计量 · 可组合 · 可规模化", W / 2, H * 0.14, { size: W < 700 ? 26 : 22, c: C.blue, a: (k - 0.5) * 2 });
+  }
+}, f => {
+  const s = f.st, { W, H } = f, r = rng(11), NC = 10, per = 14;
+  s.N = NC * per; s.cl = [...Array(NC).keys()];
+  s.hub = [W / 2, H * 0.52];
+  const homes = []; for (let c = 0; c < NC; c++) homes.push([W * (0.12 + 0.76 * r()), H * (0.2 + 0.62 * r())]);
+  s.clPos = (c, st, t) => {
+    if (st === 2) { const a = c / NC * TAU - Math.PI / 2, R = Math.min(W, H) * 0.36; return [s.hub[0] + Math.cos(a) * R * (W > H ? 1.5 : 1), s.hub[1] + Math.sin(a) * R]; }
+    const h = homes[c]; return [h[0] + 26 * Math.sin(t * 0.6 + c * 1.7), h[1] + 20 * Math.cos(t * 0.5 + c)];
+  };
+  const cols = W < 700 ? 10 : 20, rows = Math.ceil(s.N / cols), gx = W * 0.8 / (cols - 1), gy = Math.min(46, H * 0.55 / rows);
+  s.P = [];
+  for (let i = 0; i < s.N; i++) {
+    const c = i % NC, j = Math.floor(i / NC), a = j / per * TAU;
+    s.P.push({ i, c, core: j === 0, ang: a, rad: j === 0 ? 0 : 14 + (j % 3) * 9, grid: [W * 0.1 + (i % cols) * gx, H * 0.3 + Math.floor(i / cols) * gy] });
+  }
+  s.target = (p, st, t) => {
+    if (st === 0) return [p.grid[0] + 2 * Math.sin(t * 2 + p.i), p.grid[1]];
+    const C0 = s.clPos(p.c, st, t), a = p.ang + t * (st === 1 ? 0.8 : 0.4);
+    return [C0[0] + Math.cos(a) * p.rad, C0[1] + Math.sin(a) * p.rad];
+  };
+  if (s.stage === undefined) { s.stage = 0; s.prev = 0; s.since = -10; }
+  for (const p of s.P) p.from = s.target(p, s.stage, 0);
+});
+function setStage(v) {
+  const s = stage.st; for (const p of s.P) p.from = p.cur || s.target(p, s.stage, stage.t);
+  s.prev = s.stage; s.stage = v; s.since = stage.t; s.auto = false;
+  segOn("s1-seg", v); document.getElementById("s1-panel").innerHTML = S1_TEXT[v];
+}
+
+/* ---------- 第二章 A：智能复利的六个环节 ---------- */
+const LOOP = [
+  ["真实任务", "系统先进入真实工作，接触目标、约束和结果。重复调用本身不是学习，关键是有没有经历完整的任务。", "原理：先要有看得见的真实行动。"],
+  ["直接结果", "成功、失败、用户反应、边界情况，都成为可以回溯的结果。只存最终答案，会漏掉重要的因果链。", "断点：人工纠正如果盖掉了原始错误，反馈就可能失真。"],
+  ["反馈回流", "把结果连同上下文送回优化过程。要知道哪种行为带来了什么结果，而不是只有一个总体指标。", "断点：收集了日志却没有优化机制，飞轮仍然没有闭合。"],
+  ["能力提升", "模型、决策策略或工作系统因为反馈而改变，能处理更复杂的情境。必须确认改变真的发生了。", "辨析：能力提升还不等于商业优势。"],
+  ["用户感知", "客户在重要的体验里感受到差异，因此更愿意用，也更愿意交出重要任务。", "断点：指标进步了但客户没感觉，商业转化会变弱。"],
+  ["任务再分配", "更强的系统拿到更多、更复杂的任务和更好的反馈，回到起点。四个条件都满足时，差距可能被放大。", "跃迁：这里把智能复利接到黑洞效应。"],
+];
+const loop = fig("f-loop", W => W < 700 ? 0.95 : 0.56, (f, t, dt) => {
+  const s = f.st, { W, H } = f, cx = W / 2, cy = H / 2 + (W < 700 ? 6 : 0), R = W < 700 ? W * 0.27 : Math.min(W * 0.36, H * 0.36), brk = document.getElementById("lp-break").checked;
+  const ang = i => -Math.PI / 2 + i / 6 * TAU;
+  // 圆环
+  ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = rgba(C.ink, 0.35);
+  for (let i = 0; i < 6; i++) {
+    const a0 = ang(i) + 0.17, a1 = ang(i + 1) - 0.17;
+    ctx.setLineDash(brk && i === 1 ? [6, 10] : []); ctx.beginPath(); ctx.arc(cx, cy, R, a0, a1); ctx.stroke();
+  }
+  ctx.restore();
+  // 中间的能力：每转一圈长大一点
+  s.cap = lerp(s.cap, Math.min(R * 0.66, 58 + 14 * Math.sqrt(s.loops)), clamp(dt * 2));
+  halfDisc(cx, cy, s.cap, W < 700 ? 10 : 9, C.blue, 1);
+  label("能力", cx, cy - 8, { size: 28, w: 700, c: C.cream });
+  label(`第 ${s.loops} 圈`, cx, cy + 24, { size: 18, c: C.cream, a: 0.9 });
+  // 光点：沿圆环走，到每个站停一下
+  if (!REDUCED) s.ph += dt / 1.5;
+  const seg = Math.floor(s.ph), u = s.ph - seg, from = seg % 6;
+  let px, py;
+  if (brk && from === 1 && u > 0.55) {
+    // 掐断反馈：走到第三站之前掉下去，不再回流
+    const a = ang(1) + (ang(2) - ang(1)) * 0.55, fall = (u - 0.55) / 0.45;
+    px = cx + Math.cos(a) * R; py = cy + Math.sin(a) * R + fall * fall * H * 0.4;
+    if (u > 0.98) s.ph = Math.floor(s.ph) + 5;   // 回到第一站重新来
+  } else {
+    const mv = easeInOut(clamp((u - 0.3) / 0.7)), a = ang(from) + mv * TAU / 6;
+    px = cx + Math.cos(a) * R; py = cy + Math.sin(a) * R;
+    if (from === 5 && u > 0.98 && !s.counted) { s.loops++; s.counted = true; }
+    if (from !== 5) s.counted = false;
+  }
+  // 站点
+  for (let i = 0; i < 6; i++) {
+    const a = ang(i), x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R, sel = i === s.sel;
+    ctx.save(); ctx.beginPath(); ctx.arc(x, y, 26, 0, TAU); ctx.fillStyle = sel ? C.orange : C.cream; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = sel ? C.orange : C.ink; ctx.stroke(); ctx.restore();
+    label(String(i + 1), x, y + 1, { hand: true, w: 700, size: 30, c: sel ? C.cream : C.ink });
+    const ca = Math.cos(a), lx = cx + ca * (R + 40), ly = cy + Math.sin(a) * (R + 46);
+    label(LOOP[i][0], lx, ly, { size: W < 700 ? 23 : 21, w: sel ? 700 : 500, c: sel ? C.orange : C.ink, align: ca > 0.3 ? "left" : ca < -0.3 ? "right" : "center" });
+  }
+  ctx.save(); const g = ctx.createRadialGradient(px, py, 0, px, py, 26); g.addColorStop(0, rgba(C.orange, 0.8)); g.addColorStop(1, rgba(C.orange, 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, 26, 0, TAU); ctx.fill();
+  ctx.fillStyle = C.orange; ctx.beginPath(); ctx.arc(px, py, 7, 0, TAU); ctx.fill(); ctx.restore();
+}, f => { const s = f.st; if (s.ph === undefined) Object.assign(s, { ph: 0, loops: 0, cap: 58, sel: 0 }); });
+function setLoop(i) {
+  loop.st.sel = (i + 6) % 6; const L = LOOP[loop.st.sel];
+  document.getElementById("lp-panel").innerHTML = `<b>${loop.st.sel + 1} · ${L[0]}</b>　${L[1]}<span class="hint">${L[2]}</span>`;
+}
+
+/* ---------- 第二章 B：黑洞效应 ---------- */
+const hole = fig("f-hole", W => W < 700 ? 0.82 : 0.48, (f, t, dt) => {
+  const s = f.st, { W, H } = f, G = H * 0.84, xs = [0.2, 0.5, 0.8].map(k => k * W), cell = W < 700 ? 9 : 8;
+  const cond = [...document.querySelectorAll("#bh-ctrl input")].map(i => i.checked), all = cond.every(Boolean);
+  sand(G, W, H, cell);
+  // 投放新任务
+  s.acc += dt;
+  const total = s.n.reduce((a, b) => a + b, 0);
+  while (s.acc > 0.07 && total + s.drops.length < s.cap) {
+    s.acc -= 0.07;
+    // 规则：四个条件全满足，能力越大的越能吸到任务（指数 1.7）；否则大家拿到的任务差不多
+    const e = all ? 1.7 : 0.08 * cond.filter(Boolean).length;
+    const w = s.n.map(n => Math.pow(n + 4, e)), sum = w.reduce((a, b) => a + b, 0);
+    let r = s.r() * sum, k = 0; while (r > w[k]) { r -= w[k]; k++; }
+    const lead = s.n.indexOf(Math.max(...s.n)), big = all && k === lead && s.n[lead] > 40 && s.r() < 0.5;
+    s.drops.push({ k, x0: W * (0.06 + 0.88 * s.r()), t0: t, big });
+  }
+  if (total + s.drops.length >= s.cap) s.acc = 0;
+  // 三堆沙：能力的积累
+  ctx.save(); ctx.globalCompositeOperation = "multiply";
+  for (let k = 0; k < 3; k++) {
+    const n = s.n[k], h = 20 + Math.sqrt(n) * (H * 0.032), w = 60 + Math.sqrt(n) * (W < 700 ? 9 : 11), r = rng(k + 1);
+    ctx.fillStyle = C.ink; ctx.beginPath();
+    for (let i = 0; i < 90 + n * 1.2; i++) { const dx = (r() - 0.5) * w, kk = 1 - (2 * dx / w) ** 2; const y = G - r() * h * kk; ctx.rect(xs[k] + dx - 1.6, y - 1.6, 3.3, 3.3); }
+    ctx.fill();
+    ctx.fillStyle = C.orange; ctx.beginPath();
+    for (let i = 0; i < 40 + n * 0.6; i++) { const dx = (r() - 0.5) * w * 0.9, kk = 1 - (2 * dx / w) ** 2; const y = G - r() * h * kk * 0.9; ctx.rect(xs[k] + dx - 1.6, y - 1.6, 3.3, 3.3); }
+    ctx.fill();
+  }
+  ctx.restore();
+  // 下落的任务
+  ctx.save(); ctx.fillStyle = C.blue;
+  s.drops = s.drops.filter(d => {
+    const u = (t - d.t0) / 1.1; if (u >= 1) { s.n[d.k] += d.big ? 3 : 1; return false; }
+    const e = easeInOut(u), x = lerp(d.x0, xs[d.k], e), y = lerp(H * 0.04, G - 30, u * u) - Math.sin(u * Math.PI) * 10;
+    ctx.beginPath(); ctx.arc(x, y, d.big ? 9 : 5, 0, TAU); ctx.fill(); return true;
+  });
+  ctx.restore();
+  const tot = s.n.reduce((a, b) => a + b, 0) || 1;
+  ["甲", "乙", "丙"].forEach((nm, k) => {
+    label(`${nm}公司 ${Math.round(s.n[k] / tot * 100)}%`, xs[k], G + (W < 700 ? 40 : 34), { size: W < 700 ? 25 : 21, w: 700, c: C.ink });
+  });
+  const pan = document.getElementById("bh-panel"), msg = all ? "四个条件同时成立：更强的系统拿到更多、更复杂的任务（大蓝点），差距越拉越大。这就是作者说的黑洞效应。" : `勾上了 ${cond.filter(Boolean).length} 个条件。缺任何一个，能力差距都不会持续吸走任务，三家大致齐头并进。作者说四个条件是「必要条件」，要同时成立。`;
+  if (pan.dataset.m !== msg) { pan.dataset.m = msg; pan.textContent = msg; }
+}, f => { const s = f.st; if (!s.n) resetHole(f); });
+function resetHole(f = hole) { Object.assign(f.st, { n: [22, 18, 20], drops: [], acc: 0, cap: 520, r: rng(Math.floor(Math.random() * 1e6)) }); }
+
+/* ---------- 第二章 C：60 分奇点 ---------- */
+const SX_TEXT = [
+  "<b>突破之前</b>：AI 辅助，人逐项判断、兜底。任务一多，人工审核几乎同步变多；AI 看到的是大量被人筛过、改过的结果。<span class=\"hint\">把任务量调大，看人前面的队伍。</span>",
+  "<b>突破之后</b>：系统完成多数任务，人只处理少数异常（橙色）。任务变多时，人工成本有机会不再直线上涨；系统能拿到完整的行动、结果和反馈（蓝色回流）。<span class=\"hint\">还要另外确认：自动执行的结果真的回流成了学习。</span>",
+];
+const sixty = fig("f-sixty", W => W < 700 ? 0.8 : 0.42, (f, t, dt) => {
+  const s = f.st, { W, H } = f, Y = H * 0.66, hx = W * 0.5, vol = +document.getElementById("sx-vol").value, mob = W < 700;
+  // 传送带
+  ctx.save(); ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(30, Y + 20); ctx.lineTo(W - 30, Y + 20); ctx.stroke();
+  ctx.setLineDash([3, 14]); ctx.lineDashOffset = -t * 40; ctx.beginPath(); ctx.moveTo(30, Y + 30); ctx.lineTo(W - 30, Y + 30); ctx.stroke(); ctx.restore();
+  // 系统（之后才在带子上）
+  const sys = s.mode === 1;
+  if (sys) { ctx.save(); ctx.fillStyle = rgba(C.blue, 0.9); ctx.beginPath(); ctx.roundRect(hx - 50, Y - 46, 100, 66, 12); ctx.fill(); ctx.restore(); label("系统", hx, Y - 13, { size: 22, w: 700, c: C.cream }); }
+  // 反馈回流
+  ctx.save(); ctx.lineWidth = 2.5;
+  if (sys) { ctx.strokeStyle = C.blue; ctx.beginPath(); ctx.moveTo(W - 70, Y + 34); ctx.quadraticCurveTo((W - 70 + hx) / 2, H * 0.98, hx, Y + 24); ctx.stroke(); for (let i = 0; i < 4; i++) { const q = (t * 0.4 + i / 4) % 1, x = lerp(W - 70, hx, q); ctx.fillStyle = C.blue; ctx.beginPath(); ctx.arc(x, Y + 34 + Math.sin(q * Math.PI) * (H * 0.98 - Y - 34) * 0.5, 4, 0, TAU); ctx.fill(); } }
+  else { ctx.setLineDash([6, 8]); ctx.strokeStyle = rgba(C.ink, 0.35); ctx.beginPath(); ctx.moveTo(W - 70, Y + 34); ctx.quadraticCurveTo((W - 70 + hx) / 2, H * 0.98, hx, Y + 24); ctx.stroke(); }
+  ctx.restore();
+  label(sys ? "完整的行动—结果—反馈" : "AI 只看到改过的结果", (W - 70 + hx) / 2, H * 0.93, { size: mob ? 22 : 18, c: sys ? C.blue : "#6f5f5c" });
+  // 人
+  person(sys ? hx + (mob ? 150 : 200) : hx, sys ? Y - 70 : Y + 14, mob ? 0.95 : 0.85);
+  // 生成任务
+  s.acc += dt * vol * 0.9;
+  while (s.acc > 1) { s.acc -= 1; s.items.push({ x: 30, ex: s.r() < 0.12, st: 0 }); }
+  const cap = 1.15;   // 人每秒能审的件数
+  const qx = hx - 34;
+  let line = 0, busy = s.items.some(it => it.st === 2);
+  ctx.save();
+  for (const it of s.items) {
+    if (it.st === 0) {
+      const stopAt = sys ? (it.ex ? hx - 60 : Infinity) : qx - (line + (busy ? 1 : 0)) * 22;
+      it.x = Math.min(it.x + dt * 160, stopAt);
+      if (it.x >= stopAt - 0.5) {
+        if (sys) { it.st = 3; it.tt = t; }   // 例外：交给人
+        else if (line === 0 && !busy) { it.st = 2; it.tt = t; busy = true; it.x = qx; }
+        else line++;
+      }
+    } else if (it.st === 2) { if (t - it.tt > 1 / cap) it.st = 4; }
+    else if (it.st === 3) { if (t - it.tt > 0.9) { it.st = 4; it.x = hx + 60; } }
+    else if (it.st === 4) it.x += dt * 160;
+    let y = Y + 4, x = it.x;
+    if (it.st === 2) y = Y + 4 - 6 * Math.abs(Math.sin((t - it.tt) * 9));
+    if (it.st === 3) { const u = clamp((t - it.tt) / 0.9); x = lerp(hx - 60, hx + (mob ? 150 : 200), Math.sin(u * Math.PI / 2)); y = Y + 4 - Math.sin(u * Math.PI) * 120; }
+    const inSys = sys && x > hx - 50 && x < hx + 50 && it.st !== 3;
+    if (!inSys) { ctx.fillStyle = it.ex && sys ? C.orange : C.ink; ctx.fillRect(x - 9, y - 9, 18, 18); }
+  }
+  const queue = line;
+  s.items = s.items.filter(it => it.x < W - 30);
+  ctx.restore();
+  if (s.items.length > 60) s.items.splice(0, s.items.length - 60);
+  label(sys ? "人只处理例外" : `排队等人审：${queue} 件`, sys ? hx + (mob ? 150 : 200) : hx, sys ? Y - 190 : Y - 140, { size: mob ? 25 : 21, w: 700, c: !sys && queue > 6 ? C.orange : C.ink });
+}, f => { const s = f.st; if (!s.items) Object.assign(s, { items: [], acc: 0, mode: 0, r: rng(5) }); });
+
+/* ---------- 第三章：千人一面 → 千人千面 → 一人千面 ---------- */
+const PP_TEXT = [
+  "<b>千人一面</b>：什么标准产品能满足最多的人？用共性换来低成本的规模供给。",
+  "<b>千人千面</b>：你属于哪一类人，可能喜欢什么？从过去的行为预测偏好，主要匹配已有的商品。",
+  "<b>一人千面</b>：你此刻遇到了什么问题，想实现什么目标？同一个人在不同时间、不同场景，需要不同的答案。<span class=\"hint\">四个情境都是书里的例子：带父母旅行、定制左手厨刀、陪母亲就医、孩子学习困难。</span>",
+];
+const SITU = ["带父母旅行", "定制左手厨刀", "陪母亲就医", "孩子学习困难"];
+const people = fig("f-people", W => W < 700 ? 0.92 : 0.5, (f, t, dt) => {
+  const s = f.st, { W, H } = f, k = easeInOut(clamp((t - s.since) / 1.3)), mob = W < 700;
+  const groupCol = [C.ink, C.blue, C.orange, "#8a6d63"];
+  const pos = (p, m) => {
+    if (m === 0) return p.crowd;
+    if (m === 1) { const g = s.groups[p.g]; return [g[0] + p.gx, g[1] + p.gy]; }
+    return p.crowd;
+  };
+  const fade = m => m === 2 ? 0.16 : 1;
+  ctx.save();
+  for (const p of s.P) {
+    const A = pos(p, s.prev), B = pos(p, s.mode), x = lerp(A[0], B[0], k), y = lerp(A[1], B[1], k);
+    const a = lerp(fade(s.prev), fade(s.mode), k);
+    const cA = s.prev === 1 ? groupCol[p.g] : C.ink, cB = s.mode === 1 ? groupCol[p.g] : C.ink;
+    ctx.globalAlpha = a; ctx.fillStyle = k < 0.5 ? cA : cB; ctx.beginPath(); ctx.arc(x, y, 6, 0, TAU); ctx.fill();
+    // 每人手里的商品
+    const prodA = s.prev === 0 ? 1 : s.prev === 1 ? 1 : 0, prodB = s.mode === 0 ? 1 : s.mode === 1 ? 1 : 0, pa = lerp(prodA, prodB, k) * a;
+    if (pa > 0.02) {
+      ctx.globalAlpha = pa; const m = k < 0.5 ? s.prev : s.mode; ctx.fillStyle = m === 1 ? groupCol[p.g] : C.orange;
+      const sh = m === 1 ? p.g : 0, px = x + 10, py = y - 9;
+      ctx.beginPath();
+      if (sh === 0) ctx.rect(px - 4, py - 4, 8, 8); else if (sh === 1) ctx.arc(px, py, 4.5, 0, TAU); else if (sh === 2) { ctx.moveTo(px, py - 5); ctx.lineTo(px + 5, py + 4); ctx.lineTo(px - 5, py + 4); } else { ctx.moveTo(px, py - 5); ctx.lineTo(px + 5, py); ctx.lineTo(px, py + 5); ctx.lineTo(px - 5, py); }
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+  if (s.mode === 0 || s.prev === 0) { const a = s.mode === 0 ? k : 1 - k; halfDisc(W * (mob ? 0.5 : 0.82), mob ? H * 0.12 : H * 0.5, mob ? 34 : 54, 8, C.orange, a); label("同一件标准产品", W * (mob ? 0.5 : 0.82), mob ? H * 0.12 + 52 : H * 0.5 + 76, { size: mob ? 22 : 19, a }); }
+  if (s.mode === 1 || s.prev === 1) { const a = s.mode === 1 ? k : 1 - k; ["甲类用户", "乙类用户", "丙类用户", "丁类用户"].forEach((n, i) => label(n, s.groups[i][0], s.groups[i][1] - (mob ? 74 : 64), { size: mob ? 21 : 18, a, c: groupCol[i] })); }
+  // 一人千面：中间一个人，四个情境在身边转
+  const one = s.mode === 2 ? k : s.prev === 2 ? 1 - k : 0;
+  if (one > 0) {
+    const cx = W / 2, cy = H * 0.6, R = mob ? 210 : 230, ry = mob ? 220 : H * 0.36;
+    ctx.save(); ctx.globalAlpha = one; person(cx, cy + 40, mob ? 1.3 : 1.15); ctx.restore();
+    SITU.forEach((n, i) => {
+      const a = i / 4 * TAU - Math.PI / 2 + (REDUCED ? 0 : t * 0.12), x = cx + Math.cos(a) * R * one, y = cy - 20 + Math.sin(a) * ry * 0.8 * one;
+      ctx.save(); ctx.globalAlpha = one * 0.25; ctx.strokeStyle = C.ink; ctx.setLineDash([4, 6]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx, cy - 40); ctx.lineTo(x, y); ctx.stroke(); ctx.restore();
+      // 每个情境生成一个不同的方案：形状随时间慢慢变
+      ctx.save(); ctx.globalAlpha = one; ctx.fillStyle = [C.blue, C.orange, C.blue, C.orange][i]; ctx.beginPath();
+      const nv = 3 + i, rr = mob ? 30 : 32;
+      for (let v = 0; v <= nv * 2; v++) { const aa = v / (nv * 2) * TAU + t * 0.3 * (i % 2 ? 1 : -1), r2 = rr * (v % 2 ? 0.62 + 0.18 * Math.sin(t + i) : 1); const X = x + Math.cos(aa) * r2, Y2 = y + Math.sin(aa) * r2; v ? ctx.lineTo(X, Y2) : ctx.moveTo(X, Y2); }
+      ctx.closePath(); ctx.fill(); ctx.restore();
+      label(n, x, y + (mob ? 52 : 52), { size: mob ? 23 : 19, w: 700, a: one });
+    });
+  }
+}, f => {
+  const s = f.st, { W, H } = f, r = rng(21), mob = W < 700, n = mob ? 64 : 96;
+  s.groups = mob ? [[W * 0.27, H * 0.38], [W * 0.73, H * 0.38], [W * 0.27, H * 0.76], [W * 0.73, H * 0.76]] : [[W * 0.16, H * 0.42], [W * 0.38, H * 0.7], [W * 0.6, H * 0.36], [W * 0.82, H * 0.66]];
+  s.P = [];
+  for (let i = 0; i < n; i++) {
+    const cols = mob ? 8 : 12, cx = mob ? W * 0.5 : W * 0.36, cw = mob ? W * 0.8 : W * 0.6, ch = mob ? H * 0.6 : H * 0.68;
+    const c = i % cols, row = Math.floor(i / cols), rows = Math.ceil(n / cols);
+    const crowd = [cx - cw / 2 + (c + 0.5) * cw / cols + (r() - 0.5) * 18, (mob ? H * 0.3 : H * 0.17) + (row + 0.5) * ch / rows + (r() - 0.5) * 14];
+    const g = Math.floor(r() * 4), a = r() * TAU, rad = Math.sqrt(r()) * (mob ? 52 : 50);
+    s.P.push({ crowd, g, gx: Math.cos(a) * rad, gy: Math.sin(a) * rad * 0.8 });
+  }
+  if (s.mode === undefined) { s.mode = 0; s.prev = 0; s.since = -10; }
+});
+
+/* ---------- 第四章：层级组织 ↔ 共生智能体 ---------- */
+const OG_TEXT = [
+  "<b>层级组织</b>：中层把一线的现象筛选、汇总、往上传（认知压缩），再把方向翻译成任务往下派（认知路由）。信号每过一层就变小，「为什么」常常丢在半路。每个人手边都有 AI（小蓝点），但它只是工具。",
+  "<b>共生智能体</b>：人和 AI 都是认知节点，在同一个循环里一起提出问题、扩展路径、修正判断。判断的理由沉进组织 OS（底部），新成员能看到当时为什么这样选。<span class=\"hint\">作者说，这还是在演化的方向，不是成熟的模板。</span>",
+];
+const org = fig("f-org", W => W < 700 ? 0.95 : 0.55, (f, t, dt) => {
+  const s = f.st, { W, H } = f, k = easeInOut(clamp((t - s.since) / 1.5)), mob = W < 700;
+  const P = n => { const A = n.pos[s.prev], B = n.pos[s.mode]; return [lerp(A[0], B[0], k), lerp(A[1], B[1], k)]; };
+  // 边
+  ctx.save(); ctx.lineWidth = 2;
+  const edges = s.mode === 1 ? s.net : s.tree, ea = k;
+  ctx.strokeStyle = rgba(C.ink, 0.25 * ea); ctx.beginPath();
+  for (const [a, b] of edges) { const A = P(s.N[a]), B = P(s.N[b]); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); }
+  ctx.stroke(); ctx.restore();
+  // 组织 OS：底部的记忆带
+  const memA = s.mode === 1 ? k : s.prev === 1 ? 1 - k : 0;
+  if (memA > 0) {
+    const y = H - (mob ? 52 : 42);
+    ctx.save(); ctx.globalAlpha = memA; ctx.fillStyle = C.paper2; ctx.beginPath(); ctx.roundRect(30, y - 22, W - 60, 44, 12); ctx.fill();
+    ctx.fillStyle = C.orange; for (let i = 0; i < s.mem; i++) { const x = 150 + (i * 13) % (W - 200); ctx.fillRect(x, y - 10 + ((i * 7) % 3) * 6, 8, 3); }
+    ctx.restore(); label("组织 OS：为什么这样选", 40 + (mob ? 110 : 0), y - 36, { size: mob ? 21 : 18, align: mob ? "center" : "left", c: C.ink, a: memA });
+  }
+  // 信号
+  if (!REDUCED) s.acc += dt;
+  while (s.acc > (s.mode === 0 ? 0.5 : 0.22)) {
+    s.acc -= s.mode === 0 ? 0.5 : 0.22;
+    if (s.mode === 0) { const leaf = 4 + Math.floor(s.r() * 9); s.sig.push({ path: [leaf, s.parent[leaf], 0], t0: t, tree: true }); }
+    else { const [a, b] = s.net[Math.floor(s.r() * s.net.length)]; s.sig.push({ path: s.r() < 0.5 ? [a, b] : [b, a], t0: t, tree: false }); }
+  }
+  ctx.save();
+  s.sig = s.sig.filter(g => {
+    const segs = g.path.length - 1, u = (t - g.t0) / (0.9 * segs); if (u >= 1) { if (!g.tree && s.r() < 0.35) s.mem = Math.min(s.mem + 1, 140); return false; }
+    if (g.tree !== (s.mode === 0)) return false;
+    const si = Math.floor(u * segs), uu = u * segs - si, A = P(s.N[g.path[si]]), B = P(s.N[g.path[si + 1]]);
+    const r = g.tree ? 7 * Math.pow(0.5, si + uu) + 1.2 : 5, a = g.tree ? 1 - 0.35 * (si + uu) : 1;
+    ctx.globalAlpha = a; ctx.fillStyle = C.orange; ctx.beginPath(); ctx.arc(lerp(A[0], B[0], uu), lerp(A[1], B[1], uu), r, 0, TAU); ctx.fill(); return true;
+  });
+  ctx.restore();
+  // 节点
+  for (const n of s.N) {
+    const [x, y] = P(n), ai = n.ai;
+    const rAI = lerp(s.prev === 1 ? 11 : 5, s.mode === 1 ? 11 : 5, k);
+    ctx.save(); ctx.fillStyle = ai ? C.blue : C.ink; ctx.beginPath(); ctx.arc(x, y, ai ? rAI : n.lvl === 0 ? 16 : 13, 0, TAU); ctx.fill(); ctx.restore();
+  }
+  if (s.mode === 0 && k > 0.6) {
+    label("一线", W * 0.06, s.N[4].pos[0][1], { size: mob ? 21 : 17, align: "left", c: C.ink, a: 0.7 });
+    label("中层", W * 0.06, s.N[1].pos[0][1], { size: mob ? 21 : 17, align: "left", c: C.ink, a: 0.7 });
+    label("决策者", W * 0.06, s.N[0].pos[0][1], { size: mob ? 21 : 17, align: "left", c: C.ink, a: 0.7 });
+  }
+}, f => {
+  const s = f.st, { W, H } = f, r = rng(31), mob = W < 700;
+  const N = [], parent = {};
+  const lv = mob ? [H * 0.14, H * 0.4, H * 0.68] : [H * 0.14, H * 0.42, H * 0.74];
+  N.push({ lvl: 0, pos: [[W / 2, lv[0]]] });
+  for (let i = 0; i < 3; i++) { N.push({ lvl: 1, pos: [[W * (0.25 + 0.25 * i), lv[1]]] }); parent[1 + i] = 0; }
+  for (let i = 0; i < 9; i++) { const p = 1 + Math.floor(i / 3); N.push({ lvl: 2, pos: [[W * (0.25 + 0.25 * (p - 1)) + (i % 3 - 1) * W * (mob ? 0.09 : 0.075), lv[2]]] }); parent[4 + i] = p; }
+  for (let i = 0; i < 9; i++) { const w = N[4 + i].pos[0]; N.push({ ai: true, pos: [[w[0] + 16, w[1] + 22]] }); }
+  // 网状布局：人和 AI 交错散开
+  const humans = N.length - 9;
+  N.forEach((n, i) => { const a = i * 2.399, rad = Math.sqrt((i + 0.5) / N.length); n.pos[1] = [W / 2 + Math.cos(a) * rad * W * (mob ? 0.42 : 0.4), H * 0.44 + Math.sin(a) * rad * H * (mob ? 0.36 : 0.34)]; });
+  const tree = []; for (const c in parent) tree.push([+c, parent[c]]); for (let i = 0; i < 9; i++) tree.push([4 + i, humans + i]);
+  const net = [];
+  N.forEach((n, i) => { const d = N.map((m, j) => [j, Math.hypot(m.pos[1][0] - n.pos[1][0], m.pos[1][1] - n.pos[1][1])]).filter(e => e[0] !== i).sort((a, b) => a[1] - b[1]); for (let q = 0; q < 3; q++) { const j = d[q][0]; if (!net.some(e => (e[0] === i && e[1] === j) || (e[0] === j && e[1] === i))) net.push([i, j]); } });
+  Object.assign(s, { N, parent, tree, net, r });
+  if (s.mode === undefined) Object.assign(s, { mode: 0, prev: 0, since: -10, sig: [], acc: 0, mem: 0 });
+});
+
+/* ---------- 第五章：方向、反馈与张力 ---------- */
+const ST_TEXT = [
+  "<b>只讲愿景</b>：一条直线冲向星，不看路上的反馈。可能过早重投还没验证的项目，撞上看不见的现实约束就停住。",
+  "<b>只看短期</b>：哪里有眼前的好处就往哪走。每一步都有收获，却不积累长期能力，离星越来越远。",
+  "<b>方向 + 反馈（张力机制）</b>：看十年定方向，干一年拿反馈，想三年不断校正两者的关系。障碍走近了才看得见，路径因此一段段生成出来。",
+];
+const VL_TEXT = [
+  ["愿景", "给出方向、解释框架和取舍标准。敢于选择相信的未来，但不把预判当作永远正确。", "追问：这个选择为什么更接近长期方向？"],
+  ["行动", "在现实里验证假设，让原来看不见的变量显现。可观察、可纠错的探索，比单纯的行动量更重要。", "追问：这个实验验证什么？什么结果会推翻它？"],
+  ["反馈", "研究真实的使用、反常的行为、失败和变化。反馈不只是打分，还会暴露新结构和原有假设的局限。", "追问：哪些现象和我们的预期矛盾？"],
+  ["理解", "重新定义问题，找到反馈背后的机制；更新判断后再行动，也加深或修正对愿景的理解。", "追问：我们改的是哪一个判断，而不只是哪一个指标？"],
+];
+const path = fig("f-path", W => W < 700 ? 0.95 : 0.5, (f, t, dt) => {
+  const s = f.st, { W, H } = f, mob = W < 700, star = s.star;
+  // 短期诱惑
+  ctx.save(); ctx.fillStyle = C.orange; for (const b of s.baits) { if (b.eaten) continue; ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, TAU); ctx.fill(); } ctx.restore();
+  // 障碍：只有被发现后才显形
+  for (const o of s.obs) { o.seen = lerp(o.seen, o.found ? 1 : 0.07, clamp(dt * 3)); halfDisc(o.x, o.y, o.r, mob ? 10 : 9, C.blue, o.seen); }
+  // 星
+  ctx.save(); ctx.fillStyle = C.orange; ctx.beginPath();
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i / 10 * TAU, r = i % 2 ? 12 : 28; ctx.lineTo(star[0] + Math.cos(a) * r, star[1] + Math.sin(a) * r); }
+  ctx.fill(); ctx.restore();
+  label("愿景", star[0], star[1] + 46, { size: mob ? 24 : 20, w: 700 });
+  // 走一步
+  s.acc += REDUCED ? 1 : dt;
+  while (s.acc > 0.22 && !s.done) {
+    s.acc -= 0.22;
+    const p = s.pts[s.pts.length - 1], step = mob ? 26 : 24;
+    let dx = star[0] - p[0], dy = star[1] - p[1]; const dist = Math.hypot(dx, dy); dx /= dist; dy /= dist;
+    if (s.mode === 1) {
+      let best = null, bd = 1e9; for (const b of s.baits) if (!b.eaten) { const d = Math.hypot(b.x - p[0], b.y - p[1]); if (d < bd) { bd = d; best = b; } }
+      if (best) { dx = (best.x - p[0]) / bd; dy = (best.y - p[1]) / bd; if (bd < step) best.eaten = true; }
+    }
+    // 发现附近的障碍
+    for (const o of s.obs) if (Math.hypot(o.x - p[0], o.y - p[1]) < o.r + 70) o.found = true;
+    if (s.mode === 2) for (const o of s.obs) if (o.found) { const ox = p[0] - o.x, oy = p[1] - o.y, d = Math.hypot(ox, oy); if (d < o.r + 60) { const push = (o.r + 60 - d) / 40; let tx = -oy / d, ty = ox / d; if (tx * dx + ty * dy < 0) { tx = -tx; ty = -ty; } dx += ox / d * push + tx * push * 1.4; dy += oy / d * push + ty * push * 1.4; } }
+    const n = Math.hypot(dx, dy); const np = [p[0] + dx / n * step, p[1] + dy / n * step];
+    const hit = s.obs.find(o => Math.hypot(o.x - np[0], o.y - np[1]) < o.r);
+    if (hit && s.mode !== 2) { s.done = "hit"; break; }
+    s.pts.push(np);
+    if (Math.hypot(star[0] - np[0], star[1] - np[1]) < 30) s.done = "star";
+    if (s.pts.length > 160) s.done = "lost";
+  }
+  // 路径
+  ctx.save(); ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.beginPath(); s.pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.stroke();
+  ctx.fillStyle = C.ink; s.pts.forEach((q, i) => { if (i % 4 === 0) { ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, TAU); ctx.fill(); } }); ctx.restore();
+  const last = s.pts[s.pts.length - 1]; person(last[0], last[1] + 6, mob ? 0.5 : 0.45);
+  if (s.done) {
+    const msg = s.done === "star" ? "到了：路径是一段段生成出来的" : s.done === "hit" ? "撞上了没验证过的假设" : "收获不少，离愿景却更远了";
+    label(msg, W / 2, mob ? H * 0.06 : H * 0.07, { size: mob ? 25 : 21, w: 700, c: s.done === "star" ? C.blue : C.orange });
+    if (!s.restartAt) s.restartAt = t + 4;
+    if (t > s.restartAt) resetPath(f);
+  }
+}, f => { if (!f.st.pts || f.st.W !== f.W) { resetPath(f); f.st.W = f.W; } });
+function resetPath(f = path) {
+  const { W, H } = f, mob = W < 700, s = f.st, r = rng(Math.floor(Math.random() * 1e6));
+  s.star = [W * 0.86, H * 0.16];
+  const start = [W * 0.1, H * 0.86];
+  s.pts = [start]; s.done = null; s.acc = 0; s.restartAt = 0; if (s.mode === undefined) s.mode = 2;
+  // 障碍放在直线上，保证「只讲愿景」会撞上
+  s.obs = [0.32, 0.6].map((k, i) => ({ x: lerp(start[0], s.star[0], k) + (r() - 0.5) * 40, y: lerp(start[1], s.star[1], k) + (r() - 0.5) * 40, r: (mob ? 56 : 62) + i * 8, seen: 0.07, found: false }));
+  s.baits = [];
+  for (let i = 0; i < 9; i++) s.baits.push({ x: W * (0.05 + 0.5 * r()), y: H * (0.45 + 0.5 * r()), eaten: false });
+  s.baits.push({ x: W * 0.06, y: H * 0.3 }, { x: W * 0.3, y: H * 0.95 });
+}
+
+/* ---------- 第六章：四层，一道浪 ---------- */
+fig("f-four", W => W < 700 ? 0.86 : 0.34, (f, t) => {
+  const { W, H } = f, mob = W < 700, rows = [["技术 · 生成能力", C.blue], ["商业 · 生成供需", C.orange], ["组织 · 生成认知", C.ink], ["战略 · 生成路径", C.blue]];
+  const x0 = mob ? 40 : 230, cell = mob ? 16 : 14;
+  rows.forEach(([name, col], i) => {
+    const base = H * (0.2 + i * 0.2);
+    label(name, mob ? 40 : 30, base - (mob ? 40 : 0), { size: mob ? 22 : 19, w: 700, align: "left", c: col === C.ink ? C.ink : col });
+    ctx.save(); ctx.fillStyle = col; ctx.globalCompositeOperation = "multiply"; ctx.beginPath();
+    for (let x = x0; x < W - 20; x += cell) {
+      const ph = (x - x0) / W * 7 - (REDUCED ? 0 : t * 1.6), wv = Math.max(0, Math.sin(ph)) ** 3;
+      const y = base - wv * (mob ? 26 : 22) + (mob ? 22 : 0);
+      dot(x, y, 2.4 + wv * 3.6);
+    }
+    ctx.fill(); ctx.restore();
+  });
+});
+
+/* ================= 主循环：只画看得见的图 ================= */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  for (const f of FIGS) {
+    if (!f.vis) continue;
+    f.t += dt;
+    ctx = f.cv.getContext("2d");
+    ctx.setTransform(f.k, 0, 0, f.k, 0, 0);
+    ctx.fillStyle = C.cream; ctx.fillRect(0, 0, f.W, f.H);
+    f.draw(f, f.t, dt);
+  }
+  for (const h of HANDS) if (h.started && h.t < h.end + 0.1) { h.t += dt; paintHand(h); }
+  requestAnimationFrame(frame);
+}
+function paintStatic(f) { ctx = f.cv.getContext("2d"); ctx.setTransform(f.k, 0, 0, f.k, 0, 0); ctx.fillStyle = C.cream; ctx.fillRect(0, 0, f.W, f.H); f.draw(f, f.t, 0.016); }
+function layoutAll() {
+  LAYOUT_CACHE = {};
+  for (const h of HANDS) { sizeHand(h); h.end = layoutLine(h.text, h.size).n * h.per; paintHand(h); }
+  for (const f of FIGS) { f.resize(); paintStatic(f); }
+}
+const io = "IntersectionObserver" in window ? new IntersectionObserver(es => {
+  for (const e of es) {
+    const f = FIGS.find(q => q.cv === e.target); if (f) { f.vis = e.isIntersecting; continue; }
+    const h = HANDS.find(q => q.cv === e.target);
+    if (h && e.isIntersecting && !h.started && !REDUCED) { h.started = true; h.t = 0; }
+  }
+}, { threshold: 0.15 }) : null;
+
+/* ================= 交互 ================= */
+function segOn(id, v) { document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle("on", +b.dataset.v === v)); }
+document.querySelectorAll("#s1-seg button").forEach(b => b.onclick = () => setStage(+b.dataset.v));
+document.getElementById("lp-prev").onclick = () => setLoop(loop.st.sel - 1);
+document.getElementById("lp-next").onclick = () => setLoop(loop.st.sel + 1);
+document.getElementById("lp-break").onchange = () => { loop.st.ph = 0; };
+document.querySelectorAll("#bh-ctrl input").forEach(i => i.onchange = () => resetHole());
+document.getElementById("bh-reset").onclick = () => resetHole();
+document.querySelectorAll("#sx-seg button").forEach(b => b.onclick = () => { sixty.st.mode = +b.dataset.v; sixty.st.items = []; segOn("sx-seg", sixty.st.mode); document.getElementById("sx-panel").innerHTML = SX_TEXT[sixty.st.mode]; });
+document.querySelectorAll("#pp-seg button").forEach(b => b.onclick = () => { const s = people.st, v = +b.dataset.v; if (v === s.mode) return; s.prev = s.mode; s.mode = v; s.since = people.t; segOn("pp-seg", v); document.getElementById("pp-panel").innerHTML = PP_TEXT[v]; });
+document.querySelectorAll("#og-seg button").forEach(b => b.onclick = () => { const s = org.st, v = +b.dataset.v; if (v === s.mode) return; s.prev = s.mode; s.mode = v; s.since = org.t; s.sig = []; segOn("og-seg", v); document.getElementById("og-panel").innerHTML = OG_TEXT[v]; });
+document.querySelectorAll("#st-seg button").forEach(b => b.onclick = () => { path.st.mode = +b.dataset.v; resetPath(); segOn("st-seg", path.st.mode); document.getElementById("st-panel").innerHTML = ST_TEXT[path.st.mode]; });
+document.getElementById("st-reset").onclick = () => resetPath();
+function setVL(v) { segOn("vl-seg", v); const L = VL_TEXT[v]; document.getElementById("vl-panel").innerHTML = `<b>${L[0]}</b>　${L[1]}<span class="hint">${L[2]}</span>`; }
+document.querySelectorAll("#vl-seg button").forEach(b => b.onclick = () => setVL(+b.dataset.v));
+
+/* ================= 亮点、概念、自测 ================= */
+const HL = [
+  ["价值创造机制比工具功能更重要", "关键问题是：AI 改变了什么约束，会形成怎样的新增长循环。", "c2", "p.24–26"],
+  ["智能复利和护城河之间隔着两道转化", "能力要先变成用户价值，用户价值还要变成可持续的相对差距。", "c2", "p.27–28"],
+  ["任务分配决定差距能否自我放大", "只变强不够；更强的系统要能吸引更重要的任务和独特的反馈。", "c2", "p.28–31"],
+  ["「60 分」是分工门槛，不是测评分数", "从人逐项兜底，变成系统默认执行、人处理例外，扩展方式和反馈结构才会变。", "c2", "p.31–34"],
+  ["意图比画像更接近真实的人", "「你属于哪类人」和「你此刻遇到什么问题」，是两个层级的理解。", "c3", "p.39–44"],
+  ["筛选重要需求，比无限增加需求更有价值", "需求生成越强，越需要优先级和价值判断，否则只会让用户过载。", "c3", "p.46–48"],
+  ["意图匹配仍是过渡形态", "能理解目标，却只在库存里找答案，还没到供给生成的一人千面。", "c3", "p.49–50"],
+  ["组织记忆要保存被放弃方案的理由", "没有决策的形成过程，文档和结果再多，认知也没有变成系统资产。", "c4", "p.80–82"],
+  ["愿景要方向稳定，也要允许修正", "愿景化是持续理解的过程；方向一旦不接受反馈，就会变成认知封闭。", "c5", "p.87–93"],
+  ["战略是组织的学习能力", "稀缺的不是一份漂亮的规划，而是持续重构问题、生成好判断的系统。", "c5", "p.102–116"],
+];
+const GL = [
+  ["智能复利", "真实任务的反馈进入学习，能力增强又带来更多、更复杂的任务。", "别把使用量增加当成自动学习。", "c2", "p.24–27"],
+  ["黑洞效应", "在特定的复杂任务里，能力差距吸走任务和反馈，差距被进一步放大。", "这是作者有条件的演化假说，不是所有 AI 产品的自然归宿。", "c2", "p.28–31"],
+  ["60 分奇点", "AI 成为默认的业务执行者、人主要处理异常的结构转折。", "不是 60% 的成功率，也不是模型测评的分数线。", "c2", "p.31–34"],
+  ["智能体", "围绕目标持续运行、组合外部能力、根据反馈行动的任务系统。", "核心是把事做成，不只是生成回答。", "c1", "p.10–11"],
+  ["AIOS", "围绕任务组织智能体、上下文、协同和长期状态的基础系统方向。", "不等于给传统操作系统加个聊天界面。", "c1", "p.16–20"],
+  ["一人千面", "理解同一个人在不同情境下的意图，动态形成解决方案。", "不是给固定画像贴更多标签。", "c3", "p.39–50"],
+  ["意图匹配", "深度理解目标，再在已有供给里组合出最合适的方案。", "是近期的过渡形态，供给仍受库存约束。", "c3", "p.49–50"],
+  ["需求生成", "模糊的问题在人和系统的互动中，慢慢变成清楚的需求。", "不等于诱导更多消费，也不自动证明需求有益。", "c3", "p.45–48"],
+  ["智能调度", "在变化的约束中持续组织资源、步骤和能力组合。", "不是一次性的匹配，更不是单点资源最优。", "c3", "p.53–60"],
+  ["创智人才", "能定义问题、建立判断框架、跨域连接、持续修正认知的人。", "不只是更熟练的知识执行者。", "c4", "p.69–72"],
+  ["认知共创", "不同的认知节点在反馈、挑战和修正中一起产生新的理解。", "信息共享是条件之一，但不是认知共创本身。", "c4", "p.72–75"],
+  ["共生智能体", "创智人才和 AI 在共同的认知循环里，组成持续学习的组织。", "是还在演化的方向，不是成熟的通用模板。", "c4", "p.76–79"],
+  ["组织 OS", "支撑上下文连接、过程认知、组织记忆和反馈协同的基础设施。", "要继承「为什么这样决定」，不只存最终结论。", "c4", "p.79–82"],
+  ["愿景化", "在持续的行动和反馈中，加深和修正对长期方向的理解。", "方向约束必须进入资源分配，也必须允许被现实挑战。", "c5", "p.87–93"],
+  ["战略生成", "在愿景、行动、反馈、理解的循环里，持续形成路径和选择。", "不是没有计划，也不是追每一个短期信号。", "c5", "p.93–116"],
+  ["张力机制", "长期方向和现实反馈之间持续、可校正的关系。", "看十年、想三年、干一年不是三份互不相干的计划。", "c5", "p.106–110"],
+];
+const RC = [
+  ["为什么接入同一个大模型，企业的长期价值仍可能完全不同？", "差异在真实任务、反馈结构、上下文、系统优化和用户信任上。通用能力人人能用，不代表独特的学习闭环已经成立。"],
+  ["智能复利和黑洞效应最关键的区别是什么？", "前者解释能力增强，后者解释能力差距持续扩大。后者还要求差距能被感知、反馈有路径依赖、差距影响任务分配。"],
+  ["一个 AI 工具用户越来越多，为什么仍可能没有智能复利？", "任务反馈未必进入优化，改进未必改变能力边界；用得多本身不是复利。"],
+  ["跨过「60 分奇点」之后，还要确认什么？", "自动执行的真实结果能否回流成有效的学习，人工是否主要只处理异常，可靠性和边界是否撑得住这个任务。"],
+  ["一人千面为什么超越千人千面？", "它理解的是这个人在当前情境里的问题和目标，而不是只按历史行为给他分类。"],
+  ["为什么意图匹配还不是完整的意图实现？", "理解了目标却只能在现有库存里选，还没有按真实需求动态生成供给的系统。"],
+  ["认知共创和多开会有什么区别？", "认知共创让问题、假设和理解被反馈重构；会开得多、信息量大，不能说明判断质量。"],
+  ["组织为什么要保存被否定的方案？", "被放弃的原因、当时的约束、改变判断的反馈，正是下一次决策需要的过程认知。"],
+  ["愿景稳定和接受现实挑战矛盾吗？", "不矛盾。方向可以相对稳定，对它含义和具体路径的理解必须持续加深、修正。"],
+  ["「想三年」的价值是什么？", "持续检查眼下的行动是否在逼近长期方向，以及新反馈是否要求修正对方向的理解。它是张力区，不是一份静态的三年计划。"],
+  ["算法、算力、数据在战略语境里分别指什么？", "判断的方法论、参与理解和决策的能力规模、持续的真实反馈。三者是对组织系统的类比。"],
+  ["六章一起回答了什么问题？", "当智能进入真实任务并持续演化，怎样重构价值积累、供需组织、认知协作和战略生成。"],
+];
+let FAV = store.get("fav", []);
+const favKey = (kind, i) => kind + i;
+function starBtn(kind, i, title) { const on = FAV.includes(favKey(kind, i)); return `<button class="star${on ? " on" : ""}" data-fav="${favKey(kind, i)}" aria-pressed="${on}" aria-label="收藏：${title}">${on ? "★" : "☆"}</button>`; }
+document.getElementById("hl-grid").innerHTML = HL.map((h, i) => `<div class="card"><div class="meta"><span class="no">${String(i + 1).padStart(2, "0")}</span>${starBtn("hl", i, h[0])}</div><h3>${h[0]}</h3><p>${h[1]}</p><div class="meta"><a href="#${h[2]}">回到第 ${h[2].slice(1)} 章 ↗</a><span class="pg">${h[3]}</span></div></div>`).join("");
+document.getElementById("gl-grid").innerHTML = GL.map((g, i) => `<div class="card" data-s="${g[0]}${g[1]}${g[2]}"><div class="meta"><h3>${g[0]}</h3>${starBtn("gl", i, g[0])}</div><p>${g[1]}</p><p class="diff">辨析：${g[2]}</p><div class="meta"><a href="#${g[3]}">第 ${g[3].slice(1)} 章 ↗</a><span class="pg">${g[4]}</span></div></div>`).join("");
+document.getElementById("rc-grid").innerHTML = RC.map((q, i) => `<button type="button" class="flip" aria-expanded="false"><span class="no" style="font-family:var(--hand);color:var(--orange);font-size:22px;font-weight:700">${String(i + 1).padStart(2, "0")}</span><span class="q">${q[0]}</span><span class="tap">先想一想，再点开看答案</span><span class="ans">${q[1]}</span></button>`).join("");
+document.getElementById("gl-q").oninput = e => { const q = e.target.value.trim(); document.querySelectorAll("#gl-grid .card").forEach(c => c.hidden = q && !c.dataset.s.includes(q)); };
+document.getElementById("rc-grid").onclick = e => { const b = e.target.closest(".flip"); if (!b) return; b.classList.toggle("open"); b.setAttribute("aria-expanded", b.classList.contains("open")); };
+document.getElementById("rc-all").onclick = () => document.querySelectorAll(".flip").forEach(b => { b.classList.add("open"); b.setAttribute("aria-expanded", "true"); });
+document.getElementById("rc-none").onclick = () => document.querySelectorAll(".flip").forEach(b => { b.classList.remove("open"); b.setAttribute("aria-expanded", "false"); });
+document.addEventListener("click", e => {
+  const b = e.target.closest(".star"); if (!b) return;
+  const k = b.dataset.fav; FAV = FAV.includes(k) ? FAV.filter(x => x !== k) : [...FAV, k]; store.set("fav", FAV);
+  const on = FAV.includes(k); b.classList.toggle("on", on); b.textContent = on ? "★" : "☆"; b.setAttribute("aria-pressed", on); renderMine();
+});
+
+/* ================= 已读与摘记 ================= */
+const CH = ["c1", "c2", "c3", "c4", "c5", "c6"], CH_NAME = { c1: "AI 产业化的展开", c2: "智能复利与黑洞效应", c3: "一人千面", c4: "AI 时代的组织新逻辑", c5: "智能战略", c6: "新文明的起点" };
+let READ = store.get("read", []);
+function renderRead() {
+  document.getElementById("readN").textContent = READ.length;
+  document.querySelectorAll("[data-read]").forEach(b => { const on = READ.includes(b.dataset.read); b.classList.toggle("on", on); b.textContent = on ? "已读 ✓" : "标记已读"; });
+  document.querySelectorAll(".chips a[data-ch]").forEach(a => a.classList.toggle("read", READ.includes(a.dataset.ch)));
+}
+document.querySelectorAll("[data-read]").forEach(b => b.onclick = () => { const c = b.dataset.read; READ = READ.includes(c) ? READ.filter(x => x !== c) : [...READ, c]; store.set("read", READ); renderRead(); });
+CH.forEach(c => { const ta = document.getElementById("note-" + c); ta.value = store.get("note-" + c, ""); ta.oninput = () => { store.set("note-" + c, ta.value); renderMine(); }; });
+function mineText() {
+  const out = ["# 《智能》读书笔记 · 我的摘记", ""];
+  const hl = FAV.filter(k => k.startsWith("hl")).map(k => HL[+k.slice(2)]), gl = FAV.filter(k => k.startsWith("gl")).map(k => GL[+k.slice(2)]);
+  if (hl.length) { out.push("## 收藏的亮点", ""); hl.forEach(h => out.push(`- **${h[0]}**：${h[1]}（${h[3]}）`)); out.push(""); }
+  if (gl.length) { out.push("## 收藏的概念", ""); gl.forEach(g => out.push(`- **${g[0]}**：${g[1]} 辨析：${g[2]}（${g[4]}）`)); out.push(""); }
+  const notes = CH.map(c => [c, (document.getElementById("note-" + c).value || "").trim()]).filter(n => n[1]);
+  if (notes.length) { out.push("## 各章摘记", ""); notes.forEach(([c, v]) => { out.push(`### ${CH_NAME[c]}`, "", v, ""); }); }
+  if (!hl.length && !gl.length && !notes.length) out.push("还没有内容。点亮点和概念卡片上的 ☆ 收藏，或者在每章末尾写下摘记，它们会出现在这里。");
+  out.push("", `已读 ${READ.length}/6 章`);
+  return out.join("\n");
+}
+function renderMine() { document.getElementById("mine-text").textContent = mineText(); }
+document.getElementById("mine-copy").onclick = () => {
+  const txt = mineText(), done = m => { document.getElementById("copied").textContent = m; };
+  const sel = () => { const r = document.createRange(); r.selectNodeContents(document.getElementById("mine-text")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); done("复制没成功，已帮你选中全文，可以手动复制"); };
+  try { navigator.clipboard.writeText(txt).then(() => done("已复制"), sel); } catch (e) { sel(); }
+};
+let clearArm = false;
+document.getElementById("mine-clear").onclick = e => {
+  if (!clearArm) { clearArm = true; e.target.textContent = "再点一次确认清空"; setTimeout(() => { clearArm = false; e.target.textContent = "清空收藏和摘记"; }, 3000); return; }
+  FAV = []; store.set("fav", FAV); CH.forEach(c => { document.getElementById("note-" + c).value = ""; store.set("note-" + c, ""); });
+  document.querySelectorAll(".star").forEach(b => { b.classList.remove("on"); b.textContent = "☆"; b.setAttribute("aria-pressed", "false"); });
+  clearArm = false; e.target.textContent = "清空收藏和摘记"; renderMine();
+};
+
+/* ================= 启动 ================= */
+// 纸面颗粒
+try {
+  const pc = document.createElement("canvas"); pc.width = pc.height = 180; const g = pc.getContext("2d"), r = rng(3);
+  for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.5 ? "rgba(61,42,45,0.05)" : "rgba(255,255,255,0.22)"; g.fillRect(r() * 180, r() * 180, 1 + r() * 1.4, 1 + r() * 1.4); }
+  document.body.style.setProperty("--grain", `url(${pc.toDataURL()})`); document.body.classList.add("grain");
+} catch (e) {}
+document.getElementById("s1-panel").innerHTML = S1_TEXT[0];
+document.getElementById("bh-panel").textContent = "";
+document.getElementById("sx-panel").innerHTML = SX_TEXT[0];
+document.getElementById("pp-panel").innerHTML = PP_TEXT[0];
+document.getElementById("og-panel").innerHTML = OG_TEXT[0];
+document.getElementById("st-panel").innerHTML = ST_TEXT[2];
+setVL(0);
+layoutAll();
+setLoop(0);
+renderRead(); renderMine();
+if (io) { FIGS.forEach(f => io.observe(f.cv)); HANDS.forEach(h => io.observe(h.cv)); } else FIGS.forEach(f => f.vis = true);
+// 第一章的图自己慢慢换阶段，直到读者点了按钮
+setInterval(() => { const s = stage.st; if (s.auto === false || !stage.vis || REDUCED) return; const v = (s.stage + 1) % 3; setStage(v); s.auto = true; }, 6500);
+stage.st.auto = true;
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(layoutAll, 150); });
+if (document.fonts) document.fonts.load("700 40px Caveat").then(() => document.fonts.ready).then(layoutAll).catch(() => {});
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
